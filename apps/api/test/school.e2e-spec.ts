@@ -1,0 +1,68 @@
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { createTestApp } from './utils/test-app';
+import { cleanDatabase } from './utils/clean-database';
+import { seedBaseFixtures, createUserWithRole } from './utils/fixtures';
+
+describe('Paramétrage établissement (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let adminToken: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    prisma = app.get(PrismaService);
+  });
+
+  beforeEach(async () => {
+    await cleanDatabase(prisma);
+    await seedBaseFixtures(prisma);
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'admin@shakespeareacademy.cg',
+        motDePasse: 'ChangeMe123!',
+      })
+      .expect(201);
+    adminToken = login.body.accessToken;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /school est lisible par tout utilisateur authentifié', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/school')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(res.body.devise).toBe('XAF');
+    expect(res.body.fuseauHoraire).toBe('Africa/Brazzaville');
+  });
+
+  it('PATCH /school exige SETTINGS_MANAGE', async () => {
+    const school = await prisma.school.findFirstOrThrow();
+    const { user, motDePasse } = await createUserWithRole(
+      prisma,
+      school.id,
+      'SECRETAIRE_CAISSIER',
+    );
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: user.email, motDePasse })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch('/school')
+      .set('Authorization', `Bearer ${login.body.accessToken}`)
+      .send({ nom: 'Nouveau nom' })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .patch('/school')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ nom: 'Shakespeare Academy — Pointe-Noire' })
+      .expect(200);
+  });
+});

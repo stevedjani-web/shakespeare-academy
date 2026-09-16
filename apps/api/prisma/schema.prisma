@@ -1,0 +1,238 @@
+// Shakespeare Academy — schéma Prisma, Lot 1 (socle : établissement, années, structure académique, utilisateurs/rôles/permissions, audit).
+// Les entités de facturation/paiement/caisse (Lots 3-5) ne sont volontairement pas modélisées ici :
+// plusieurs règles dont elles dépendent sont encore ouvertes (voir DECISIONS_PENDING.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Établissement ---------------------------------------------------------
+
+model School {
+  id            String   @id @default(cuid())
+  nom           String
+  adresse       String?
+  telephone     String?
+  email         String?
+  logoUrl       String?
+  devise        String   @default("XAF")
+  fuseauHoraire String   @default("Africa/Brazzaville")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  academicYears AcademicYear[]
+  sections      Section[]
+  users         User[]
+  auditLogs     AuditLog[]
+
+  @@map("schools")
+}
+
+// --- Années scolaires --------------------------------------------------------
+
+enum AcademicYearStatus {
+  BROUILLON
+  ACTIVE
+  CLOTUREE
+}
+
+model AcademicYear {
+  id                    String             @id @default(cuid())
+  schoolId              String
+  school                School             @relation(fields: [schoolId], references: [id])
+  libelle               String
+  dateDebut             DateTime
+  dateFin               DateTime
+  statut                AcademicYearStatus @default(BROUILLON)
+  dateDebutInscriptions DateTime?
+  dateFinInscriptions   DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  classes               Class[]
+
+  @@unique([schoolId, libelle])
+  @@map("academic_years")
+}
+
+// --- Structure académique : Section → Cycle → Niveau → Classe --------------
+// Modèle recommandé par le cahier de cadrage (§2) : le niveau porte le programme,
+// la classe porte le groupe réel pour une année scolaire donnée.
+
+model Section {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  code      String
+  nom       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cycles    Cycle[]
+
+  @@unique([schoolId, code])
+  @@map("sections")
+}
+
+model Cycle {
+  id        String   @id @default(cuid())
+  sectionId String
+  section   Section  @relation(fields: [sectionId], references: [id])
+  code      String
+  nom       String
+  ordre     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  levels    Level[]
+
+  @@unique([sectionId, code])
+  @@map("cycles")
+}
+
+model Level {
+  id        String   @id @default(cuid())
+  cycleId   String
+  cycle     Cycle    @relation(fields: [cycleId], references: [id])
+  code      String
+  nom       String
+  ordre     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes   Class[]
+
+  @@unique([cycleId, code])
+  @@map("levels")
+}
+
+model Class {
+  id             String       @id @default(cuid())
+  levelId        String
+  level          Level        @relation(fields: [levelId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  nom            String
+  // serie/groupe : colonnes prévues par anticipation de D02 (séries de lycée, sous-groupes de classe),
+  // jamais renseignées automatiquement tant que D02 reste ouvert.
+  serie          String?
+  groupe         String?
+  capacite       Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([levelId, academicYearId, nom])
+  @@map("classes")
+}
+
+// --- Utilisateurs, rôles, permissions ---------------------------------------
+// Permissions fines (pas seulement par rôle) : un Role est une collection de Permission,
+// vérifiée à chaque requête sensible par un guard serveur, jamais par le seul rôle affiché côté client.
+
+model Role {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  nom             String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  rolePermissions RolePermission[]
+  users           User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  description     String?
+  createdAt       DateTime         @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+enum UserStatus {
+  ACTIF
+  INACTIF
+}
+
+model User {
+  id             String    @id @default(cuid())
+  schoolId       String
+  school         School    @relation(fields: [schoolId], references: [id])
+  roleId         String
+  role           Role      @relation(fields: [roleId], references: [id])
+  nom            String
+  prenom         String
+  email          String
+  motDePasseHash String
+  statut         UserStatus @default(ACTIF)
+  dernierLoginAt DateTime?
+  // Politique de verrouillage (§14) : compteur d'échecs consécutifs et verrou temporaire, jamais un blocage définitif.
+  tentativesEchecsConnexion Int       @default(0)
+  verrouilleJusqua          DateTime?
+  // Récupération administrée (§8) : un admin fixe un mot de passe temporaire, l'utilisateur doit le changer à la connexion suivante.
+  doitChangerMotDePasse     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+
+  @@unique([schoolId, email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// --- Journal d'audit (append-only) ------------------------------------------
+// RG15 : toute action sensible est journalisée avec utilisateur, horodatage, ancienne et nouvelle valeur.
+// Aucune méthode de mise à jour/suppression n'est exposée par le service applicatif (voir AuditService).
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  action         String
+  entite         String
+  entiteId       String?
+  ancienneValeur Json?
+  nouvelleValeur Json?
+  createdAt      DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([entite, entiteId])
+  @@map("audit_logs")
+}

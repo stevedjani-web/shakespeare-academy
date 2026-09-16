@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shakespeare
+      POSTGRES_PASSWORD: shakespeare
+      POSTGRES_DB: shakespeare_academy
+    ports:
+      - "5544:5432"
+    volumes:
+      - shakespeare_db_data:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shakespeare -d shakespeare_academy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  shakespeare_db_data:
