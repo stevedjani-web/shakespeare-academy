@@ -10,5 +10,6 @@ import { AcademicYearsModule } from '../academic-years/academic-years.module';
   imports: [AuditModule, SchoolModule, LevelsModule, AcademicYearsModule],
   controllers: [ClassesController],
   providers: [ClassesService],
+  exports: [ClassesService],
 })
 export class ClassesModule {}

@@ -7,6 +7,11 @@ import { PrismaClient } from '@prisma/client';
 export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.refreshToken.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.enrollment.deleteMany();
+  await prisma.studentGuardian.deleteMany();
+  await prisma.student.deleteMany();
+  await prisma.guardian.deleteMany();
+  await prisma.numberSequence.deleteMany();
   await prisma.class.deleteMany();
   await prisma.level.deleteMany();
   await prisma.cycle.deleteMany();

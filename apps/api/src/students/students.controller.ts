@@ -1,0 +1,88 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { StudentsService } from './students.service';
+import { CreateStudentDto } from './dto/create-student.dto';
+import { UpdateStudentDto } from './dto/update-student.dto';
+import { AttachGuardianDto } from './dto/attach-guardian.dto';
+import { UpdateGuardianDto } from './dto/update-guardian.dto';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserData } from '../auth/types/current-user.interface';
+
+@Controller('students')
+@RequirePermission('STUDENT_READ')
+export class StudentsController {
+  constructor(private readonly studentsService: StudentsService) {}
+
+  @Get()
+  findAll(
+    @Query('classId') classId?: string,
+    @Query('academicYearId') academicYearId?: string,
+  ) {
+    return this.studentsService.findAll(classId, academicYearId);
+  }
+
+  @Get('search')
+  search(@Query('q') q: string) {
+    return this.studentsService.search(q ?? '');
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.studentsService.findOne(id);
+  }
+
+  @Post()
+  @RequirePermission('ENROLLMENT_MANAGE')
+  create(@Body() dto: CreateStudentDto, @CurrentUser() user: CurrentUserData) {
+    return this.studentsService.create(dto, user.id);
+  }
+
+  @Patch(':id')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateStudentDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.studentsService.update(id, dto, user.id);
+  }
+
+  @Post(':id/guardians')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  attachGuardian(
+    @Param('id') id: string,
+    @Body() dto: AttachGuardianDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.studentsService.attachGuardian(id, dto, user.id);
+  }
+
+  @Patch('guardians/:guardianId')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  updateGuardian(
+    @Param('guardianId') guardianId: string,
+    @Body() dto: UpdateGuardianDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.studentsService.updateGuardian(guardianId, dto, user.id);
+  }
+
+  @Delete(':id/guardians/:guardianId')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  detachGuardian(
+    @Param('id') id: string,
+    @Param('guardianId') guardianId: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.studentsService.detachGuardian(id, guardianId, user.id);
+  }
+}

@@ -1,4 +1,6 @@
-// Shakespeare Academy — schéma Prisma, Lot 1 (socle : établissement, années, structure académique, utilisateurs/rôles/permissions, audit).
+// Shakespeare Academy — schéma Prisma.
+// Lot 1 (socle) : établissement, années, structure académique, utilisateurs/rôles/permissions, audit.
+// Lot 2 : élèves, responsables, inscriptions/réinscriptions (sans paiement).
 // Les entités de facturation/paiement/caisse (Lots 3-5) ne sont volontairement pas modélisées ici :
 // plusieurs règles dont elles dépendent sont encore ouvertes (voir DECISIONS_PENDING.md).
 
@@ -25,10 +27,14 @@ model School {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  academicYears AcademicYear[]
-  sections      Section[]
-  users         User[]
-  auditLogs     AuditLog[]
+  academicYears   AcademicYear[]
+  sections        Section[]
+  users           User[]
+  auditLogs       AuditLog[]
+  numberSequences NumberSequence[]
+  students        Student[]
+  guardians       Guardian[]
+  enrollments     Enrollment[]
 
   @@map("schools")
 }
@@ -55,6 +61,7 @@ model AcademicYear {
   updatedAt             DateTime           @updatedAt
 
   classes               Class[]
+  enrollments           Enrollment[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -125,6 +132,8 @@ model Class {
   capacite       Int?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  enrollments    Enrollment[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -213,6 +222,130 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// --- Séquences numériques atomiques ------------------------------------------
+// RG10 (par extension aux matricules/numéros d'inscription, avant même les reçus du Lot 4) :
+// un numéro généré ici est unique et jamais réutilisé. `scope` vaut "" pour une séquence non
+// rattachée à une année (matricule, permanent) ou l'id d'une AcademicYear (numéro d'inscription,
+// par année) — chaîne vide plutôt que `null` pour rester utilisable dans une contrainte unique.
+
+model NumberSequence {
+  id            String   @id @default(cuid())
+  schoolId      String
+  school        School   @relation(fields: [schoolId], references: [id])
+  type          String
+  scope         String   @default("")
+  dernierNumero Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([schoolId, type, scope])
+  @@map("number_sequences")
+}
+
+// --- Élèves, responsables, inscriptions (Lot 2) -----------------------------
+// Aucun montant, facture ni paiement ici (Lots 3-4) : plusieurs règles dont ils dépendent
+// restent ouvertes (DECISIONS_PENDING.md). "Alerte impayés antérieurs" à la réinscription
+// (cadrage §4.2) n'est donc pas encore implémentable — reportée au Lot 4.
+
+enum Sexe {
+  M
+  F
+}
+
+enum StudentStatus {
+  ACTIF
+  INACTIF
+}
+
+model Student {
+  id            String        @id @default(cuid())
+  schoolId      String
+  school        School        @relation(fields: [schoolId], references: [id])
+  matricule     String
+  nom           String
+  prenom        String
+  sexe          Sexe
+  dateNaissance DateTime
+  nationalite   String?
+  photoUrl      String?
+  statut        StudentStatus @default(ACTIF)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  studentGuardians StudentGuardian[]
+  enrollments      Enrollment[]
+
+  @@unique([schoolId, matricule])
+  @@map("students")
+}
+
+model Guardian {
+  id         String   @id @default(cuid())
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  nom        String
+  prenom     String
+  telephone  String
+  email      String?
+  profession String?
+  adresse    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  studentGuardians StudentGuardian[]
+
+  // R9-like (cf. Elyon) : un même numéro identifie le même responsable au sein d'un établissement,
+  // jamais par téléphone seul à travers plusieurs écoles (non pertinent ici, mono-établissement,
+  // mais évite qu'un même parent soit dupliqué à chaque nouvel enfant inscrit).
+  @@unique([schoolId, telephone])
+  @@map("guardians")
+}
+
+model StudentGuardian {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  guardianId  String
+  guardian    Guardian @relation(fields: [guardianId], references: [id])
+  lien        String
+  prioritaire Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([studentId, guardianId])
+  @@map("student_guardians")
+}
+
+enum EnrollmentType {
+  INSCRIPTION
+  REINSCRIPTION
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  ANNULEE
+}
+
+model Enrollment {
+  id             String           @id @default(cuid())
+  schoolId       String
+  school         School           @relation(fields: [schoolId], references: [id])
+  studentId      String
+  student        Student          @relation(fields: [studentId], references: [id])
+  classId        String
+  class          Class            @relation(fields: [classId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id])
+  numero         String
+  type           EnrollmentType
+  statut         EnrollmentStatus @default(ACTIVE)
+  dateInscription DateTime        @default(now())
+  motifAnnulation String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([schoolId, numero])
+  @@map("enrollments")
 }
 
 // --- Journal d'audit (append-only) ------------------------------------------

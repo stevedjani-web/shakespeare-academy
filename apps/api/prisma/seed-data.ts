@@ -16,7 +16,21 @@ export const LOT1_PERMISSIONS = [
   { code: 'AUDIT_LOG_READ', description: "Consulter le journal d'audit." },
 ] as const;
 
-/** Rôles du cahier de cadrage §3, avec leurs permissions du Lot 1 uniquement (voir note ci-dessus). */
+/**
+ * Catalogue de permissions du Lot 2 (élèves, responsables, inscriptions/réinscriptions — sans
+ * paiement). Une seule permission de gestion (`ENROLLMENT_MANAGE`) plutôt qu'une par sous-domaine
+ * (élève/responsable/inscription) : le cahier de cadrage §3 regroupe ces trois activités pour le
+ * même rôle (Secrétaire-caissier), les séparer maintenant n'apporterait rien de plus fin.
+ */
+export const LOT2_PERMISSIONS = [
+  { code: 'STUDENT_READ', description: 'Consulter les dossiers élèves, responsables et inscriptions.' },
+  {
+    code: 'ENROLLMENT_MANAGE',
+    description: 'Créer/modifier des élèves et responsables, inscrire, réinscrire, annuler une inscription.',
+  },
+] as const;
+
+/** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
     code: 'ADMINISTRATEUR',
@@ -29,20 +43,22 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ACADEMIC_YEAR_MANAGE',
       'ACADEMIC_STRUCTURE_MANAGE',
       'AUDIT_LOG_READ',
+      'STUDENT_READ',
+      'ENROLLMENT_MANAGE',
     ],
   },
   {
     code: 'DIRECTION',
     nom: 'Direction',
     description: 'Tableaux de bord, rapports, validation des annulations et écarts.',
-    permissions: ['AUDIT_LOG_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ'],
   },
   {
     code: 'SECRETAIRE_CAISSIER',
     nom: 'Secrétaire-caissier',
     description:
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
-    permissions: [],
+    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE'],
   },
   {
     code: 'COMPTABLE',
@@ -54,7 +70,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     code: 'AUDITEUR',
     nom: 'Auditeur lecture seule',
     description: 'Consultation historique et exports.',
-    permissions: ['AUDIT_LOG_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ'],
   },
 ];
 
@@ -77,7 +93,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
       data: { nom: options.schoolName ?? 'Shakespeare Academy' },
     }));
 
-  for (const permission of LOT1_PERMISSIONS) {
+  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS]) {
     await prisma.permission.upsert({
       where: { code: permission.code },
       update: { description: permission.description },
