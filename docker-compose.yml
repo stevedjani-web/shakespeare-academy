@@ -1,21 +1,95 @@
+name: shakespeare-academy
+
 services:
-  db:
+  # Nommé `academy-db` (pas `db`) : academy-api rejoint aussi le réseau Docker
+  # d'Elyon (`proxy`, ci-dessous), qui a SON PROPRE service nommé `db`. Un
+  # conteneur multi-réseaux résout un alias de façon ambiguë s'il existe sur
+  # plusieurs réseaux auxquels il est connecté — testé en déployant réellement
+  # : `academy-api` résolvait "db" vers la base d'ELYON (mauvais réseau,
+  # échec d'authentification), pas vers la sienne, tant que academy-db
+  # portait encore le nom générique `db`.
+  academy-db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: shakespeare
-      POSTGRES_PASSWORD: shakespeare
-      POSTGRES_DB: shakespeare_academy
-    ports:
-      - "5544:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-shakespeare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shakespeare}
+      POSTGRES_DB: ${POSTGRES_DB:-shakespeare_academy}
+    # Pas de port publié par défaut : seuls les autres conteneurs du réseau
+    # Docker interne y accèdent (academy-db:5432), jamais depuis l'extérieur —
+    # même principe qu'Elyon (voir son CLAUDE.md). En développement local, le
+    # port est republié via docker-compose.override.yml (copié depuis
+    # docker-compose.override.yml.example), jamais ici.
     volumes:
       - shakespeare_db_data:/var/lib/postgresql/data
-      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shakespeare -d shakespeare_academy"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shakespeare} -d ${POSTGRES_DB:-shakespeare_academy}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Conteneurisation de l'application (déploiement VPS, academy.lobima.online
+  # / api-academy.lobima.online). Noms de service volontairement préfixés
+  # `academy-` (pas `api`/`web`) : ces conteneurs rejoignent aussi le réseau
+  # Docker du projet Elyon (`proxy`, ci-dessous) pour être joignables par son
+  # Caddy déjà en place sur les ports 80/443 — des noms `api`/`web` entreraient
+  # en collision avec les propres conteneurs `api`/`web` d'Elyon sur ce même
+  # réseau partagé.
+  academy-api:
+    build: ./apps/api
+    restart: unless-stopped
+    depends_on:
+      academy-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shakespeare}:${POSTGRES_PASSWORD:-shakespeare}@academy-db:5432/${POSTGRES_DB:-shakespeare_academy}
+      PORT: 3001
+      # Vides par défaut = login/refresh échouent explicitement (jsonwebtoken
+      # refuse un secret manquant) plutôt que de tourner avec une valeur
+      # inventée — à renseigner dans .env.production avant tout déploiement
+      # réel, jamais commitées.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://academy.lobima.online}
+      ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
+      ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
+    networks:
+      - default
+      - proxy
+    # Pas de port publié sur l'hôte : joignable uniquement via le réseau
+    # `proxy` par le Caddy d'Elyon (academy-api:3001).
+
+  academy-web:
+    build:
+      context: ./apps/web
+      args:
+        # ARG de build, jamais une variable runtime seule (inlinée dans le
+        # bundle JS au moment de `next build`, voir apps/web/Dockerfile).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-academy.lobima.online}
+    restart: unless-stopped
+    environment:
+      # Next.js standalone lit HOSTNAME ; Docker le positionne par défaut à
+      # l'ID du conteneur, sur lequel Caddy ne peut pas router — même piège
+      # que documenté côté Elyon.
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      - academy-api
+    networks:
+      - default
+      - proxy
+    # Pas de port publié sur l'hôte, même raison que academy-api ci-dessus.
+
+networks:
+  default:
+    name: shakespeare-academy_default
+  # Réseau Docker du projet Elyon (elyon-restaurant-mvp), créé par SON
+  # docker-compose.yml — jamais créé ici. `external: true` : ce projet ne
+  # fait qu'y rejoindre deux conteneurs, il ne le gère jamais.
+  proxy:
+    name: elyon-restaurant-mvp_default
+    external: true
 
 volumes:
   shakespeare_db_data:

@@ -1,0 +1,11 @@
+# Développement local uniquement — copier en `docker-compose.override.yml`
+# (gitignored, jamais utilisé sur le VPS). Docker Compose le charge
+# automatiquement en plus de docker-compose.yml quand il est présent.
+# Republie le port Postgres et crée la base de test dédiée aux e2e — aucun
+# des deux n'a sa place sur un déploiement public (voir docker-compose.yml).
+services:
+  academy-db:
+    ports:
+      - "5544:5432"
+    volumes:
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro

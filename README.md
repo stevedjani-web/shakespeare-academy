@@ -11,10 +11,11 @@ Contexte projet complet : voir [`CLAUDE.md`](./CLAUDE.md) et [`DECISIONS_PENDING
 ## 2. Base de données
 
 ```bash
-docker compose up -d db
+cp docker-compose.override.yml.example docker-compose.override.yml   # une seule fois
+docker compose up -d academy-db
 ```
 
-Démarre PostgreSQL sur le port `5544`, avec deux bases : `shakespeare_academy` (dev) et `shakespeare_academy_test` (e2e, créée automatiquement via `docker/init-test-db.sql`).
+Démarre PostgreSQL sur le port `5544` (republié uniquement via l'override local, jamais en production), avec deux bases : `shakespeare_academy` (dev) et `shakespeare_academy_test` (e2e, créée automatiquement via `docker/init-test-db.sql`).
 
 ## 3. API (`apps/api`)
 
@@ -51,19 +52,27 @@ DATABASE_URL="postgresql://shakespeare:shakespeare@localhost:5544/shakespeare_ac
 
 ```bash
 cd apps/web
+cp .env.local.example .env.local
 npm install
 npm run dev                 # http://localhost:3000
 ```
 
-Aucune page métier n'est encore construite (Lot 1 = backend uniquement, voir `CLAUDE.md`).
+Écrans des Lots 1 (connexion, paramétrage, utilisateurs/rôles, audit) et 2 (élèves, inscriptions) disponibles — voir `CLAUDE.md` pour le détail.
 
-## 5. Structure
+## 5. Déploiement
+
+Déployé en production sur `https://academy.lobima.online` (web) / `https://api-academy.lobima.online` (API), sur le même VPS qu'un autre projet (Elyon) derrière son reverse-proxy Caddy existant — voir `CLAUDE.md §Déploiement production` pour l'architecture exacte (réseau Docker partagé, pièges rencontrés, procédure). `Dockerfile` dans `apps/api/` et `apps/web/`, `docker-compose.yml` à la racine (sûr par défaut — aucun port publié en dehors de l'override local). `.env.production.example` documente les variables requises pour un nouveau déploiement.
+
+## 6. Structure
 
 ```
 apps/
-  api/     NestJS — auth, users, roles, school, academic-years, sections, cycles, levels, classes
-  web/     Next.js (scaffold, pas encore de pages métier)
+  api/     NestJS — auth, users, roles, school, academic-years, sections, cycles, levels, classes,
+           students, enrollments
+  web/     Next.js — connexion, tableau de bord, paramétrage, élèves/inscriptions
 docs/      Cahier de cadrage source
-docker-compose.yml   PostgreSQL (dev + test)
+docker-compose.yml                    Déploiement (dev et production)
+docker-compose.override.yml.example   Overrides dev local uniquement (port DB, base de test)
+.env.production.example               Variables requises pour un déploiement VPS
 DECISIONS_PENDING.md Décisions métier non validées par l'école
 ```
