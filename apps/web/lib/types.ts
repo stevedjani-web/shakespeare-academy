@@ -344,3 +344,30 @@ export interface InsolventStudent {
   montantRestant: number;
   prochaineEcheance: { libelle: string; montant: number; dateLimite: string; enRetard: boolean } | null;
 }
+
+export interface DashboardStats {
+  anneeActive: string | null;
+  effectifs: {
+    total: number;
+    actifs: number;
+    inactifs: number;
+    parSexe: { M: number; F: number };
+  };
+  repartition: {
+    parSection: Array<{ nom: string; effectif: number }>;
+    parClasse: Array<{ nom: string; cycle: string; section: string; effectif: number }>;
+  };
+  inscriptions: { nouvelles: number; reinscriptions: number; annulees: number };
+  financier: {
+    totalFacture: number;
+    totalRemises: number;
+    totalEncaisse: number;
+    totalRestantDu: number;
+    tauxRecouvrement: number | null;
+    soldeCaisseCumule: number;
+  };
+  paiements: { parMode: { ESPECES: number; MOBILE_MONEY: number } };
+  remises: { enAttente: number; approuvees: number; rejetees: number };
+  depenses: { totalApprouve: number; enAttenteCount: number; enAttenteMontant: number };
+  insolvables: { count: number };
+}

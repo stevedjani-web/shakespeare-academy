@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 import { FinancialStatusService } from '../financial-status/financial-status.service';
+import { computeApprovedDiscountAmount } from '../discounts/discount-amount.util';
+import { toCsv } from '../common/csv.util';
 
 function startOfDay(date: string): Date {
   const d = new Date(`${date}T00:00:00.000Z`);
@@ -11,6 +13,19 @@ function nextDay(date: Date): Date {
   const d = new Date(date);
   d.setUTCDate(d.getUTCDate() + 1);
   return d;
+}
+
+interface ProchaineEcheance {
+  libelle: string;
+  montant: number;
+  dateLimite: Date;
+}
+
+function formatProchaineEcheance(value: unknown): string {
+  if (!value || typeof value !== 'object' || !('libelle' in value)) return '';
+  const e = value as ProchaineEcheance;
+  const date = new Date(e.dateLimite).toISOString().slice(0, 10);
+  return `${e.libelle} (${date})`;
 }
 
 @Injectable()
@@ -153,5 +168,238 @@ export class ReportsService {
 
     results.sort((a, b) => b.montantExigible - a.montantExigible);
     return results;
+  }
+
+  /**
+   * Statistiques agrégées du tableau de bord — tout ce qui est réellement calculable à partir des
+   * données existantes (jamais un chiffre inventé faute de donnée : un taux de recouvrement sans
+   * aucune facture reste `null`, jamais 0% ou 100%). Scopé à l'année scolaire ACTIVE pour tout ce
+   * qui est lié aux inscriptions/factures (une école n'a normalement qu'une année active à la
+   * fois) ; les cumuls de caisse (paiements/dépenses) restent depuis le début, cohérent avec
+   * `getCashClosing()`. Complexité N+1 assumée par endroits (`getInsolventStudents()`) — même
+   * principe déjà accepté ailleurs dans ce fichier pour un effectif d'école pilote.
+   */
+  async getDashboardStats() {
+    const schoolId = await this.schoolService.getDefaultId();
+
+    const [academicYears, students, expensesApprouveesAgg, expensesEnAttente, discountCounts, cashClosing, insolvents] =
+      await Promise.all([
+        this.prisma.academicYear.findMany({ where: { schoolId } }),
+        this.prisma.student.findMany({ where: { schoolId }, select: { sexe: true, statut: true } }),
+        this.prisma.expense.aggregate({ where: { schoolId, statut: 'APPROUVEE' }, _sum: { montant: true } }),
+        this.prisma.expense.aggregate({
+          where: { schoolId, statut: 'EN_ATTENTE' },
+          _sum: { montant: true },
+          _count: true,
+        }),
+        this.prisma.discount.groupBy({
+          by: ['statut'],
+          where: { invoiceLine: { invoice: { schoolId } } },
+          _count: true,
+        }),
+        this.getCashClosing(new Date().toISOString().slice(0, 10)),
+        this.getInsolventStudents(),
+      ]);
+
+    const activeYear = academicYears.find((y) => y.statut === 'ACTIVE') ?? null;
+
+    const effectifs = {
+      total: students.length,
+      actifs: students.filter((s) => s.statut === 'ACTIF').length,
+      inactifs: students.filter((s) => s.statut !== 'ACTIF').length,
+      parSexe: {
+        M: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'M').length,
+        F: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'F').length,
+      },
+    };
+
+    let repartition = { parSection: [] as Array<{ nom: string; effectif: number }>, parClasse: [] as Array<{ nom: string; cycle: string; section: string; effectif: number }> };
+    let inscriptions = { nouvelles: 0, reinscriptions: 0, annulees: 0 };
+    let financier = {
+      totalFacture: 0,
+      totalRemises: 0,
+      totalEncaisse: 0,
+      totalRestantDu: 0,
+      tauxRecouvrement: null as number | null,
+      soldeCaisseCumule: cashClosing.soldeCumule,
+    };
+    let parModePaiement = { ESPECES: 0, MOBILE_MONEY: 0 };
+
+    if (activeYear) {
+      const enrollments = await this.prisma.enrollment.findMany({
+        where: { schoolId, academicYearId: activeYear.id },
+        include: {
+          class: { include: { level: { include: { cycle: { include: { section: true } } } } } },
+          invoice: {
+            include: {
+              lines: { include: { discounts: true, payments: { where: { statut: 'VALIDE' } } } },
+            },
+          },
+        },
+      });
+
+      const bySection = new Map<string, number>();
+      const byClasse = new Map<string, { nom: string; cycle: string; section: string; effectif: number }>();
+
+      for (const e of enrollments) {
+        if (e.statut === 'ANNULEE') {
+          inscriptions.annulees++;
+          continue;
+        }
+        if (e.type === 'INSCRIPTION') inscriptions.nouvelles++;
+        else inscriptions.reinscriptions++;
+
+        const sectionNom = e.class.level.cycle.section.nom;
+        bySection.set(sectionNom, (bySection.get(sectionNom) ?? 0) + 1);
+        const classeKey = e.classId;
+        const existing = byClasse.get(classeKey);
+        if (existing) existing.effectif++;
+        else
+          byClasse.set(classeKey, {
+            nom: e.class.nom,
+            cycle: e.class.level.cycle.nom,
+            section: sectionNom,
+            effectif: 1,
+          });
+
+        if (e.invoice) {
+          for (const line of e.invoice.lines) {
+            financier.totalFacture += line.montant;
+            financier.totalRemises += computeApprovedDiscountAmount(line, line.discounts);
+            for (const p of line.payments) {
+              financier.totalEncaisse += p.montant;
+              parModePaiement[p.modePaiement] += p.montant;
+            }
+          }
+        }
+      }
+
+      financier.totalRestantDu = financier.totalFacture - financier.totalRemises - financier.totalEncaisse;
+      const netAFacturer = financier.totalFacture - financier.totalRemises;
+      financier.tauxRecouvrement =
+        netAFacturer > 0 ? Math.round((financier.totalEncaisse / netAFacturer) * 100) : null;
+
+      repartition = {
+        parSection: Array.from(bySection, ([nom, effectif]) => ({ nom, effectif })),
+        parClasse: Array.from(byClasse.values()).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
+      };
+    }
+
+    const remises = {
+      enAttente: discountCounts.find((d) => d.statut === 'EN_ATTENTE')?._count ?? 0,
+      approuvees: discountCounts.find((d) => d.statut === 'APPROUVEE')?._count ?? 0,
+      rejetees: discountCounts.find((d) => d.statut === 'REJETEE')?._count ?? 0,
+    };
+
+    return {
+      anneeActive: activeYear?.libelle ?? null,
+      effectifs,
+      repartition,
+      inscriptions,
+      financier,
+      paiements: { parMode: parModePaiement },
+      remises,
+      depenses: {
+        totalApprouve: expensesApprouveesAgg._sum.montant ?? 0,
+        enAttenteCount: expensesEnAttente._count,
+        enAttenteMontant: expensesEnAttente._sum.montant ?? 0,
+      },
+      insolvables: { count: insolvents.length },
+    };
+  }
+
+  /** Export CSV des élèves, triés par section/cycle/classe (D. "exporter la liste des élèves par classe"). */
+  async exportStudentsByClass(): Promise<string> {
+    const schoolId = await this.schoolService.getDefaultId();
+    const students = await this.prisma.student.findMany({
+      where: { schoolId },
+      include: {
+        enrollments: {
+          where: { statut: 'ACTIVE' },
+          include: {
+            class: { include: { level: { include: { cycle: { include: { section: true } } } } } },
+            academicYear: { select: { libelle: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        studentGuardians: {
+          where: { prioritaire: true },
+          include: { guardian: { select: { nom: true, prenom: true, telephone: true } } },
+          take: 1,
+        },
+      },
+    });
+
+    const rows = students.map((s) => {
+      const enrollment = s.enrollments[0];
+      const guardian = s.studentGuardians[0]?.guardian;
+      return {
+        section: enrollment?.class.level.cycle.section.nom ?? '',
+        cycle: enrollment?.class.level.cycle.nom ?? '',
+        classe: enrollment?.class.nom ?? '',
+        annee: enrollment?.academicYear.libelle ?? '',
+        matricule: s.matricule,
+        nom: s.nom,
+        prenom: s.prenom,
+        sexe: s.sexe,
+        dateNaissance: s.dateNaissance.toISOString().slice(0, 10),
+        statut: s.statut,
+        responsable: guardian ? `${guardian.prenom} ${guardian.nom}` : '',
+        telephoneResponsable: guardian?.telephone ?? '',
+      };
+    });
+
+    rows.sort((a, b) =>
+      a.section.localeCompare(b.section, 'fr') ||
+      a.cycle.localeCompare(b.cycle, 'fr') ||
+      a.classe.localeCompare(b.classe, 'fr') ||
+      a.nom.localeCompare(b.nom, 'fr'),
+    );
+
+    return toCsv(rows, [
+      { key: 'section', label: 'Section' },
+      { key: 'cycle', label: 'Cycle' },
+      { key: 'classe', label: 'Classe' },
+      { key: 'annee', label: 'Année scolaire' },
+      { key: 'matricule', label: 'Matricule' },
+      { key: 'nom', label: 'Nom' },
+      { key: 'prenom', label: 'Prénom' },
+      { key: 'sexe', label: 'Sexe' },
+      { key: 'dateNaissance', label: 'Date de naissance' },
+      { key: 'statut', label: 'Statut' },
+      { key: 'responsable', label: 'Responsable' },
+      { key: 'telephoneResponsable', label: 'Téléphone responsable' },
+    ]);
+  }
+
+  /** Export CSV des élèves insolvables — mêmes données que GET /reports/insolvent-students. */
+  async exportInsolventStudents(): Promise<string> {
+    const insolvents = await this.getInsolventStudents();
+    const rows = insolvents.map((r) => ({
+      matricule: r.student.matricule,
+      nom: r.student.nom,
+      prenom: r.student.prenom,
+      classe: r.classe ?? '',
+      responsable: r.guardian?.nom ?? '',
+      telephoneResponsable: r.guardian?.telephone ?? '',
+      statut: r.statut,
+      montantExigible: r.montantExigible,
+      montantRestant: r.montantRestant,
+      prochaineEcheance: formatProchaineEcheance(r.prochaineEcheance),
+    }));
+
+    return toCsv(rows, [
+      { key: 'matricule', label: 'Matricule' },
+      { key: 'nom', label: 'Nom' },
+      { key: 'prenom', label: 'Prénom' },
+      { key: 'classe', label: 'Classe' },
+      { key: 'responsable', label: 'Responsable' },
+      { key: 'telephoneResponsable', label: 'Téléphone responsable' },
+      { key: 'statut', label: 'Statut' },
+      { key: 'montantExigible', label: 'Montant exigible (XAF)' },
+      { key: 'montantRestant', label: 'Montant restant (XAF)' },
+      { key: 'prochaineEcheance', label: 'Prochaine échéance' },
+    ]);
   }
 }

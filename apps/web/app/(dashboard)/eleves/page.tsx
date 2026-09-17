@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { Student } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, Input, PageTitle, Spinner } from "@/components/ui";
-import { GraduationCap, Search } from "lucide-react";
+import { Download, GraduationCap, Search } from "lucide-react";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
@@ -20,6 +20,16 @@ export default function StudentsListPage() {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await api.download("/reports/export/students", "eleves-par-classe.csv");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   useEffect(() => {
     void api.get<Student[]>("/students").then((data) => {
@@ -52,11 +62,16 @@ export default function StudentsListPage() {
         >
           Élèves
         </PageTitle>
-        {hasPermission("ENROLLMENT_MANAGE") && (
-          <Link href="/eleves/inscription">
-            <Button>Nouvelle inscription / réinscription</Button>
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void handleExport()} disabled={exporting}>
+            {exporting ? <Spinner /> : <Download size={16} />} Exporter par classe (CSV)
+          </Button>
+          {hasPermission("ENROLLMENT_MANAGE") && (
+            <Link href="/eleves/inscription">
+              <Button>Nouvelle inscription / réinscription</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="relative mb-4 max-w-md">

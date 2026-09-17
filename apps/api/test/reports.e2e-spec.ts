@@ -64,6 +64,7 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
       dateDebut: '2026-09-01',
       dateFin: '2027-07-15',
     });
+    await auth(request(app.getHttpServer()).post(`/academic-years/${year.body.id}/activate`));
     const klass = await auth(request(app.getHttpServer()).post('/classes')).send({
       levelId: level.body.id,
       academicYearId: year.body.id,
@@ -166,6 +167,72 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
       });
       const res = await auth(request(app.getHttpServer()).get('/reports/insolvent-students'));
       expect(res.body).toHaveLength(0);
+    });
+  });
+
+  describe('Statistiques du tableau de bord', () => {
+    it('calcule effectifs, finances et remises pour un élève partiellement payé avec remise', async () => {
+      const { invoiceLineId } = await setupInvoiceLine();
+
+      const discount = await auth(request(app.getHttpServer()).post('/discounts')).send({
+        invoiceLineId,
+        type: 'MONTANT_FIXE',
+        valeur: 5000,
+        motif: 'Fratrie',
+      });
+      await authDir(request(app.getHttpServer()).post(`/discounts/${discount.body.id}/approve`));
+
+      await auth(request(app.getHttpServer()).post('/payments')).send({
+        invoiceLineId,
+        montant: 20000,
+      });
+
+      const res = await auth(request(app.getHttpServer()).get('/reports/dashboard'));
+      expect(res.status).toBe(200);
+      expect(res.body.anneeActive).toBe('2026-2027');
+      expect(res.body.effectifs.actifs).toBe(1);
+      expect(res.body.effectifs.parSexe).toEqual({ M: 0, F: 1 });
+      expect(res.body.inscriptions.nouvelles).toBe(1);
+      expect(res.body.financier.totalFacture).toBe(45000);
+      expect(res.body.financier.totalRemises).toBe(5000);
+      expect(res.body.financier.totalEncaisse).toBe(20000);
+      expect(res.body.financier.totalRestantDu).toBe(20000);
+      expect(res.body.financier.tauxRecouvrement).toBe(50);
+      expect(res.body.paiements.parMode.ESPECES).toBe(20000);
+      expect(res.body.remises.approuvees).toBe(1);
+      expect(res.body.repartition.parClasse).toEqual([
+        expect.objectContaining({ nom: 'CM2 A', effectif: 1 }),
+      ]);
+      expect(res.body.insolvables.count).toBe(1);
+    });
+
+    it('renvoie un taux de recouvrement nul quand aucune facture n’existe', async () => {
+      const res = await auth(request(app.getHttpServer()).get('/reports/dashboard'));
+      expect(res.status).toBe(200);
+      expect(res.body.financier.tauxRecouvrement).toBeNull();
+      expect(res.body.effectifs.total).toBe(0);
+    });
+  });
+
+  describe('Exports CSV', () => {
+    it('exporte les élèves en CSV avec en-têtes de téléchargement', async () => {
+      await setupInvoiceLine();
+      const res = await auth(request(app.getHttpServer()).get('/reports/export/students'));
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain('eleves-par-classe.csv');
+      expect(res.text).toContain('Moukala');
+      expect(res.text).toContain('CM2 A');
+    });
+
+    it('exporte les élèves insolvables en CSV', async () => {
+      await setupInvoiceLine();
+      const res = await auth(request(app.getHttpServer()).get('/reports/export/insolvent-students'));
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain('eleves-insolvables.csv');
+      expect(res.text).toContain('Moukala');
+      expect(res.text).toContain('45000');
     });
   });
 });

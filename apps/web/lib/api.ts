@@ -106,4 +106,31 @@ export const api = {
   // Corps `FormData` brut, jamais JSON.stringify — `request()` détecte déjà FormData pour ne pas
   // poser de Content-Type (le navigateur doit fixer lui-même la boundary multipart).
   upload: <T>(path: string, formData: FormData) => request<T>(path, { method: "POST", body: formData }),
+  // Téléchargement d'un fichier (export CSV...) — jamais via `request()`, qui suppose toujours une
+  // réponse JSON. Le jeton d'accès doit être posé manuellement (une balise <a> ne peut pas porter
+  // d'en-tête Authorization), d'où un vrai fetch + déclenchement du téléchargement côté client.
+  download: async (path: string, filename: string): Promise<void> => {
+    const headers = new Headers();
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+    let res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+    if (res.status === 401) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
+      headers.set("Authorization", `Bearer ${newToken}`);
+      res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+    }
+    if (!res.ok) {
+      const { message, data } = await extractErrorBody(res);
+      throw new ApiError(message, res.status, data);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

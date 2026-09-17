@@ -5,12 +5,13 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { InsolventStudent } from "@/lib/types";
-import { Badge, Card, EmptyState, PageTitle } from "@/components/ui";
-import { AlertOctagon, AlertTriangle } from "lucide-react";
+import { Badge, Button, Card, EmptyState, PageTitle, Spinner } from "@/components/ui";
+import { AlertOctagon, AlertTriangle, Download } from "lucide-react";
 
 export default function InsolventStudentsPage() {
   const [students, setStudents] = useState<InsolventStudent[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void api.get<InsolventStudent[]>("/reports/insolvent-students").then((data) => {
@@ -19,11 +20,27 @@ export default function InsolventStudentsPage() {
     });
   }, []);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await api.download("/reports/export/insolvent-students", "eleves-insolvables.csv");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
-      <PageTitle eyebrow="Lot 5" subtitle="Élèves dont au moins une échéance est en retard, non couverte par un paiement.">
-        Élèves insolvables
-      </PageTitle>
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
+        <PageTitle eyebrow="Lot 5" subtitle="Élèves dont au moins une échéance est en retard, non couverte par un paiement.">
+          Élèves insolvables
+        </PageTitle>
+        {loaded && students.length > 0 && (
+          <Button variant="secondary" onClick={() => void handleExport()} disabled={exporting}>
+            {exporting ? <Spinner /> : <Download size={16} />} Exporter (CSV)
+          </Button>
+        )}
+      </div>
 
       {!loaded ? null : students.length === 0 ? (
         <EmptyState icon={<AlertOctagon />} title="Aucun élève insolvable." description="Tous les frais exigibles sont couverts." />
