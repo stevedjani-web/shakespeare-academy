@@ -345,6 +345,90 @@ describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
     });
   });
 
+  describe('Autres frais (ajout manuel de ligne)', () => {
+    it('ajoute une ligne pour un type de frais facultatif (tenue, cantine...)', async () => {
+      const { year, class: klass, level } = await createClassInYear('2026-2027');
+      const feeTypeInscription = await createFeeType();
+      await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+        academicYearId: year.id,
+        levelId: level.id,
+        feeTypeId: feeTypeInscription.id,
+        montant: 25000,
+      });
+      const feeTenue = await createFeeType({ code: 'TENUE', nom: 'Tenue scolaire', obligatoire: false });
+      const student = await createStudent();
+      const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+        studentId: student.id,
+        classId: klass.id,
+        academicYearId: year.id,
+      });
+      const invoice = await auth(
+        request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment.body.id}`),
+      );
+      expect(invoice.body.lines).toHaveLength(1);
+
+      const added = await auth(
+        request(app.getHttpServer()).post(`/invoices/${invoice.body.id}/lines`),
+      ).send({ feeTypeId: feeTenue.id, montant: 15000 });
+      expect(added.status).toBe(201);
+      expect(added.body.lines).toHaveLength(2);
+      expect(added.body.lines.map((l: { montant: number }) => l.montant).sort()).toEqual([15000, 25000]);
+    });
+
+    it('refuse d’ajouter une ligne sur une facture annulée (409)', async () => {
+      const { year, class: klass, level } = await createClassInYear('2026-2027');
+      const feeType = await createFeeType();
+      await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+        academicYearId: year.id,
+        levelId: level.id,
+        feeTypeId: feeType.id,
+        montant: 25000,
+      });
+      const feeCantine = await createFeeType({ code: 'CANTINE', nom: 'Cantine', obligatoire: false });
+      const student = await createStudent();
+      const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+        studentId: student.id,
+        classId: klass.id,
+        academicYearId: year.id,
+      });
+      const invoice = await auth(
+        request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment.body.id}`),
+      );
+      await auth(request(app.getHttpServer()).post(`/enrollments/${enrollment.body.id}/cancel`)).send({
+        motif: 'Test',
+      });
+
+      await auth(request(app.getHttpServer()).post(`/invoices/${invoice.body.id}/lines`))
+        .send({ feeTypeId: feeCantine.id, montant: 10000 })
+        .expect(409);
+    });
+
+    it('refuse d’ajouter une ligne pour un type de frais avecTranches (400)', async () => {
+      const { year, class: klass, level } = await createClassInYear('2026-2027');
+      const feeType = await createFeeType();
+      await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+        academicYearId: year.id,
+        levelId: level.id,
+        feeTypeId: feeType.id,
+        montant: 25000,
+      });
+      const feeTranches = await createFeeType({ code: 'ECOLAGE2', nom: 'Écolage', avecTranches: true });
+      const student = await createStudent();
+      const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+        studentId: student.id,
+        classId: klass.id,
+        academicYearId: year.id,
+      });
+      const invoice = await auth(
+        request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment.body.id}`),
+      );
+
+      await auth(request(app.getHttpServer()).post(`/invoices/${invoice.body.id}/lines`))
+        .send({ feeTypeId: feeTranches.id, montant: 10000 })
+        .expect(400);
+    });
+  });
+
   describe('Remises (Discount)', () => {
     async function setupInvoiceLine() {
       const { year, class: klass, level } = await createClassInYear('2026-2027');

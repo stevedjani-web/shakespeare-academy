@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 // Le jeton d'accès ne vit qu'en mémoire (jamais localStorage/cookie non httpOnly) — cohérent avec
 // le choix côté API (voir apps/api CLAUDE.md) : seul le refresh_token, httpOnly, survit à un rechargement.
@@ -103,4 +103,7 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: body !== undefined ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  // Corps `FormData` brut, jamais JSON.stringify — `request()` détecte déjà FormData pour ne pas
+  // poser de Content-Type (le navigateur doit fixer lui-même la boundary multipart).
+  upload: <T>(path: string, formData: FormData) => request<T>(path, { method: "POST", body: formData }),
 };

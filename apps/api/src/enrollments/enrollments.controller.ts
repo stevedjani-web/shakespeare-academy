@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { EnrollmentsService } from './enrollments.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { CancelEnrollmentDto } from './dto/cancel-enrollment.dto';
+import { ChangeClassDto } from './dto/change-class.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
@@ -42,5 +43,15 @@ export class EnrollmentsController {
     @CurrentUser() user: CurrentUserData,
   ) {
     return this.enrollmentsService.cancel(id, dto, user.id);
+  }
+
+  @Post(':id/change-class')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  changeClass(
+    @Param('id') id: string,
+    @Body() dto: ChangeClassDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.enrollmentsService.changeClass(id, dto, user.id);
   }
 }

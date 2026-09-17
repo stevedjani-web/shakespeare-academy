@@ -162,7 +162,7 @@ export interface Enrollment {
   motifAnnulation: string | null;
   dateInscription: string;
   student?: { id: string; matricule: string; nom: string; prenom: string };
-  class: { id: string; nom: string } & Partial<{
+  class: { id: string; nom: string; levelId?: string } & Partial<{
     level: { id: string; nom: string; cycle: { id: string; nom: string; section: { id: string; nom: string } } };
   }>;
   academicYear: { id: string; libelle: string };
@@ -276,4 +276,70 @@ export interface FinancialStatus {
   montantAEchoir: number;
   prochaineEcheance: { libelle: string; montant: number; dateLimite: string; enRetard: boolean } | null;
   lignesEnRetard: Array<{ invoiceId: string; invoiceLineId: string; libelle: string; montant: number; dateLimite: string }>;
+}
+
+// --- Lot 5 : sorties financières, clôture de journée, insolvables ----------
+
+export type ExpenseCategory = "VERSEMENT_BANQUE" | "PAIEMENT_SALAIRE" | "PAIEMENT_FACTURE" | "ACHAT_MATERIEL" | "AUTRE";
+export type ExpenseStatus = "EN_ATTENTE" | "APPROUVEE" | "REJETEE";
+
+export interface Expense {
+  id: string;
+  categorie: ExpenseCategory;
+  montant: number;
+  description: string;
+  dateDepense: string;
+  statut: ExpenseStatus;
+  motifRejet: string | null;
+  dateDecision: string | null;
+  effectuePar: { id: string; nom: string; prenom: string };
+  approbateur: { id: string; nom: string; prenom: string } | null;
+}
+
+export interface CashClosingEntry {
+  id: string;
+  numeroRecu: string;
+  montant: number;
+  modePaiement: PaymentMode;
+  datePaiement: string;
+  libelle: string;
+  eleve: string | null;
+  recuPar: string;
+}
+
+export interface CashClosingExpense {
+  id: string;
+  categorie: ExpenseCategory;
+  montant: number;
+  description: string;
+  dateDepense: string;
+  effectuePar: string;
+}
+
+export interface CashClosing {
+  date: string;
+  entrees: {
+    total: number;
+    count: number;
+    parMode: Record<PaymentMode, number>;
+    items: CashClosingEntry[];
+  };
+  sorties: {
+    total: number;
+    count: number;
+    parCategorie: Record<string, number>;
+    items: CashClosingExpense[];
+  };
+  soldeJour: number;
+  soldeCumule: number;
+}
+
+export interface InsolventStudent {
+  student: { id: string; nom: string; prenom: string; matricule: string };
+  classe: string | null;
+  guardian: { nom: string; telephone: string } | null;
+  statut: SolvencyStatus;
+  montantExigible: number;
+  montantRestant: number;
+  prochaineEcheance: { libelle: string; montant: number; dateLimite: string; enRetard: boolean } | null;
 }

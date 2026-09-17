@@ -5,10 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
-import type { StudentDossier } from "@/lib/types";
-import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
+import type { Class, Enrollment, StudentDossier } from "@/lib/types";
+import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
-import { ArrowLeft, CalendarDays, IdCard, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
 const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | "gray" }> = {
@@ -26,6 +26,10 @@ export default function StudentDossierPage() {
   const [error, setError] = useState<string | null>(null);
   const [guardianForm, setGuardianForm] = useState({ nom: "", prenom: "", telephone: "", lien: "" });
   const [showGuardianForm, setShowGuardianForm] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(false);
+  const [studentForm, setStudentForm] = useState({ nom: "", prenom: "", sexe: "M", dateNaissance: "", nationalite: "" });
+  const [studentError, setStudentError] = useState<string | null>(null);
+  const [savingStudent, setSavingStudent] = useState(false);
 
   async function load() {
     const data = await api.get<StudentDossier>(`/students/${params.id}`);
@@ -54,6 +58,34 @@ export default function StudentDossierPage() {
     if (!confirm("Détacher ce responsable de l'élève ?")) return;
     await api.delete(`/students/${params.id}/guardians/${guardianId}`);
     await load();
+  }
+
+  function startEditStudent() {
+    if (!student) return;
+    setStudentForm({
+      nom: student.nom,
+      prenom: student.prenom,
+      sexe: student.sexe,
+      dateNaissance: student.dateNaissance.slice(0, 10),
+      nationalite: student.nationalite ?? "",
+    });
+    setStudentError(null);
+    setEditingStudent(true);
+  }
+
+  async function handleSaveStudent(e: React.FormEvent) {
+    e.preventDefault();
+    setStudentError(null);
+    setSavingStudent(true);
+    try {
+      await api.patch(`/students/${params.id}`, studentForm);
+      setEditingStudent(false);
+      await load();
+    } catch (err) {
+      setStudentError(isApiError(err) ? err.message : "Une erreur est survenue.");
+    } finally {
+      setSavingStudent(false);
+    }
   }
 
   async function handleCancelEnrollment(enrollmentId: string) {
@@ -90,18 +122,80 @@ export default function StudentDossierPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-            <IdCard size={16} className="text-primary" /> Identité
-          </h2>
-          <dl className="space-y-2 text-sm">
-            <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
-            <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
-            <Row label="Nationalité" value={student.nationalite ?? "—"} />
-            <Row
-              label="Statut"
-              value={<Badge color={student.statut === "ACTIF" ? "green" : "gray"}>{student.statut}</Badge>}
-            />
-          </dl>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <IdCard size={16} className="text-primary" /> Identité
+            </h2>
+            {canManage && !editingStudent && (
+              <Button variant="ghost" onClick={startEditStudent}>
+                <Pencil size={14} /> Modifier
+              </Button>
+            )}
+          </div>
+          {editingStudent ? (
+            <form onSubmit={handleSaveStudent} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nom">
+                  <Input
+                    required
+                    value={studentForm.nom}
+                    onChange={(e) => setStudentForm({ ...studentForm, nom: e.target.value })}
+                  />
+                </Field>
+                <Field label="Prénom">
+                  <Input
+                    required
+                    value={studentForm.prenom}
+                    onChange={(e) => setStudentForm({ ...studentForm, prenom: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Sexe">
+                  <Select
+                    value={studentForm.sexe}
+                    onChange={(e) => setStudentForm({ ...studentForm, sexe: e.target.value })}
+                  >
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </Select>
+                </Field>
+                <Field label="Date de naissance">
+                  <Input
+                    type="date"
+                    required
+                    value={studentForm.dateNaissance}
+                    onChange={(e) => setStudentForm({ ...studentForm, dateNaissance: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="Nationalité">
+                <Input
+                  value={studentForm.nationalite}
+                  onChange={(e) => setStudentForm({ ...studentForm, nationalite: e.target.value })}
+                />
+              </Field>
+              <ErrorMessage>{studentError}</ErrorMessage>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={savingStudent}>
+                  {savingStudent ? "Enregistrement…" : "Enregistrer"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setEditingStudent(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <dl className="space-y-2 text-sm">
+              <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
+              <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
+              <Row label="Nationalité" value={student.nationalite ?? "—"} />
+              <Row
+                label="Statut"
+                value={<Badge color={student.statut === "ACTIF" ? "green" : "gray"}>{student.statut}</Badge>}
+              />
+            </dl>
+          )}
         </Card>
 
         <Card className="lg:col-span-2">
@@ -219,9 +313,12 @@ export default function StudentDossierPage() {
                     {canManage && (
                       <td className="py-2 pr-4">
                         {en.statut === "ACTIVE" && (
-                          <Button variant="ghost" onClick={() => void handleCancelEnrollment(en.id)}>
-                            Annuler
-                          </Button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <ChangeClassAction enrollment={en} onChanged={load} />
+                            <Button variant="ghost" onClick={() => void handleCancelEnrollment(en.id)}>
+                              Annuler
+                            </Button>
+                          </div>
                         )}
                       </td>
                     )}
@@ -255,5 +352,72 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-ink-muted">{label}</dt>
       <dd className="font-medium text-ink">{value}</dd>
     </div>
+  );
+}
+
+/** Corrige une erreur de saisie sur la classe (même niveau uniquement — voir EnrollmentsService.changeClass). */
+function ChangeClassAction({ enrollment, onChanged }: { enrollment: Enrollment; onChanged: () => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function startEditing() {
+    setError(null);
+    setEditing(true);
+    const levelId = enrollment.class.levelId;
+    if (!levelId) return;
+    const data = await api.get<Class[]>(
+      `/classes?academicYearId=${enrollment.academicYear.id}&levelId=${levelId}`,
+    );
+    setClasses(data);
+    setSelectedClassId(data.find((c) => c.id !== enrollment.class.id)?.id ?? "");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    try {
+      await api.post(`/enrollments/${enrollment.id}/change-class`, { classId: selectedClassId });
+      setEditing(false);
+      await onChanged();
+    } catch (err) {
+      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <Button variant="ghost" onClick={() => void startEditing()}>
+        <Pencil size={14} /> Classe
+      </Button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
+      <Select
+        value={selectedClassId}
+        onChange={(e) => setSelectedClassId(e.target.value)}
+        className="w-auto py-1.5 text-xs"
+      >
+        {classes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nom}
+          </option>
+        ))}
+      </Select>
+      <Button type="submit" disabled={saving || !selectedClassId}>
+        OK
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+        ✕
+      </Button>
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </form>
   );
 }

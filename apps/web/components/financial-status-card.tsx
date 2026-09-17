@@ -5,9 +5,19 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
-import type { FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
+import type { FeeType, FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
-import { AlertTriangle, CheckCircle2, Clock, Printer, Receipt, ShieldCheck, Wallet, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  PlusCircle,
+  Printer,
+  Receipt,
+  ShieldCheck,
+  Wallet,
+  XCircle,
+} from "lucide-react";
 
 const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
 
@@ -45,6 +55,7 @@ export function FinancialStatusCard({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [discountFormLineId, setDiscountFormLineId] = useState<string | null>(null);
   const [paymentFormLineId, setPaymentFormLineId] = useState<string | null>(null);
+  const [showAddLine, setShowAddLine] = useState(false);
   const router = useRouter();
 
   async function handleReprint(paymentId: string) {
@@ -107,9 +118,27 @@ export function FinancialStatusCard({
         </p>
       )}
 
-      {invoice && invoice.lines.length > 0 && (
+      {invoice && (
         <div className="mt-5 space-y-2 border-t border-border pt-4">
-          <p className="text-sm font-semibold text-ink">Facture de l&apos;inscription en cours</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink">Facture de l&apos;inscription en cours</p>
+            {canRequestDiscount && invoice.statut === "EMISE" && (
+              <Button variant="ghost" onClick={() => setShowAddLine((v) => !v)}>
+                <PlusCircle size={14} /> Autre frais
+              </Button>
+            )}
+          </div>
+
+          {showAddLine && (
+            <AddLineForm
+              invoiceId={invoice.id}
+              onDone={() => {
+                setShowAddLine(false);
+                void load();
+              }}
+            />
+          )}
+
           {invoice.lines.map((line) => (
             <div key={line.id} className="rounded-xl border border-border p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -377,6 +406,66 @@ function PaymentForm({
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" variant="accent" disabled={submitting}>
         {submitting ? "Encaissement…" : "Encaisser et imprimer le reçu"}
+      </Button>
+    </form>
+  );
+}
+
+function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => void }) {
+  const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
+  const [feeTypeId, setFeeTypeId] = useState("");
+  const [montant, setMontant] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    void api.get<FeeType[]>("/fee-types").then((data) => {
+      const selectable = data.filter((ft) => !ft.avecTranches);
+      setFeeTypes(selectable);
+      setFeeTypeId(selectable[0]?.id ?? "");
+    });
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.post(`/invoices/${invoiceId}/lines`, { feeTypeId, montant: Number(montant) });
+      onDone();
+    } catch (err) {
+      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2 rounded-xl bg-surface-muted p-3">
+      <p className="text-xs text-ink-muted">
+        Frais ponctuel (tenue, livres, cantine…) — configurez d&apos;abord le type dans{" "}
+        <span className="font-medium text-ink">Tarifs &amp; facturation</span> s&apos;il n&apos;existe pas encore.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <Select value={feeTypeId} onChange={(e) => setFeeTypeId(e.target.value)} required>
+          {feeTypes.map((ft) => (
+            <option key={ft.id} value={ft.id}>
+              {ft.nom}
+            </option>
+          ))}
+        </Select>
+        <Input
+          type="number"
+          required
+          min={1}
+          placeholder="Montant"
+          value={montant}
+          onChange={(e) => setMontant(e.target.value)}
+        />
+      </div>
+      <ErrorMessage>{error}</ErrorMessage>
+      <Button type="submit" disabled={submitting || !feeTypeId}>
+        {submitting ? "Ajout…" : "Ajouter à la facture"}
       </Button>
     </form>
   );

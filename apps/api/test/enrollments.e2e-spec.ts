@@ -79,7 +79,7 @@ describe('Inscriptions et réinscriptions (e2e)', () => {
       nom: 'CM2 A',
     });
     expect(klass.status).toBe(201);
-    return { year: year.body, class: klass.body };
+    return { year: year.body, class: klass.body, level: level.body };
   }
 
   async function createStudent(overrides: Record<string, unknown> = {}) {
@@ -320,5 +320,56 @@ describe('Inscriptions et réinscriptions (e2e)', () => {
     expect(byStudent.body.map((s: { id: string }) => s.id)).toEqual([
       student.id,
     ]);
+  });
+
+  it('corrige la classe d’une inscription active (même niveau, même année)', async () => {
+    const { year, class: klassA, level } = await createClassInYear('2026-2027', {
+      debut: '2026-09-01',
+      fin: '2027-07-15',
+    });
+    const klassB = await auth(request(app.getHttpServer()).post('/classes')).send({
+      levelId: level.id,
+      academicYearId: year.id,
+      nom: 'CM2 B',
+    });
+    const student = await createStudent();
+    const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+      studentId: student.id,
+      classId: klassA.id,
+      academicYearId: year.id,
+    });
+
+    const changed = await auth(
+      request(app.getHttpServer()).post(`/enrollments/${enrollment.body.id}/change-class`),
+    ).send({ classId: klassB.body.id });
+    expect(changed.status).toBe(201);
+    expect(changed.body.class.id).toBe(klassB.body.id);
+  });
+
+  it('refuse de changer vers une classe d’un autre niveau (400)', async () => {
+    const { year, class: klassA } = await createClassInYear('2026-2027', {
+      debut: '2026-09-01',
+      fin: '2027-07-15',
+    });
+    const otherLevel = await auth(request(app.getHttpServer()).post('/levels')).send({
+      cycleId: (await auth(request(app.getHttpServer()).get('/cycles'))).body[0].id,
+      code: 'CM1',
+      nom: 'CM1',
+    });
+    const otherClass = await auth(request(app.getHttpServer()).post('/classes')).send({
+      levelId: otherLevel.body.id,
+      academicYearId: year.id,
+      nom: 'CM1 A',
+    });
+    const student = await createStudent();
+    const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+      studentId: student.id,
+      classId: klassA.id,
+      academicYearId: year.id,
+    });
+
+    await auth(request(app.getHttpServer()).post(`/enrollments/${enrollment.body.id}/change-class`))
+      .send({ classId: otherClass.body.id })
+      .expect(400);
   });
 });

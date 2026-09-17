@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { EnrollmentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
+import { AuditService } from '../audit/audit.service';
+import { FeeTypesService } from '../fee-types/fee-types.service';
+import { AddInvoiceLineDto } from './dto/add-invoice-line.dto';
 
 const INVOICE_INCLUDE = {
   lines: {
@@ -22,6 +25,8 @@ export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly schoolService: SchoolService,
+    private readonly auditService: AuditService,
+    private readonly feeTypesService: FeeTypesService,
   ) {}
 
   async findOne(id: string) {
@@ -119,5 +124,49 @@ export class InvoicesService {
       return invoice;
     }
     return tx.invoice.update({ where: { id: invoice.id }, data: { statut: 'ANNULEE' } });
+  }
+
+  /**
+   * Ajoute manuellement une ligne à une facture déjà émise — "autres frais/autres recettes"
+   * (tenue, livres, cantine, etc., cahier §3/D05 : `fee_types` librement paramétrable, facturable
+   * à tout moment via cet écran). Jamais pour un `FeeType.avecTranches` : les tranches passent
+   * toujours par la grille tarifaire (`/fee-schedules`), pas par un ajout ponctuel.
+   */
+  async addManualLine(invoiceId: string, dto: AddInvoiceLineDto, actingUserId: string) {
+    const invoice = await this.findOne(invoiceId);
+    if (invoice.statut === 'ANNULEE') {
+      throw new ConflictException('Cette facture est annulée, aucune ligne ne peut y être ajoutée.');
+    }
+    const feeType = await this.feeTypesService.findOne(dto.feeTypeId);
+    if (feeType.avecTranches) {
+      throw new BadRequestException(
+        'Ce type de frais est réparti en tranches — utilisez la configuration tarifaire, pas un ajout ponctuel.',
+      );
+    }
+
+    const ordreMax = invoice.lines.reduce((max, l) => Math.max(max, l.ordre), 0);
+    const line = await this.prisma.invoiceLine.create({
+      data: {
+        invoiceId,
+        feeTypeId: dto.feeTypeId,
+        libelle: feeType.nom,
+        montant: dto.montant,
+        dateEcheance: null,
+        delaiGraceJours: 0,
+        ordre: ordreMax + 1,
+      },
+    });
+
+    const schoolId = await this.schoolService.getDefaultId();
+    await this.auditService.log({
+      schoolId,
+      userId: actingUserId,
+      action: 'INVOICE_LINE_CREATE',
+      entite: 'InvoiceLine',
+      entiteId: line.id,
+      nouvelleValeur: line,
+    });
+
+    return this.findOne(invoiceId);
   }
 }

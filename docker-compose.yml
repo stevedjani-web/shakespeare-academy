@@ -55,6 +55,10 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-https://academy.lobima.online}
       ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
+    volumes:
+      # Logo de l'établissement (et futurs fichiers uploadés) : nommé pour survivre à une
+      # recréation du conteneur (rebuild d'image), jamais dans l'image elle-même.
+      - academy_uploads:/app/uploads
     networks:
       - default
       - proxy
@@ -93,3 +97,4 @@ networks:
 
 volumes:
   shakespeare_db_data:
+  academy_uploads:

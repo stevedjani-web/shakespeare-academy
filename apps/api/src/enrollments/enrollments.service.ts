@@ -14,12 +14,13 @@ import { AcademicYearsService } from '../academic-years/academic-years.service';
 import { InvoicesService } from '../invoices/invoices.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { CancelEnrollmentDto } from './dto/cancel-enrollment.dto';
+import { ChangeClassDto } from './dto/change-class.dto';
 
 const ENROLLMENT_NUMERO_DIGITS = 5;
 
 const ENROLLMENT_INCLUDE = {
   student: { select: { id: true, matricule: true, nom: true, prenom: true } },
-  class: { select: { id: true, nom: true } },
+  class: { select: { id: true, nom: true, levelId: true } },
   academicYear: { select: { id: true, libelle: true } },
 } as const;
 
@@ -169,6 +170,52 @@ export class EnrollmentsService {
       schoolId,
       userId: actingUserId,
       action: 'ENROLLMENT_CANCEL',
+      entite: 'Enrollment',
+      entiteId: id,
+      ancienneValeur: before,
+      nouvelleValeur: updated,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Corrige une erreur de saisie sur la classe d'une inscription active (ex. mauvaise classe
+   * sélectionnée) — jamais un changement de niveau : les frais déjà facturés (`InvoiceLine`) sont
+   * un snapshot lié au niveau (RG03), une classe de niveau différent les rendrait incohérents.
+   * Un vrai changement de niveau passe par annulation + nouvelle inscription.
+   */
+  async changeClass(id: string, dto: ChangeClassDto, actingUserId: string) {
+    const before = await this.findOne(id);
+    if (before.statut !== 'ACTIVE') {
+      throw new ConflictException('Seule une inscription active peut être modifiée.');
+    }
+    if (dto.classId === before.classId) {
+      throw new ConflictException('Cet élève est déjà dans cette classe.');
+    }
+
+    const currentClass = await this.classesService.findOne(before.classId);
+    const newClass = await this.classesService.findOne(dto.classId);
+    if (newClass.academicYearId !== before.academicYearId) {
+      throw new BadRequestException('La nouvelle classe doit appartenir à la même année scolaire.');
+    }
+    if (newClass.levelId !== currentClass.levelId) {
+      throw new BadRequestException(
+        'Le niveau de la nouvelle classe diffère de l’actuel — les frais déjà facturés ne correspondraient plus. Annulez cette inscription et recréez-en une nouvelle pour changer de niveau.',
+      );
+    }
+
+    const updated = await this.prisma.enrollment.update({
+      where: { id },
+      data: { classId: dto.classId },
+      include: ENROLLMENT_INCLUDE,
+    });
+
+    const schoolId = await this.schoolService.getDefaultId();
+    await this.auditService.log({
+      schoolId,
+      userId: actingUserId,
+      action: 'ENROLLMENT_CLASS_UPDATE',
       entite: 'Enrollment',
       entiteId: id,
       ancienneValeur: before,

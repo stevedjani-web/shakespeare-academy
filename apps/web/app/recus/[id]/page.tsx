@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
-import type { Payment } from "@/lib/types";
+import { montantEnLettres } from "@/lib/number-to-words-fr";
+import type { Payment, School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { ArrowLeft, Printer } from "lucide-react";
 
@@ -17,6 +18,7 @@ export default function ReceiptPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [school, setSchool] = useState<School | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function ReceiptPage() {
       .get<Payment>(`/payments/${params.id}`)
       .then(setPayment)
       .catch(() => setError("Reçu introuvable."));
+    api.get<School>("/school").then(setSchool).catch(() => {});
   }, [params.id, user]);
 
   if (loading || !user) {
@@ -73,7 +76,7 @@ export default function ReceiptPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-[400px] rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow-soft)] print:rounded-none print:border-0 print:shadow-none">
+      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow-soft)] print:rounded-none print:border-0 print:shadow-none">
         {payment.statut === "ANNULE" && (
           <div className="mb-4 rounded-xl bg-danger-soft px-3 py-2 text-center text-sm font-semibold text-danger">
             REÇU ANNULÉ
@@ -81,8 +84,14 @@ export default function ReceiptPage() {
           </div>
         )}
 
-        <div className="mb-4 text-center">
-          <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
+        <div className="mb-4 flex flex-col items-center text-center">
+          {school?.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- logo externe servi par l'API, hors du domaine web (next/image l'exigerait en config supplémentaire)
+            <img src={`${API_URL}${school.logoUrl}`} alt="" className="mb-2 h-16 w-auto object-contain" />
+          )}
+          <p className="font-display text-lg font-semibold text-ink">{school?.nom ?? "Shakespeare Academy"}</p>
+          {school?.adresse && <p className="text-xs text-ink-muted">{school.adresse}</p>}
+          {school?.telephone && <p className="text-xs text-ink-muted">{school.telephone}</p>}
           <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">Reçu de paiement</p>
           <p className="font-mono text-sm text-ink">{payment.numeroRecu}</p>
           <p className="text-xs text-ink-muted">{formatDate(payment.datePaiement)}</p>
@@ -105,6 +114,20 @@ export default function ReceiptPage() {
         <div className="mt-4 flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
           <span className="text-sm font-medium text-ink">Montant payé</span>
           <span className="font-display text-xl font-semibold text-ink">{formatMontant(payment.montant)}</span>
+        </div>
+        <p className="mt-2 text-xs italic text-ink-muted">
+          Arrêté le présent reçu à la somme de : {montantEnLettres(payment.montant, school?.devise === "XAF" ? "francs CFA" : school?.devise)}.
+        </p>
+
+        <div className="mt-8 grid grid-cols-2 gap-4 text-center text-xs text-ink-muted">
+          <div>
+            <div className="h-16 border-b border-dashed border-border" />
+            <p className="mt-1">Signature du caissier</p>
+          </div>
+          <div>
+            <div className="h-16 border-b border-dashed border-border" />
+            <p className="mt-1">Cachet de la Direction</p>
+          </div>
         </div>
 
         <p className="mt-6 text-center text-[11px] text-ink-muted">
