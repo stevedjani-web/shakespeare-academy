@@ -4,24 +4,37 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
 import type { AppUser, Permission, Role } from "@/lib/types";
-import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { KeyRound, ShieldCheck, UserCog, UserPlus, Users } from "lucide-react";
+
+function initials(nom: string, prenom: string) {
+  return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+}
 
 export default function UsersAndRolesPage() {
   const [tab, setTab] = useState<"users" | "roles">("users");
 
   return (
     <div>
-      <PageTitle>Utilisateurs & rôles</PageTitle>
-      <div className="mb-6 flex gap-1 border-b border-border">
-        {(["users", "roles"] as const).map((t) => (
+      <PageTitle eyebrow="Lot 1" subtitle="Comptes du personnel et permissions par rôle.">
+        Utilisateurs & rôles
+      </PageTitle>
+      <div className="mb-6 inline-flex gap-1 rounded-full border border-border bg-surface-muted p-1">
+        {(
+          [
+            { key: "users", label: "Utilisateurs", icon: UserCog },
+            { key: "roles", label: "Rôles & permissions", icon: ShieldCheck },
+          ] as const
+        ).map(({ key, label, icon: Icon }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium ${
-              tab === t ? "border-b-2 border-primary text-ink" : "text-ink-muted hover:text-ink"
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              tab === key ? "bg-surface text-ink shadow-[var(--shadow-soft)]" : "text-ink-muted hover:text-ink"
             }`}
           >
-            {t === "users" ? "Utilisateurs" : "Rôles & permissions"}
+            <Icon size={15} />
+            {label}
           </button>
         ))}
       </div>
@@ -85,62 +98,102 @@ function UsersTab() {
 
   return (
     <div>
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">E-mail</th>
-                <th className="py-2 pr-4">Rôle</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-b border-border">
-                  <td className="py-2 pr-4 font-medium text-ink">
-                    {u.prenom} {u.nom}
-                  </td>
-                  <td className="py-2 pr-4">{u.email}</td>
-                  <td className="py-2 pr-4">{u.role.nom}</td>
-                  <td className="py-2 pr-4">
-                    <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
-                      {u.statut === "ACTIF" ? "Actif" : "Inactif"}
-                    </Badge>
-                    {u.doitChangerMotDePasse && (
-                      <Badge color="orange" >
-                        Doit changer son mot de passe
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
-                        {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
-                      </Button>
-                      <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
-                        Réinitialiser le mot de passe
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-6 text-center text-ink-muted">
-                    Aucun utilisateur.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {users.length === 0 ? (
+        <EmptyState icon={<Users />} title="Aucun utilisateur." description="Créez le premier compte ci-dessous." />
+      ) : (
+        <>
+          <Card className="hidden sm:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-ink-muted">
+                    <th className="py-2 pr-4">Nom</th>
+                    <th className="py-2 pr-4">E-mail</th>
+                    <th className="py-2 pr-4">Rôle</th>
+                    <th className="py-2 pr-4">Statut</th>
+                    <th className="py-2 pr-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-b border-border last:border-0 hover:bg-surface-muted">
+                      <td className="py-2.5 pr-4">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                            {initials(u.nom, u.prenom)}
+                          </span>
+                          <span className="font-medium text-ink">
+                            {u.prenom} {u.nom}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-4 text-ink-muted">{u.email}</td>
+                      <td className="py-2.5 pr-4">{u.role.nom}</td>
+                      <td className="py-2.5 pr-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
+                            {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                          </Badge>
+                          {u.doitChangerMotDePasse && <Badge color="orange">Doit changer son mot de passe</Badge>}
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
+                            {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                          </Button>
+                          <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
+                            <KeyRound size={14} /> Réinitialiser
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <div className="space-y-2 sm:hidden">
+            {users.map((u) => (
+              <Card key={u.id} className="p-3.5">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                    {initials(u.nom, u.prenom)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-ink">
+                      {u.prenom} {u.nom}
+                    </p>
+                    <p className="truncate text-xs text-ink-muted">
+                      {u.email} · {u.role.nom}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
+                    {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                  </Badge>
+                  {u.doitChangerMotDePasse && <Badge color="orange">Doit changer son mot de passe</Badge>}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
+                    {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                  </Button>
+                  <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
+                    <KeyRound size={14} /> Réinitialiser
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
       <Card className="mt-6 max-w-xl">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Créer un utilisateur</h2>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+          <UserPlus size={16} className="text-primary" /> Créer un utilisateur
+        </h2>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Nom">
@@ -227,12 +280,15 @@ function RolesTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {roles.map((role) => (
         <Card key={role.id}>
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
-            {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
+          <div className="mb-3 flex items-center gap-2">
+            <ShieldCheck size={16} className="text-primary" />
+            <div>
+              <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
+              {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {permissions.map((perm) => {
@@ -242,23 +298,24 @@ function RolesTab() {
                   key={perm.id}
                   onClick={() => void togglePermission(role, perm.code)}
                   title={perm.description ?? undefined}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     active
                       ? "border-primary bg-primary text-white"
-                      : "border-border bg-white text-ink-muted hover:border-primary/40"
+                      : "border-border bg-surface text-ink-muted hover:border-primary/40"
                   }`}
                 >
                   {perm.code}
                 </button>
               );
             })}
+            {permissions.length === 0 && <p className="text-xs text-ink-muted">Aucune permission disponible.</p>}
           </div>
         </Card>
       ))}
 
       <Card className="max-w-lg">
         <h2 className="mb-3 text-sm font-semibold text-ink">Créer un rôle personnalisé</h2>
-        <form onSubmit={handleCreateRole} className="flex gap-2">
+        <form onSubmit={handleCreateRole} className="flex flex-wrap gap-2">
           <Input
             placeholder="CODE_ROLE"
             required

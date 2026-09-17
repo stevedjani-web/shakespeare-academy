@@ -6,6 +6,7 @@ import { isApiError } from "@/contexts/auth-context";
 import { useAuth } from "@/contexts/auth-context";
 import type { School } from "@/lib/types";
 import { Button, Card, ErrorMessage, Field, Input, PageTitle, SuccessMessage } from "@/components/ui";
+import { Building2 } from "lucide-react";
 
 export default function SchoolSettingsPage() {
   const { hasPermission } = useAuth();
@@ -49,7 +50,12 @@ export default function SchoolSettingsPage() {
 
   return (
     <div>
-      <PageTitle subtitle="Identité et coordonnées de l'établissement.">Établissement</PageTitle>
+      <div className="flex items-center gap-4">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+          <Building2 size={26} />
+        </span>
+        <PageTitle subtitle="Identité et coordonnées de l'établissement.">Établissement</PageTitle>
+      </div>
       <Card className="max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Nom de l'établissement">

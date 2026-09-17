@@ -5,6 +5,19 @@ import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { AcademicYear, Class, Cycle, Level, Section } from "@/lib/types";
 import { Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { BookOpen, Building2, GraduationCap, Layers, type LucideIcon } from "lucide-react";
+
+function ColumnTitle({ icon: Icon, step, children }: { icon: LucideIcon; step: number; children: React.ReactNode }) {
+  return (
+    <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+        {step}
+      </span>
+      <Icon size={16} className="text-primary" />
+      {children}
+    </h2>
+  );
+}
 
 export default function AcademicStructurePage() {
   const { hasPermission } = useAuth();
@@ -153,14 +166,18 @@ function SectionColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-ink">1. Sections</h2>
-      <ul className="mb-4 divide-y divide-border">
+      <ColumnTitle icon={Building2} step={1}>
+        Sections
+      </ColumnTitle>
+      <ul className="mb-4 space-y-1">
         {sections.map((s) => (
           <li key={s.id}>
             <button
               onClick={() => onSelect(s.id)}
-              className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
-                selectedSectionId === s.id ? "bg-surface-muted font-medium" : ""
+              className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                selectedSectionId === s.id
+                  ? "border-primary/30 bg-primary-soft font-medium text-primary"
+                  : "border-transparent hover:bg-surface-muted"
               }`}
             >
               {s.nom} <span className="text-ink-muted">({s.code})</span>
@@ -207,20 +224,22 @@ function CycleColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-ink">
-        2. Cycles {section && <span className="font-normal text-ink-muted">— {section.nom}</span>}
-      </h2>
+      <ColumnTitle icon={BookOpen} step={2}>
+        Cycles {section && <span className="font-normal text-ink-muted">— {section.nom}</span>}
+      </ColumnTitle>
       {!section ? (
         <p className="text-sm text-ink-muted">Sélectionnez une section.</p>
       ) : (
         <>
-          <ul className="mb-4 divide-y divide-border">
+          <ul className="mb-4 space-y-1">
             {cycles.map((c) => (
               <li key={c.id}>
                 <button
                   onClick={() => onSelect(c.id)}
-                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
-                    selectedCycleId === c.id ? "bg-surface-muted font-medium" : ""
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                    selectedCycleId === c.id
+                      ? "border-primary/30 bg-primary-soft font-medium text-primary"
+                      : "border-transparent hover:bg-surface-muted"
                   }`}
                 >
                   {c.nom} <span className="text-ink-muted">({c.code})</span>
@@ -269,20 +288,22 @@ function LevelColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-ink">
-        3. Niveaux {cycle && <span className="font-normal text-ink-muted">— {cycle.nom}</span>}
-      </h2>
+      <ColumnTitle icon={Layers} step={3}>
+        Niveaux {cycle && <span className="font-normal text-ink-muted">— {cycle.nom}</span>}
+      </ColumnTitle>
       {!cycle ? (
         <p className="text-sm text-ink-muted">Sélectionnez un cycle.</p>
       ) : (
         <>
-          <ul className="mb-4 divide-y divide-border">
+          <ul className="mb-4 space-y-1">
             {levels.map((l) => (
               <li key={l.id}>
                 <button
                   onClick={() => onSelect(l.id)}
-                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
-                    selectedLevelId === l.id ? "bg-surface-muted font-medium" : ""
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+                    selectedLevelId === l.id
+                      ? "border-primary/30 bg-primary-soft font-medium text-primary"
+                      : "border-transparent hover:bg-surface-muted"
                   }`}
                 >
                   {l.nom}
@@ -333,9 +354,9 @@ function ClassColumn({
   const [capacite, setCapacite] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-ink">
-        4. Classes {level && <span className="font-normal text-ink-muted">— {level.nom}</span>}
-      </h2>
+      <ColumnTitle icon={GraduationCap} step={4}>
+        Classes {level && <span className="font-normal text-ink-muted">— {level.nom}</span>}
+      </ColumnTitle>
       {!level ? (
         <p className="text-sm text-ink-muted">Sélectionnez un niveau.</p>
       ) : (
@@ -349,9 +370,9 @@ function ClassColumn({
               ))}
             </Select>
           </Field>
-          <ul className="my-4 divide-y divide-border">
+          <ul className="my-4 space-y-1">
             {classes.map((c) => (
-              <li key={c.id} className="py-2 text-sm">
+              <li key={c.id} className="rounded-xl bg-surface-muted px-3 py-2 text-sm text-ink">
                 {c.nom} {c.capacite && <span className="text-ink-muted">— capacité {c.capacite}</span>}
               </li>
             ))}

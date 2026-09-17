@@ -8,6 +8,7 @@ import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
+import { ArrowLeft, CalendarDays, IdCard, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
 const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | "gray" }> = {
@@ -70,10 +71,16 @@ export default function StudentDossierPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <PageTitle subtitle={`Matricule ${student.matricule}`}>
-          {student.prenom} {student.nom}
-        </PageTitle>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft font-display text-xl font-semibold text-primary">
+            {student.prenom.charAt(0)}
+            {student.nom.charAt(0)}
+          </span>
+          <PageTitle subtitle={`Matricule ${student.matricule}`}>
+            {student.prenom} {student.nom}
+          </PageTitle>
+        </div>
         {canManage && (
           <Button onClick={() => router.push(`/eleves/inscription?studentId=${student.id}`)}>
             Inscrire pour une nouvelle année
@@ -83,7 +90,9 @@ export default function StudentDossierPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <h2 className="mb-3 text-sm font-semibold text-ink">Identité</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <IdCard size={16} className="text-primary" /> Identité
+          </h2>
           <dl className="space-y-2 text-sm">
             <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
             <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
@@ -97,16 +106,19 @@ export default function StudentDossierPage() {
 
         <Card className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Responsables</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Users size={16} className="text-primary" /> Responsables
+            </h2>
             {canManage && (
               <Button variant="secondary" onClick={() => setShowGuardianForm((v) => !v)}>
-                {showGuardianForm ? "Annuler" : "Ajouter un responsable"}
+                <UserPlus size={15} />
+                {showGuardianForm ? "Annuler" : "Ajouter"}
               </Button>
             )}
           </div>
           <ul className="divide-y divide-border">
             {student.studentGuardians.map((sg) => (
-              <li key={sg.id} className="flex items-center justify-between py-2 text-sm">
+              <li key={sg.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
                 <div>
                   <span className="font-medium text-ink">
                     {sg.guardian.prenom} {sg.guardian.nom}
@@ -114,7 +126,11 @@ export default function StudentDossierPage() {
                   <span className="text-ink-muted">
                     — {sg.lien} · {sg.guardian.telephone}
                   </span>
-                  {sg.prioritaire && <Badge color="blue">Contact prioritaire</Badge>}
+                  {sg.prioritaire && (
+                    <span className="ml-2">
+                      <Badge color="blue">Contact prioritaire</Badge>
+                    </span>
+                  )}
                 </div>
                 {canManage && (
                   <Button variant="ghost" onClick={() => void handleDetachGuardian(sg.guardianId)}>
@@ -123,6 +139,9 @@ export default function StudentDossierPage() {
                 )}
               </li>
             ))}
+            {student.studentGuardians.length === 0 && (
+              <li className="py-4 text-sm text-ink-muted">Aucun responsable rattaché.</li>
+            )}
           </ul>
           {showGuardianForm && (
             <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-border pt-4">
@@ -169,7 +188,9 @@ export default function StudentDossierPage() {
         </div>
 
         <Card className="lg:col-span-3">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Parcours annuel</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <CalendarDays size={16} className="text-primary" /> Parcours annuel
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -220,8 +241,8 @@ export default function StudentDossierPage() {
       </div>
 
       <div className="mt-4">
-        <Link href="/eleves" className="text-sm text-ink-muted hover:underline">
-          ← Retour à la liste des élèves
+        <Link href="/eleves" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink hover:underline">
+          <ArrowLeft size={14} /> Retour à la liste des élèves
         </Link>
       </div>
     </div>
