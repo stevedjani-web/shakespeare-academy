@@ -505,6 +505,10 @@ model Payment {
   invoiceLineId    String
   invoiceLine      InvoiceLine   @relation(fields: [invoiceLineId], references: [id])
   numeroRecu       String
+  // Vérification d'authenticité du reçu (D29) : jeton aléatoire distinct de numeroRecu (séquentiel
+  // et donc devinable) — sert de clé pour GET /payments/verify/:token, un endpoint public qui ne
+  // doit jamais permettre d'énumérer tous les reçus de l'école en incrémentant un numéro.
+  verificationToken String       @unique @default(cuid())
   montant          Int
   modePaiement     PaymentMode   @default(ESPECES)
   // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais

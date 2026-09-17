@@ -170,25 +170,6 @@ export class StudentsService {
     }
 
     const student = await this.prisma.$transaction(async (tx) => {
-      const guardian = await tx.guardian.upsert({
-        where: {
-          schoolId_telephone: {
-            schoolId,
-            telephone: dto.responsable.telephone,
-          },
-        },
-        update: {},
-        create: {
-          schoolId,
-          nom: dto.responsable.nom,
-          prenom: dto.responsable.prenom,
-          telephone: dto.responsable.telephone,
-          email: dto.responsable.email,
-          profession: dto.responsable.profession,
-          adresse: dto.responsable.adresse,
-        },
-      });
-
       const created = await tx.student.create({
         data: {
           schoolId,
@@ -201,14 +182,35 @@ export class StudentsService {
         },
       });
 
-      await tx.studentGuardian.create({
-        data: {
-          studentId: created.id,
-          guardianId: guardian.id,
-          lien: dto.responsable.lien,
-          prioritaire: true,
-        },
-      });
+      if (dto.responsable) {
+        const guardian = await tx.guardian.upsert({
+          where: {
+            schoolId_telephone: {
+              schoolId,
+              telephone: dto.responsable.telephone,
+            },
+          },
+          update: {},
+          create: {
+            schoolId,
+            nom: dto.responsable.nom,
+            prenom: dto.responsable.prenom,
+            telephone: dto.responsable.telephone,
+            email: dto.responsable.email,
+            profession: dto.responsable.profession,
+            adresse: dto.responsable.adresse,
+          },
+        });
+
+        await tx.studentGuardian.create({
+          data: {
+            studentId: created.id,
+            guardianId: guardian.id,
+            lien: dto.responsable.lien,
+            prioritaire: true,
+          },
+        });
+      }
 
       return created;
     });

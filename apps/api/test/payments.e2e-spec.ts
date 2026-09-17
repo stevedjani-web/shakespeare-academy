@@ -285,4 +285,41 @@ describe('Paiements et reçus (e2e)', () => {
     );
     expect(byLine.body).toHaveLength(1);
   });
+
+  describe('D29 : vérification publique d’un reçu par jeton', () => {
+    it('renvoie les informations du reçu sans authentification, via le jeton', async () => {
+      const { invoiceLineId } = await setupInvoiceLine();
+      const created = await auth(request(app.getHttpServer()).post('/payments')).send({
+        invoiceLineId,
+        montant: 45000,
+      });
+
+      const res = await request(app.getHttpServer()).get(
+        `/payments/verify/${created.body.verificationToken}`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.numeroRecu).toBe(created.body.numeroRecu);
+      expect(res.body.montant).toBe(45000);
+      expect(res.body.statut).toBe('VALIDE');
+      expect(res.body.eleve).toEqual({ nom: 'Moukala', prenom: 'Grace' });
+    });
+
+    it('refuse un jeton inconnu (404), sans exiger de jeton d’accès', async () => {
+      await request(app.getHttpServer())
+        .get('/payments/verify/jeton-invente-au-hasard')
+        .expect(404);
+    });
+
+    it('ne permet pas de deviner un reçu via son numéro séquentiel', async () => {
+      const { invoiceLineId } = await setupInvoiceLine();
+      const created = await auth(request(app.getHttpServer()).post('/payments')).send({
+        invoiceLineId,
+        montant: 45000,
+      });
+
+      await request(app.getHttpServer())
+        .get(`/payments/verify/${created.body.numeroRecu}`)
+        .expect(404);
+    });
+  });
 });

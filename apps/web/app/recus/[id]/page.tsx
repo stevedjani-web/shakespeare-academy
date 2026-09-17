@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { api, API_URL } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
@@ -20,6 +21,7 @@ export default function ReceiptPage() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [school, setSchool] = useState<School | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,6 +37,12 @@ export default function ReceiptPage() {
       .catch(() => setError("Reçu introuvable."));
     api.get<School>("/school").then(setSchool).catch(() => {});
   }, [params.id, user]);
+
+  useEffect(() => {
+    if (!payment) return;
+    const url = `${window.location.origin}/verifier-recu/${payment.verificationToken}`;
+    QRCode.toDataURL(url, { width: 120, margin: 1 }).then(setQrDataUrl).catch(() => {});
+  }, [payment]);
 
   if (loading || !user) {
     return (
@@ -128,6 +136,16 @@ export default function ReceiptPage() {
             <div className="h-16 border-b border-dashed border-border" />
             <p className="mt-1">Cachet de la Direction</p>
           </div>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center gap-1 border-t border-dashed border-border pt-4">
+          {qrDataUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- data URL générée côté client, jamais une image next/image
+            <img src={qrDataUrl} alt="QR code de vérification du reçu" className="h-20 w-20" />
+          )}
+          <p className="text-center text-[10px] text-ink-muted">
+            Scanner pour vérifier l&apos;authenticité de ce reçu.
+          </p>
         </div>
 
         <p className="mt-6 text-center text-[11px] text-ink-muted">

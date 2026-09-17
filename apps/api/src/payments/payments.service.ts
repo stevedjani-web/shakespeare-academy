@@ -59,6 +59,36 @@ export class PaymentsService {
     return payment;
   }
 
+  /**
+   * D29 : vérification publique d'authenticité d'un reçu, via le jeton opaque (jamais le numéro
+   * de reçu, séquentiel et donc devinable) imprimé en QR code. Ne renvoie que le strict nécessaire
+   * pour confirmer qu'un reçu physique correspond à un vrai enregistrement — jamais de téléphone
+   * de responsable ni d'autre donnée personnelle sensible.
+   */
+  async verifyByToken(token: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { verificationToken: token },
+      include: PAYMENT_INCLUDE,
+    });
+    if (!payment) {
+      throw new NotFoundException('Reçu introuvable ou jeton invalide.');
+    }
+    const schoolId = await this.schoolService.getDefaultId();
+    const school = await this.prisma.school.findUnique({ where: { id: schoolId } });
+    return {
+      numeroRecu: payment.numeroRecu,
+      montant: payment.montant,
+      statut: payment.statut,
+      datePaiement: payment.datePaiement,
+      motif: payment.invoiceLine.feeType.nom,
+      eleve: {
+        nom: payment.invoiceLine.invoice.enrollment.student.nom,
+        prenom: payment.invoiceLine.invoice.enrollment.student.prenom,
+      },
+      etablissement: school?.nom ?? null,
+    };
+  }
+
   async findAllForStudent(studentId: string) {
     const schoolId = await this.schoolService.getDefaultId();
     return this.prisma.payment.findMany({

@@ -4,12 +4,21 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CancelPaymentDto } from './dto/cancel-payment.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 @Controller('payments')
 @RequirePermission('STUDENT_READ')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  // Doit être déclarée avant `GET /payments/:id` pour ne jamais être capturée comme un id
+  // (même précaution que `stats/summary` chez Elyon) — publique (D29), aucune permission requise.
+  @Get('verify/:token')
+  @Public()
+  verify(@Param('token') token: string) {
+    return this.paymentsService.verifyByToken(token);
+  }
 
   @Get()
   findAll(@Query('studentId') studentId?: string, @Query('invoiceLineId') invoiceLineId?: string) {

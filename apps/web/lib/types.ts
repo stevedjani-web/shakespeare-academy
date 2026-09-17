@@ -223,6 +223,7 @@ export type PaymentStatus = "VALIDE" | "ANNULE";
 export interface Payment {
   id: string;
   numeroRecu: string;
+  verificationToken: string;
   montant: number;
   modePaiement: PaymentMode;
   referenceExterne: string | null;

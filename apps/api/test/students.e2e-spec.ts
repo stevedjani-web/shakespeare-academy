@@ -65,6 +65,14 @@ describe('Élèves et responsables (e2e)', () => {
     expect(res.body.studentGuardians[0].prioritaire).toBe(true);
   });
 
+  it('D31 (révisé) : crée un élève sans responsable — utile pour un import dont les contacts ne sont pas encore connus', async () => {
+    const res = await auth(request(app.getHttpServer()).post('/students')).send(
+      baseStudent({ responsable: undefined }),
+    );
+    expect(res.status).toBe(201);
+    expect(res.body.studentGuardians).toHaveLength(0);
+  });
+
   it('génère des matricules séquentiels pour deux élèves successifs', async () => {
     await auth(request(app.getHttpServer()).post('/students')).send(
       baseStudent(),
