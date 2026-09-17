@@ -14,6 +14,9 @@ import {
   X,
   LogOut,
   Receipt,
+  Wallet,
+  ClipboardList,
+  AlertOctagon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -29,6 +32,9 @@ const LINKS: NavLink[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/eleves", label: "Élèves", icon: GraduationCap },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
+  { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
+  { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
+  { href: "/cloture", label: "Clôture de journée", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
   { href: "/parametres/annees", label: "Années scolaires", icon: CalendarRange },
   { href: "/parametres/structure", label: "Structure académique", icon: Building2 },
   { href: "/parametres/utilisateurs", label: "Utilisateurs & rôles", icon: Users, requiredPermission: "USER_MANAGE" },

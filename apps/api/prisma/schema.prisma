@@ -44,6 +44,7 @@ model School {
   feeSchedules    FeeSchedule[]
   invoices        Invoice[]
   payments        Payment[]
+  expenses        Expense[]
 
   @@map("schools")
 }
@@ -215,12 +216,14 @@ model User {
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
-  refreshTokens     RefreshToken[]
-  auditLogs         AuditLog[]
-  discountsProposed Discount[]     @relation("DiscountAuteur")
-  discountsDecided  Discount[]     @relation("DiscountApprobateur")
-  paymentsRecus     Payment[]
-  paymentsAnnules   Payment[]      @relation("PaymentAnnulePar")
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  discountsProposed  Discount[]     @relation("DiscountAuteur")
+  discountsDecided   Discount[]     @relation("DiscountApprobateur")
+  paymentsRecus      Payment[]
+  paymentsAnnules    Payment[]      @relation("PaymentAnnulePar")
+  expensesEffectuees Expense[]      @relation("ExpenseEffectuePar")
+  expensesApprouvees Expense[]      @relation("ExpenseApprobateur")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -571,4 +574,37 @@ model AuditLog {
   @@index([schoolId, createdAt])
   @@index([entite, entiteId])
   @@map("audit_logs")
+}
+
+// --- Sorties financières (Lot 5) ---------------------------------------------
+// D24 (DECISIONS_PENDING.md) : catégorie fermée mais volontairement PAS un enum Postgres — une
+// simple chaîne validée côté DTO (`EXPENSE_CATEGORIES`) pour rester "paramétrable" sans migration
+// si l'école demande une catégorie de plus. D25 : toute sortie exige une validation Direction
+// (seuil = 0, provisoire) avant d'être comptée comme une vraie sortie de caisse.
+
+enum ExpenseStatus {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  schoolId      String
+  school        School        @relation(fields: [schoolId], references: [id])
+  categorie     String
+  montant       Int
+  description   String
+  dateDepense   DateTime      @default(now())
+  statut        ExpenseStatus @default(EN_ATTENTE)
+  effectueParId String
+  effectuePar   User          @relation("ExpenseEffectuePar", fields: [effectueParId], references: [id])
+  approbateurId String?
+  approbateur   User?         @relation("ExpenseApprobateur", fields: [approbateurId], references: [id])
+  motifRejet    String?
+  dateDecision  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("expenses")
 }

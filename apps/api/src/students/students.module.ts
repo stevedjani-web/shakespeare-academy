@@ -11,6 +11,6 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [AuditModule, SchoolModule, NumberSequenceModule, PrismaModule],
   controllers: [StudentsController],
   providers: [StudentsService, FinancialStatusService],
-  exports: [StudentsService],
+  exports: [StudentsService, FinancialStatusService],
 })
 export class StudentsModule {}

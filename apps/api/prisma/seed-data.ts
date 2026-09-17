@@ -54,6 +54,19 @@ export const LOT4_PERMISSIONS = [
   { code: 'PAYMENT_CANCEL_APPROVE', description: 'Approuver l’annulation (correction) d’un paiement validé.' },
 ] as const;
 
+/**
+ * Catalogue de permissions du Lot 5 (sorties financières, clôture de journée). `EXPENSE_CREATE`
+ * repris tel quel du cahier §3. `EXPENSE_APPROVE` (Direction uniquement, D25 : toute sortie exige
+ * une validation Direction) et `CASH_CLOSE` (accès à l'état de clôture de journée — entrées,
+ * sorties, solde) complètent le trio, cohérents avec le rôle Comptable ("sorties, rapports,
+ * rapprochements, export", jusqu'ici sans aucune permission réelle).
+ */
+export const LOT5_PERMISSIONS = [
+  { code: 'EXPENSE_CREATE', description: 'Enregistrer une sortie financière (dépense).' },
+  { code: 'EXPENSE_APPROVE', description: 'Approuver ou rejeter une sortie financière.' },
+  { code: 'CASH_CLOSE', description: "Consulter l'état de clôture de journée (entrées, sorties, solde)." },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -71,31 +84,40 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ENROLLMENT_MANAGE',
       'FEE_MANAGE',
       'PAYMENT_CREATE',
-      // Pas DISCOUNT_APPROVE ni PAYMENT_CANCEL_APPROVE : D19 (DECISIONS_PENDING.md) tranche
-      // explicitement "Direction uniquement" pour l'approbation des remises, même principe pour
-      // l'annulation d'un paiement (RG09) — Administrateur configure/encaisse mais ne valide pas
-      // les annulations, cohérent avec sa description de rôle ("validation des annulations et
-      // écarts" reste l'apanage de Direction, pas Administrateur).
+      'CASH_CLOSE',
+      'EXPENSE_CREATE',
+      // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
+      // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
+      // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
+      // configure/encaisse mais ne valide pas ces opérations, cohérent avec sa description de rôle
+      // ("validation des annulations et écarts" reste l'apanage de Direction, pas Administrateur).
     ],
   },
   {
     code: 'DIRECTION',
     nom: 'Direction',
     description: 'Tableaux de bord, rapports, validation des annulations et écarts.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'DISCOUNT_APPROVE', 'PAYMENT_CANCEL_APPROVE'],
+    permissions: [
+      'AUDIT_LOG_READ',
+      'STUDENT_READ',
+      'DISCOUNT_APPROVE',
+      'PAYMENT_CANCEL_APPROVE',
+      'EXPENSE_APPROVE',
+      'CASH_CLOSE',
+    ],
   },
   {
     code: 'SECRETAIRE_CAISSIER',
     nom: 'Secrétaire-caissier',
     description:
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
-    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE'],
+    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE', 'CASH_CLOSE'],
   },
   {
     code: 'COMPTABLE',
     nom: 'Comptable',
     description: 'Sorties, rapports, rapprochements, export.',
-    permissions: [],
+    permissions: ['STUDENT_READ', 'EXPENSE_CREATE', 'CASH_CLOSE'],
   },
   {
     code: 'AUDITEUR',
@@ -124,7 +146,13 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
       data: { nom: options.schoolName ?? 'Shakespeare Academy' },
     }));
 
-  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS, ...LOT3_PERMISSIONS, ...LOT4_PERMISSIONS]) {
+  for (const permission of [
+    ...LOT1_PERMISSIONS,
+    ...LOT2_PERMISSIONS,
+    ...LOT3_PERMISSIONS,
+    ...LOT4_PERMISSIONS,
+    ...LOT5_PERMISSIONS,
+  ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },
       update: { description: permission.description },
