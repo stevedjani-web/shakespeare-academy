@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { Student } from "@/lib/types";
@@ -13,6 +14,7 @@ function initials(nom: string, prenom: string) {
 }
 
 export default function StudentsListPage() {
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [query, setQuery] = useState("");
@@ -97,9 +99,13 @@ export default function StudentsListPage() {
                 </thead>
                 <tbody>
                   {students.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-0 hover:bg-surface-muted">
+                    <tr
+                      key={s.id}
+                      onClick={() => router.push(`/eleves/${s.id}`)}
+                      className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-muted"
+                    >
                       <td className="py-2.5 pr-4">
-                        <Link href={`/eleves/${s.id}`} className="flex items-center gap-3">
+                        <Link href={`/eleves/${s.id}`} className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
                             {initials(s.nom, s.prenom)}
                           </span>
