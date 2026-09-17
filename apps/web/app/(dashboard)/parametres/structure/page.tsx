@@ -153,21 +153,21 @@ function SectionColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">1. Sections</h2>
-      <ul className="mb-4 divide-y divide-slate-100">
+      <h2 className="mb-3 text-sm font-semibold text-ink">1. Sections</h2>
+      <ul className="mb-4 divide-y divide-border">
         {sections.map((s) => (
           <li key={s.id}>
             <button
               onClick={() => onSelect(s.id)}
-              className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50 ${
-                selectedSectionId === s.id ? "bg-slate-100 font-medium" : ""
+              className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
+                selectedSectionId === s.id ? "bg-surface-muted font-medium" : ""
               }`}
             >
-              {s.nom} <span className="text-slate-400">({s.code})</span>
+              {s.nom} <span className="text-ink-muted">({s.code})</span>
             </button>
           </li>
         ))}
-        {sections.length === 0 && <li className="py-4 text-sm text-slate-400">Aucune section.</li>}
+        {sections.length === 0 && <li className="py-4 text-sm text-ink-muted">Aucune section.</li>}
       </ul>
       {canManage && (
         <form
@@ -207,27 +207,27 @@ function CycleColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">
-        2. Cycles {section && <span className="font-normal text-slate-400">— {section.nom}</span>}
+      <h2 className="mb-3 text-sm font-semibold text-ink">
+        2. Cycles {section && <span className="font-normal text-ink-muted">— {section.nom}</span>}
       </h2>
       {!section ? (
-        <p className="text-sm text-slate-400">Sélectionnez une section.</p>
+        <p className="text-sm text-ink-muted">Sélectionnez une section.</p>
       ) : (
         <>
-          <ul className="mb-4 divide-y divide-slate-100">
+          <ul className="mb-4 divide-y divide-border">
             {cycles.map((c) => (
               <li key={c.id}>
                 <button
                   onClick={() => onSelect(c.id)}
-                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50 ${
-                    selectedCycleId === c.id ? "bg-slate-100 font-medium" : ""
+                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
+                    selectedCycleId === c.id ? "bg-surface-muted font-medium" : ""
                   }`}
                 >
-                  {c.nom} <span className="text-slate-400">({c.code})</span>
+                  {c.nom} <span className="text-ink-muted">({c.code})</span>
                 </button>
               </li>
             ))}
-            {cycles.length === 0 && <li className="py-4 text-sm text-slate-400">Aucun cycle.</li>}
+            {cycles.length === 0 && <li className="py-4 text-sm text-ink-muted">Aucun cycle.</li>}
           </ul>
           {canManage && (
             <form
@@ -269,27 +269,27 @@ function LevelColumn({
   const [nom, setNom] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">
-        3. Niveaux {cycle && <span className="font-normal text-slate-400">— {cycle.nom}</span>}
+      <h2 className="mb-3 text-sm font-semibold text-ink">
+        3. Niveaux {cycle && <span className="font-normal text-ink-muted">— {cycle.nom}</span>}
       </h2>
       {!cycle ? (
-        <p className="text-sm text-slate-400">Sélectionnez un cycle.</p>
+        <p className="text-sm text-ink-muted">Sélectionnez un cycle.</p>
       ) : (
         <>
-          <ul className="mb-4 divide-y divide-slate-100">
+          <ul className="mb-4 divide-y divide-border">
             {levels.map((l) => (
               <li key={l.id}>
                 <button
                   onClick={() => onSelect(l.id)}
-                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50 ${
-                    selectedLevelId === l.id ? "bg-slate-100 font-medium" : ""
+                  className={`w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted ${
+                    selectedLevelId === l.id ? "bg-surface-muted font-medium" : ""
                   }`}
                 >
                   {l.nom}
                 </button>
               </li>
             ))}
-            {levels.length === 0 && <li className="py-4 text-sm text-slate-400">Aucun niveau.</li>}
+            {levels.length === 0 && <li className="py-4 text-sm text-ink-muted">Aucun niveau.</li>}
           </ul>
           {canManage && (
             <form
@@ -333,11 +333,11 @@ function ClassColumn({
   const [capacite, setCapacite] = useState("");
   return (
     <Card>
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">
-        4. Classes {level && <span className="font-normal text-slate-400">— {level.nom}</span>}
+      <h2 className="mb-3 text-sm font-semibold text-ink">
+        4. Classes {level && <span className="font-normal text-ink-muted">— {level.nom}</span>}
       </h2>
       {!level ? (
-        <p className="text-sm text-slate-400">Sélectionnez un niveau.</p>
+        <p className="text-sm text-ink-muted">Sélectionnez un niveau.</p>
       ) : (
         <>
           <Field label="Année scolaire">
@@ -349,13 +349,13 @@ function ClassColumn({
               ))}
             </Select>
           </Field>
-          <ul className="my-4 divide-y divide-slate-100">
+          <ul className="my-4 divide-y divide-border">
             {classes.map((c) => (
               <li key={c.id} className="py-2 text-sm">
-                {c.nom} {c.capacite && <span className="text-slate-400">— capacité {c.capacite}</span>}
+                {c.nom} {c.capacite && <span className="text-ink-muted">— capacité {c.capacite}</span>}
               </li>
             ))}
-            {classes.length === 0 && <li className="py-4 text-sm text-slate-400">Aucune classe pour cette année.</li>}
+            {classes.length === 0 && <li className="py-4 text-sm text-ink-muted">Aucune classe pour cette année.</li>}
           </ul>
           {canManage && selectedYearId && (
             <form

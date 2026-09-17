@@ -167,3 +167,84 @@ export interface Enrollment {
   }>;
   academicYear: { id: string; libelle: string };
 }
+
+// --- Lot 3 : tarifs, factures, remises, solvabilité -------------------------
+
+export interface FeeType {
+  id: string;
+  code: string;
+  nom: string;
+  obligatoire: boolean;
+  avecTranches: boolean;
+}
+
+export interface InstallmentSchedule {
+  id: string;
+  libelle: string;
+  montant: number;
+  ordre: number;
+  dateLimite: string;
+  delaiGraceJours: number;
+}
+
+export interface FeeSchedule {
+  id: string;
+  academicYearId: string;
+  levelId: string;
+  feeTypeId: string;
+  montant: number | null;
+  feeType: FeeType;
+  level: { id: string; nom: string };
+  academicYear: { id: string; libelle: string };
+  installments: InstallmentSchedule[];
+}
+
+export type DiscountType = "MONTANT_FIXE" | "POURCENTAGE";
+export type DiscountStatus = "EN_ATTENTE" | "APPROUVEE" | "REJETEE";
+
+export interface Discount {
+  id: string;
+  type: DiscountType;
+  valeur: number;
+  motif: string;
+  statut: DiscountStatus;
+  motifRejet: string | null;
+  dateDecision: string | null;
+  auteur: { id: string; nom: string; prenom: string };
+  approbateur: { id: string; nom: string; prenom: string } | null;
+}
+
+export interface InvoiceLine {
+  id: string;
+  libelle: string;
+  montant: number;
+  dateEcheance: string | null;
+  delaiGraceJours: number;
+  ordre: number;
+  feeType: FeeType;
+  discounts: Discount[];
+}
+
+export type InvoiceStatus = "EMISE" | "ANNULEE";
+
+export interface Invoice {
+  id: string;
+  statut: InvoiceStatus;
+  dateEmission: string;
+  lines: InvoiceLine[];
+  enrollment: { id: string; numero: string };
+}
+
+export type SolvencyStatus = "SOLVABLE" | "A_ECHOIR" | "EN_RETARD" | "IMPAYE_CRITIQUE" | "EXONERE";
+
+export interface FinancialStatus {
+  statut: SolvencyStatus;
+  montantFacture: number;
+  montantRemise: number;
+  montantPaye: number;
+  montantRestant: number;
+  montantExigible: number;
+  montantAEchoir: number;
+  prochaineEcheance: { libelle: string; montant: number; dateLimite: string; enRetard: boolean } | null;
+  lignesEnRetard: Array<{ invoiceId: string; invoiceLineId: string; libelle: string; montant: number; dateLimite: string }>;
+}

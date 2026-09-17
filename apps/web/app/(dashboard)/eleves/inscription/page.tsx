@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
 import type { AcademicYear, Class, Cycle, Enrollment, Level, Section, Student } from "@/lib/types";
-import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select, Stepper, SuccessMessage } from "@/components/ui";
 
 export default function EnrollmentWizardPage() {
   return (
@@ -46,7 +46,7 @@ function EnrollmentWizard() {
         Inscription / réinscription
       </PageTitle>
 
-      <Steps current={step} />
+      <Stepper steps={["Élève", "Classe", "Confirmation"]} current={["eleve", "classe", "confirmation"].indexOf(step)} />
 
       {step === "eleve" && (
         <StudentStep
@@ -82,9 +82,9 @@ function EnrollmentWizard() {
 
       {result && (
         <Card className="mt-4">
-          <p className="text-sm font-medium text-green-700">
+          <SuccessMessage>
             {result.type === "INSCRIPTION" ? "Inscription" : "Réinscription"} confirmée — numéro {result.numero}.
-          </p>
+          </SuccessMessage>
           <div className="mt-4 flex gap-3">
             <Button onClick={() => router.push(`/eleves/${student!.id}`)}>Voir le dossier de l&apos;élève</Button>
             <Button variant="secondary" onClick={() => router.push("/eleves")}>
@@ -93,28 +93,6 @@ function EnrollmentWizard() {
           </div>
         </Card>
       )}
-    </div>
-  );
-}
-
-function Steps({ current }: { current: Step }) {
-  const steps: { key: Step; label: string }[] = [
-    { key: "eleve", label: "1. Élève" },
-    { key: "classe", label: "2. Classe" },
-    { key: "confirmation", label: "3. Confirmation" },
-  ];
-  return (
-    <div className="mb-6 flex gap-2">
-      {steps.map((s) => (
-        <span
-          key={s.key}
-          className={`rounded-full px-3 py-1 text-xs font-medium ${
-            s.key === current ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {s.label}
-        </span>
-      ))}
     </div>
   );
 }
@@ -137,16 +115,16 @@ function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
 
   return (
     <Card>
-      <div className="mb-4 flex gap-1 border-b border-slate-200">
+      <div className="mb-4 flex gap-1 border-b border-border">
         <button
           onClick={() => setMode("search")}
-          className={`px-3 py-2 text-sm font-medium ${mode === "search" ? "border-b-2 border-slate-900" : "text-slate-500"}`}
+          className={`px-3 py-2 text-sm font-medium ${mode === "search" ? "border-b-2 border-primary" : "text-ink-muted"}`}
         >
           Élève déjà connu (réinscription)
         </button>
         <button
           onClick={() => setMode("create")}
-          className={`px-3 py-2 text-sm font-medium ${mode === "create" ? "border-b-2 border-slate-900" : "text-slate-500"}`}
+          className={`px-3 py-2 text-sm font-medium ${mode === "create" ? "border-b-2 border-primary" : "text-ink-muted"}`}
         >
           Nouvel élève
         </button>
@@ -155,24 +133,24 @@ function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
       {mode === "search" ? (
         <div>
           <Input placeholder="Rechercher un élève…" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <ul className="mt-3 divide-y divide-slate-100">
+          <ul className="mt-3 divide-y divide-border">
             {results.map((s) => (
               <li key={s.id}>
                 <button
                   onClick={() => onSelected(s)}
-                  className="w-full rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50"
+                  className="w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted"
                 >
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-ink">
                     {s.prenom} {s.nom}
                   </span>{" "}
-                  <span className="text-slate-400">
+                  <span className="text-ink-muted">
                     — {s.matricule} · né(e) le {new Date(s.dateNaissance).toLocaleDateString("fr-FR")}
                   </span>
                 </button>
               </li>
             ))}
             {query.trim() && results.length === 0 && (
-              <li className="py-3 text-sm text-slate-400">Aucun élève trouvé pour « {query} ».</li>
+              <li className="py-3 text-sm text-ink-muted">Aucun élève trouvé pour « {query} ».</li>
             )}
           </ul>
         </div>
@@ -250,7 +228,7 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
         <Input value={form.nationalite} onChange={(e) => setForm({ ...form, nationalite: e.target.value })} />
       </Field>
 
-      <h3 className="pt-2 text-sm font-semibold text-slate-900">Responsable légal</h3>
+      <h3 className="pt-2 text-sm font-semibold text-ink">Responsable légal</h3>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom">
           <Input
@@ -287,8 +265,8 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
       <ErrorMessage>{error}</ErrorMessage>
 
       {duplicate && (
-        <div className="rounded-md border border-orange-200 bg-orange-50 p-3 text-sm">
-          <p className="text-orange-800">
+        <div className="rounded-xl border border-warning/30 bg-warning-soft p-3 text-sm">
+          <p className="text-warning">
             Élève potentiellement déjà connu : <strong>{duplicate.prenom} {duplicate.nom}</strong>.
           </p>
           <Button type="button" variant="secondary" className="mt-2" onClick={() => void submit(true)}>
@@ -474,17 +452,17 @@ function ConfirmationStep({
     <Card>
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <dt className="text-slate-500">Élève</dt>
-          <dd className="font-medium text-slate-900">
+          <dt className="text-ink-muted">Élève</dt>
+          <dd className="font-medium text-ink">
             {student.prenom} {student.nom} <Badge>{student.matricule}</Badge>
           </dd>
         </div>
         <div className="flex justify-between">
-          <dt className="text-slate-500">Classe</dt>
-          <dd className="font-medium text-slate-900">{className}</dd>
+          <dt className="text-ink-muted">Classe</dt>
+          <dd className="font-medium text-ink">{className}</dd>
         </div>
       </dl>
-      <p className="mt-4 text-xs text-slate-500">
+      <p className="mt-4 text-xs text-ink-muted">
         Le total des frais applicables, les échéances et la solvabilité ne sont pas encore calculés à ce stade
         (Lot 3). Cette action crée uniquement l&apos;inscription administrative.
       </p>

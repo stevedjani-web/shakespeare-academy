@@ -82,18 +82,18 @@ export default function SchoolSettingsPage() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-4 text-sm text-slate-500">
+          <div className="grid grid-cols-2 gap-4 text-sm text-ink-muted">
             <div>
-              <span className="block font-medium text-slate-700">Devise</span>
+              <span className="block font-medium text-ink">Devise</span>
               {school.devise}
             </div>
             <div>
-              <span className="block font-medium text-slate-700">Fuseau horaire</span>
+              <span className="block font-medium text-ink">Fuseau horaire</span>
               {school.fuseauHoraire}
             </div>
           </div>
           {!canManage && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-muted">
               Lecture seule — la modification des paramètres de l&apos;établissement requiert la permission
               SETTINGS_MANAGE.
             </p>

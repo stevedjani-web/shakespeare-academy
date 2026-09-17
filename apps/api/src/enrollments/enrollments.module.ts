@@ -7,6 +7,7 @@ import { NumberSequenceModule } from '../common/number-sequence.module';
 import { StudentsModule } from '../students/students.module';
 import { ClassesModule } from '../classes/classes.module';
 import { AcademicYearsModule } from '../academic-years/academic-years.module';
+import { InvoicesModule } from '../invoices/invoices.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AcademicYearsModule } from '../academic-years/academic-years.module';
     StudentsModule,
     ClassesModule,
     AcademicYearsModule,
+    InvoicesModule,
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],

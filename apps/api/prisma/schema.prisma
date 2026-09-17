@@ -27,6 +27,11 @@ model School {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Seuil configurable (jamais inventé) au-delà duquel un montant exigible en retard fait basculer
+  // le statut de solvabilité de EN_RETARD à IMPAYE_CRITIQUE (cahier §6). `null` = fonctionnalité
+  // inactive : le statut restera toujours EN_RETARD, jamais IMPAYE_CRITIQUE, tant qu'il n'est pas réglé.
+  seuilImpayeCritiqueFcfa Int?
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -35,6 +40,9 @@ model School {
   students        Student[]
   guardians       Guardian[]
   enrollments     Enrollment[]
+  feeTypes        FeeType[]
+  feeSchedules    FeeSchedule[]
+  invoices        Invoice[]
 
   @@map("schools")
 }
@@ -60,8 +68,9 @@ model AcademicYear {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
-  classes               Class[]
-  enrollments           Enrollment[]
+  classes      Class[]
+  enrollments  Enrollment[]
+  feeSchedules FeeSchedule[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -80,7 +89,7 @@ model Section {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cycles    Cycle[]
+  cycles Cycle[]
 
   @@unique([schoolId, code])
   @@map("sections")
@@ -96,7 +105,7 @@ model Cycle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  levels    Level[]
+  levels Level[]
 
   @@unique([sectionId, code])
   @@map("cycles")
@@ -112,7 +121,8 @@ model Level {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes   Class[]
+  classes      Class[]
+  feeSchedules FeeSchedule[]
 
   @@unique([cycleId, code])
   @@map("levels")
@@ -133,7 +143,7 @@ model Class {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  enrollments    Enrollment[]
+  enrollments Enrollment[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -144,12 +154,12 @@ model Class {
 // vérifiée à chaque requête sensible par un guard serveur, jamais par le seul rôle affiché côté client.
 
 model Role {
-  id              String           @id @default(cuid())
-  code            String           @unique
-  nom             String
-  description     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id          String   @id @default(cuid())
+  code        String   @unique
+  nom         String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   rolePermissions RolePermission[]
   users           User[]
@@ -158,10 +168,10 @@ model Role {
 }
 
 model Permission {
-  id              String           @id @default(cuid())
-  code            String           @unique
-  description     String?
-  createdAt       DateTime         @default(now())
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
 
   rolePermissions RolePermission[]
 
@@ -185,27 +195,29 @@ enum UserStatus {
 }
 
 model User {
-  id             String    @id @default(cuid())
-  schoolId       String
-  school         School    @relation(fields: [schoolId], references: [id])
-  roleId         String
-  role           Role      @relation(fields: [roleId], references: [id])
-  nom            String
-  prenom         String
-  email          String
-  motDePasseHash String
-  statut         UserStatus @default(ACTIF)
-  dernierLoginAt DateTime?
+  id                        String     @id @default(cuid())
+  schoolId                  String
+  school                    School     @relation(fields: [schoolId], references: [id])
+  roleId                    String
+  role                      Role       @relation(fields: [roleId], references: [id])
+  nom                       String
+  prenom                    String
+  email                     String
+  motDePasseHash            String
+  statut                    UserStatus @default(ACTIF)
+  dernierLoginAt            DateTime?
   // Politique de verrouillage (§14) : compteur d'échecs consécutifs et verrou temporaire, jamais un blocage définitif.
-  tentativesEchecsConnexion Int       @default(0)
+  tentativesEchecsConnexion Int        @default(0)
   verrouilleJusqua          DateTime?
   // Récupération administrée (§8) : un admin fixe un mot de passe temporaire, l'utilisateur doit le changer à la connexion suivante.
-  doitChangerMotDePasse     Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  doitChangerMotDePasse     Boolean    @default(false)
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
 
-  refreshTokens  RefreshToken[]
-  auditLogs      AuditLog[]
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]
+  discountsProposed Discount[]     @relation("DiscountAuteur")
+  discountsDecided  Discount[]     @relation("DiscountApprobateur")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -327,25 +339,156 @@ enum EnrollmentStatus {
 }
 
 model Enrollment {
-  id             String           @id @default(cuid())
-  schoolId       String
-  school         School           @relation(fields: [schoolId], references: [id])
-  studentId      String
-  student        Student          @relation(fields: [studentId], references: [id])
-  classId        String
-  class          Class            @relation(fields: [classId], references: [id])
-  academicYearId String
-  academicYear   AcademicYear     @relation(fields: [academicYearId], references: [id])
-  numero         String
-  type           EnrollmentType
-  statut         EnrollmentStatus @default(ACTIVE)
-  dateInscription DateTime        @default(now())
+  id              String           @id @default(cuid())
+  schoolId        String
+  school          School           @relation(fields: [schoolId], references: [id])
+  studentId       String
+  student         Student          @relation(fields: [studentId], references: [id])
+  classId         String
+  class           Class            @relation(fields: [classId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear     @relation(fields: [academicYearId], references: [id])
+  numero          String
+  type            EnrollmentType
+  statut          EnrollmentStatus @default(ACTIVE)
+  dateInscription DateTime         @default(now())
   motifAnnulation String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  invoice Invoice?
 
   @@unique([schoolId, numero])
   @@map("enrollments")
+}
+
+// --- Tarifs, factures, remises (Lot 3) --------------------------------------
+// Aucun paiement ici (Lot 4) : "montant payé" est donc toujours 0 pour l'instant.
+// Le statut de solvabilité (cahier §6) reflète honnêtement cette absence — RG13, jamais une donnée
+// inventée : tant que le Lot 4 n'existe pas, tout montant exigible apparaît normalement non couvert.
+
+model FeeType {
+  id           String   @id @default(cuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+  code         String
+  nom          String
+  obligatoire  Boolean  @default(true)
+  avecTranches Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  feeSchedules FeeSchedule[]
+  invoiceLines InvoiceLine[]
+
+  @@unique([schoolId, code])
+  @@map("fee_types")
+}
+
+model FeeSchedule {
+  id             String       @id @default(cuid())
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  levelId        String
+  level          Level        @relation(fields: [levelId], references: [id])
+  feeTypeId      String
+  feeType        FeeType      @relation(fields: [feeTypeId], references: [id])
+  // Requis si feeType.avecTranches = false (montant unique). Ignoré sinon (voir InstallmentSchedule).
+  montant        Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  installments InstallmentSchedule[]
+
+  @@unique([academicYearId, levelId, feeTypeId])
+  @@map("fee_schedules")
+}
+
+model InstallmentSchedule {
+  id              String      @id @default(cuid())
+  feeScheduleId   String
+  feeSchedule     FeeSchedule @relation(fields: [feeScheduleId], references: [id], onDelete: Cascade)
+  libelle         String
+  montant         Int
+  ordre           Int
+  dateLimite      DateTime
+  delaiGraceJours Int         @default(0)
+  createdAt       DateTime    @default(now())
+
+  @@unique([feeScheduleId, ordre])
+  @@map("installment_schedules")
+}
+
+enum InvoiceStatus {
+  EMISE
+  ANNULEE
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  schoolId     String
+  school       School        @relation(fields: [schoolId], references: [id])
+  enrollmentId String        @unique
+  enrollment   Enrollment    @relation(fields: [enrollmentId], references: [id])
+  statut       InvoiceStatus @default(EMISE)
+  dateEmission DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  lines InvoiceLine[]
+
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  feeTypeId       String
+  feeType         FeeType   @relation(fields: [feeTypeId], references: [id])
+  // Snapshot (RG03) : jamais recalculé après coup, même si le tarif change ensuite.
+  libelle         String
+  montant         Int
+  dateEcheance    DateTime?
+  delaiGraceJours Int       @default(0)
+  ordre           Int       @default(0)
+  createdAt       DateTime  @default(now())
+
+  discounts Discount[]
+
+  @@map("invoice_lines")
+}
+
+enum DiscountType {
+  MONTANT_FIXE
+  POURCENTAGE
+}
+
+enum DiscountStatus {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
+}
+
+model Discount {
+  id            String         @id @default(cuid())
+  invoiceLineId String
+  invoiceLine   InvoiceLine    @relation(fields: [invoiceLineId], references: [id])
+  type          DiscountType
+  valeur        Int
+  motif         String
+  statut        DiscountStatus @default(EN_ATTENTE)
+  auteurId      String
+  auteur        User           @relation("DiscountAuteur", fields: [auteurId], references: [id])
+  approbateurId String?
+  approbateur   User?          @relation("DiscountApprobateur", fields: [approbateurId], references: [id])
+  motifRejet    String?
+  dateDecision  DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@map("discounts")
 }
 
 // --- Journal d'audit (append-only) ------------------------------------------

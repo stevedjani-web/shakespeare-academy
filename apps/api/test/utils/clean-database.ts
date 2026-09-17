@@ -7,6 +7,12 @@ import { PrismaClient } from '@prisma/client';
 export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.refreshToken.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.discount.deleteMany();
+  await prisma.invoiceLine.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.installmentSchedule.deleteMany();
+  await prisma.feeSchedule.deleteMany();
+  await prisma.feeType.deleteMany();
   await prisma.enrollment.deleteMany();
   await prisma.studentGuardian.deleteMany();
   await prisma.student.deleteMany();

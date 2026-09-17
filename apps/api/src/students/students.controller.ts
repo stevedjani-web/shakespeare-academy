@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
+import { FinancialStatusService } from '../financial-status/financial-status.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { AttachGuardianDto } from './dto/attach-guardian.dto';
@@ -20,7 +21,10 @@ import type { CurrentUserData } from '../auth/types/current-user.interface';
 @Controller('students')
 @RequirePermission('STUDENT_READ')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(
+    private readonly studentsService: StudentsService,
+    private readonly financialStatusService: FinancialStatusService,
+  ) {}
 
   @Get()
   findAll(
@@ -38,6 +42,11 @@ export class StudentsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.studentsService.findOne(id);
+  }
+
+  @Get(':id/financial-status')
+  getFinancialStatus(@Param('id') id: string) {
+    return this.financialStatusService.getForStudent(id);
   }
 
   @Post()

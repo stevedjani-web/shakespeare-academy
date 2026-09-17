@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { GraduationCap, CalendarCheck2, PlusCircle, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { AcademicYear, Student } from "@/lib/types";
-import { Button, Card, PageTitle } from "@/components/ui";
+import { Badge, Button, Card, PageTitle, StatCard } from "@/components/ui";
 
 export default function DashboardHomePage() {
   const { user, hasPermission } = useAuth();
@@ -23,39 +24,54 @@ export default function DashboardHomePage() {
 
   return (
     <div>
-      <PageTitle subtitle={`Bienvenue, ${user?.prenom} ${user?.nom}.`}>Tableau de bord</PageTitle>
+      <PageTitle eyebrow="Tableau de bord" subtitle={`Bienvenue, ${user?.prenom} ${user?.nom}.`}>
+        Bonjour {user?.prenom}
+      </PageTitle>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <p className="text-sm text-slate-500">Année scolaire active</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
-            {activeYear ? activeYear.libelle : "Aucune année active"}
-          </p>
-          {!activeYear && (
-            <p className="mt-1 text-xs text-orange-600">
-              Aucune inscription n&apos;est possible tant qu&apos;une année n&apos;est pas activée.
-            </p>
-          )}
-        </Card>
-        <Card>
-          <p className="text-sm text-slate-500">Élèves enregistrés</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">{studentCount ?? "…"}</p>
-        </Card>
+        <StatCard
+          label="Année scolaire active"
+          value={activeYear ? activeYear.libelle : "Aucune"}
+          tone="primary"
+          icon={<CalendarCheck2 size={18} />}
+          hint={!activeYear ? "Aucune inscription possible tant qu'aucune année n'est active." : undefined}
+        />
+        <StatCard label="Élèves enregistrés" value={studentCount ?? "…"} tone="accent" icon={<GraduationCap size={18} />} />
       </div>
+
+      {!activeYear && (
+        <Card className="mt-4 border-warning/30 bg-warning-soft/40">
+          <p className="text-sm text-warning">
+            <strong>Aucune année scolaire active.</strong> Rendez-vous dans « Années scolaires » pour en activer une
+            avant de commencer les inscriptions.
+          </p>
+        </Card>
+      )}
 
       {hasPermission("ENROLLMENT_MANAGE") && (
         <Card className="mt-6">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Actions rapides</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" /> Actions rapides
+          </h2>
           <div className="flex flex-wrap gap-3">
             <Link href="/eleves/inscription">
-              <Button>Nouvelle inscription / réinscription</Button>
+              <Button>
+                <PlusCircle size={16} /> Nouvelle inscription / réinscription
+              </Button>
             </Link>
             <Link href="/eleves">
-              <Button variant="secondary">Rechercher un élève</Button>
+              <Button variant="secondary">
+                <Search size={16} /> Rechercher un élève
+              </Button>
             </Link>
           </div>
         </Card>
       )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+        <Badge color="primary">{user?.roleCode}</Badge>
+        <span>connecté(e) en tant que {user?.email}</span>
+      </div>
     </div>
   );
 }

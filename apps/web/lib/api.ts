@@ -55,6 +55,13 @@ async function refreshAccessToken(): Promise<string | null> {
   return accessToken;
 }
 
+// Un 401 sur /auth/login (mauvais mot de passe) ou /auth/refresh (pas de session à renouveler)
+// est un échec d'authentification normal, jamais une session qui a expiré en cours de route —
+// ne jamais tenter un rafraîchissement ni afficher "Session expirée" pour ces deux routes
+// (bug réel observé : un simple mauvais mot de passe affichait "Session expirée", pas le vrai
+// message serveur "Identifiant ou mot de passe incorrect").
+const AUTH_ENTRY_POINTS = ["/auth/login", "/auth/refresh"];
+
 async function request<T>(path: string, options: RequestInit = {}, allowRetry = true): Promise<T> {
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData)) {
@@ -66,7 +73,7 @@ async function request<T>(path: string, options: RequestInit = {}, allowRetry = 
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: "include" });
 
-  if (res.status === 401 && allowRetry) {
+  if (res.status === 401 && allowRetry && !AUTH_ENTRY_POINTS.includes(path)) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       return request<T>(path, options, false);

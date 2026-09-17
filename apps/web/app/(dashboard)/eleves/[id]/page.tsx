@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
+import { FinancialStatusCard } from "@/components/financial-status-card";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
 const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | "gray" }> = {
@@ -82,7 +83,7 @@ export default function StudentDossierPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Identité</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Identité</h2>
           <dl className="space-y-2 text-sm">
             <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
             <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
@@ -96,21 +97,21 @@ export default function StudentDossierPage() {
 
         <Card className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Responsables</h2>
+            <h2 className="text-sm font-semibold text-ink">Responsables</h2>
             {canManage && (
               <Button variant="secondary" onClick={() => setShowGuardianForm((v) => !v)}>
                 {showGuardianForm ? "Annuler" : "Ajouter un responsable"}
               </Button>
             )}
           </div>
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {student.studentGuardians.map((sg) => (
               <li key={sg.id} className="flex items-center justify-between py-2 text-sm">
                 <div>
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-ink">
                     {sg.guardian.prenom} {sg.guardian.nom}
                   </span>{" "}
-                  <span className="text-slate-500">
+                  <span className="text-ink-muted">
                     — {sg.lien} · {sg.guardian.telephone}
                   </span>
                   {sg.prioritaire && <Badge color="blue">Contact prioritaire</Badge>}
@@ -124,7 +125,7 @@ export default function StudentDossierPage() {
             ))}
           </ul>
           {showGuardianForm && (
-            <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+            <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-border pt-4">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom">
                   <Input
@@ -163,12 +164,16 @@ export default function StudentDossierPage() {
           )}
         </Card>
 
+        <div className="lg:col-span-3">
+          <FinancialStatusCard studentId={student.id} activeEnrollmentId={student.enrollments.find((e) => e.statut === "ACTIVE")?.id} />
+        </div>
+
         <Card className="lg:col-span-3">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Parcours annuel</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Parcours annuel</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
+                <tr className="border-b border-border text-left text-ink-muted">
                   <th className="py-2 pr-4">Année</th>
                   <th className="py-2 pr-4">Classe</th>
                   <th className="py-2 pr-4">Type</th>
@@ -179,7 +184,7 @@ export default function StudentDossierPage() {
               </thead>
               <tbody>
                 {student.enrollments.map((en) => (
-                  <tr key={en.id} className="border-b border-slate-100">
+                  <tr key={en.id} className="border-b border-border">
                     <td className="py-2 pr-4">{en.academicYear.libelle}</td>
                     <td className="py-2 pr-4">{en.class.nom}</td>
                     <td className="py-2 pr-4">{en.type === "INSCRIPTION" ? "Inscription" : "Réinscription"}</td>
@@ -188,7 +193,7 @@ export default function StudentDossierPage() {
                       <Badge color={ENROLLMENT_STATUS_BADGE[en.statut].color}>
                         {ENROLLMENT_STATUS_BADGE[en.statut].label}
                       </Badge>
-                      {en.motifAnnulation && <p className="mt-1 text-xs text-slate-400">{en.motifAnnulation}</p>}
+                      {en.motifAnnulation && <p className="mt-1 text-xs text-ink-muted">{en.motifAnnulation}</p>}
                     </td>
                     {canManage && (
                       <td className="py-2 pr-4">
@@ -203,7 +208,7 @@ export default function StudentDossierPage() {
                 ))}
                 {student.enrollments.length === 0 && (
                   <tr>
-                    <td colSpan={canManage ? 6 : 5} className="py-6 text-center text-slate-400">
+                    <td colSpan={canManage ? 6 : 5} className="py-6 text-center text-ink-muted">
                       Aucune inscription enregistrée.
                     </td>
                   </tr>
@@ -215,7 +220,7 @@ export default function StudentDossierPage() {
       </div>
 
       <div className="mt-4">
-        <Link href="/eleves" className="text-sm text-slate-500 hover:underline">
+        <Link href="/eleves" className="text-sm text-ink-muted hover:underline">
           ← Retour à la liste des élèves
         </Link>
       </div>
@@ -226,8 +231,8 @@ export default function StudentDossierPage() {
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="font-medium text-slate-900">{value}</dd>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="font-medium text-ink">{value}</dd>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { NumberSequenceService } from '../common/number-sequence.service';
 import { StudentsService } from '../students/students.service';
 import { ClassesService } from '../classes/classes.service';
 import { AcademicYearsService } from '../academic-years/academic-years.service';
+import { InvoicesService } from '../invoices/invoices.service';
 import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { CancelEnrollmentDto } from './dto/cancel-enrollment.dto';
 
@@ -32,6 +33,7 @@ export class EnrollmentsService {
     private readonly studentsService: StudentsService,
     private readonly classesService: ClassesService,
     private readonly academicYearsService: AcademicYearsService,
+    private readonly invoicesService: InvoicesService,
   ) {}
 
   async findAll(studentId?: string, classId?: string, academicYearId?: string) {
@@ -106,16 +108,29 @@ export class EnrollmentsService {
     );
     const numero = `${academicYear.libelle}-${String(sequenceNumber).padStart(ENROLLMENT_NUMERO_DIGITS, '0')}`;
 
-    const enrollment = await this.prisma.enrollment.create({
-      data: {
+    // Enveloppé dans une transaction avec la génération de facture (CA02) : une inscription
+    // n'existe jamais sans sa facture (même vide si aucun frais obligatoire n'est configuré).
+    const enrollment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.enrollment.create({
+        data: {
+          schoolId,
+          studentId: dto.studentId,
+          classId: dto.classId,
+          academicYearId: dto.academicYearId,
+          numero,
+          type,
+        },
+        include: ENROLLMENT_INCLUDE,
+      });
+
+      await this.invoicesService.generateForEnrollment(tx, {
         schoolId,
-        studentId: dto.studentId,
-        classId: dto.classId,
+        enrollmentId: created.id,
         academicYearId: dto.academicYearId,
-        numero,
-        type,
-      },
-      include: ENROLLMENT_INCLUDE,
+        levelId: klass.levelId,
+      });
+
+      return created;
     });
 
     await this.auditService.log({
@@ -138,10 +153,14 @@ export class EnrollmentsService {
       );
     }
 
-    const updated = await this.prisma.enrollment.update({
-      where: { id },
-      data: { statut: 'ANNULEE', motifAnnulation: dto.motif },
-      include: ENROLLMENT_INCLUDE,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.enrollment.update({
+        where: { id },
+        data: { statut: 'ANNULEE', motifAnnulation: dto.motif },
+        include: ENROLLMENT_INCLUDE,
+      });
+      await this.invoicesService.cancelForEnrollment(tx, id);
+      return result;
     });
 
     const schoolId = await this.schoolService.getDefaultId();

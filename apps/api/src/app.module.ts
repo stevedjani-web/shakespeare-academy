@@ -14,6 +14,10 @@ import { LevelsModule } from './levels/levels.module';
 import { ClassesModule } from './classes/classes.module';
 import { StudentsModule } from './students/students.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { FeeTypesModule } from './fee-types/fee-types.module';
+import { FeeSchedulesModule } from './fee-schedules/fee-schedules.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { DiscountsModule } from './discounts/discounts.module';
 
 @Module({
   imports: [
@@ -31,6 +35,10 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
     ClassesModule,
     StudentsModule,
     EnrollmentsModule,
+    FeeTypesModule,
+    FeeSchedulesModule,
+    InvoicesModule,
+    DiscountsModule,
   ],
   controllers: [AppController],
   providers: [],

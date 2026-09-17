@@ -30,6 +30,18 @@ export const LOT2_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Catalogue de permissions du Lot 3 (tarifs, factures, tranches, remises, solvabilité).
+ * `FEE_MANAGE` couvre la configuration des grilles tarifaires (Administrateur uniquement, cahier §3) ;
+ * `DISCOUNT_APPROVE` couvre la validation/rejet d'une remise (Direction/Administrateur, RG06) — distincte
+ * de la simple demande de remise, incluse dans `ENROLLMENT_MANAGE` puisque portée par le même rôle
+ * opérationnel (Secrétaire-caissier) qui gère déjà les inscriptions et leurs factures associées.
+ */
+export const LOT3_PERMISSIONS = [
+  { code: 'FEE_MANAGE', description: 'Configurer les types de frais, grilles tarifaires et tranches.' },
+  { code: 'DISCOUNT_APPROVE', description: 'Approuver ou rejeter une demande de remise.' },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -45,13 +57,18 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'AUDIT_LOG_READ',
       'STUDENT_READ',
       'ENROLLMENT_MANAGE',
+      'FEE_MANAGE',
+      // Pas DISCOUNT_APPROVE : D19 (DECISIONS_PENDING.md) tranche explicitement "Direction
+      // uniquement" pour l'approbation des remises — Administrateur configure les tarifs
+      // (FEE_MANAGE) mais ne valide pas les remises, cohérent avec sa description de rôle
+      // ("validation des annulations et écarts" reste l'apanage de Direction, pas Administrateur).
     ],
   },
   {
     code: 'DIRECTION',
     nom: 'Direction',
     description: 'Tableaux de bord, rapports, validation des annulations et écarts.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'DISCOUNT_APPROVE'],
   },
   {
     code: 'SECRETAIRE_CAISSIER',
@@ -93,7 +110,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
       data: { nom: options.schoolName ?? 'Shakespeare Academy' },
     }));
 
-  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS]) {
+  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS, ...LOT3_PERMISSIONS]) {
     await prisma.permission.upsert({
       where: { code: permission.code },
       update: { description: permission.description },

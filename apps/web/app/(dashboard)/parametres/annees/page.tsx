@@ -76,7 +76,7 @@ export default function AcademicYearsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="border-b border-border text-left text-ink-muted">
                 <th className="py-2 pr-4">Libellé</th>
                 <th className="py-2 pr-4">Début</th>
                 <th className="py-2 pr-4">Fin</th>
@@ -86,8 +86,8 @@ export default function AcademicYearsPage() {
             </thead>
             <tbody>
               {years.map((year) => (
-                <tr key={year.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4 font-medium text-slate-900">{year.libelle}</td>
+                <tr key={year.id} className="border-b border-border">
+                  <td className="py-2 pr-4 font-medium text-ink">{year.libelle}</td>
                   <td className="py-2 pr-4">{new Date(year.dateDebut).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 pr-4">{new Date(year.dateFin).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 pr-4">
@@ -113,7 +113,7 @@ export default function AcademicYearsPage() {
               ))}
               {years.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400">
+                  <td colSpan={5} className="py-6 text-center text-ink-muted">
                     Aucune année scolaire créée.
                   </td>
                 </tr>
@@ -125,7 +125,7 @@ export default function AcademicYearsPage() {
 
       {canManage && (
         <Card className="mt-6 max-w-lg">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Créer une année scolaire</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Créer une année scolaire</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <Field label="Libellé (ex. 2026-2027)">
               <Input

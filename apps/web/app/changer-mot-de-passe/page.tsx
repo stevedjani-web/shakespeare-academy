@@ -33,11 +33,12 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center px-4">
+    <div className="flex min-h-screen flex-1 items-center justify-center bg-bg px-4 py-12">
       <Card className="w-full max-w-sm">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-slate-900">Changement de mot de passe requis</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-lg">🔒</span>
+          <h1 className="font-display text-xl font-semibold text-ink">Changement de mot de passe requis</h1>
+          <p className="mt-1 text-sm text-ink-muted">
             Votre mot de passe a été fixé temporairement (première connexion ou réinitialisation). Choisissez-en un
             nouveau avant de continuer.
           </p>

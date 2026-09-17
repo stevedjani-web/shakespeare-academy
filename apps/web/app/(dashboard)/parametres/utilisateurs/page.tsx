@@ -12,13 +12,13 @@ export default function UsersAndRolesPage() {
   return (
     <div>
       <PageTitle>Utilisateurs & rôles</PageTitle>
-      <div className="mb-6 flex gap-1 border-b border-slate-200">
+      <div className="mb-6 flex gap-1 border-b border-border">
         {(["users", "roles"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium ${
-              tab === t ? "border-b-2 border-slate-900 text-slate-900" : "text-slate-500 hover:text-slate-700"
+              tab === t ? "border-b-2 border-primary text-ink" : "text-ink-muted hover:text-ink"
             }`}
           >
             {t === "users" ? "Utilisateurs" : "Rôles & permissions"}
@@ -89,7 +89,7 @@ function UsersTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="border-b border-border text-left text-ink-muted">
                 <th className="py-2 pr-4">Nom</th>
                 <th className="py-2 pr-4">E-mail</th>
                 <th className="py-2 pr-4">Rôle</th>
@@ -99,8 +99,8 @@ function UsersTab() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-slate-100">
-                  <td className="py-2 pr-4 font-medium text-slate-900">
+                <tr key={u.id} className="border-b border-border">
+                  <td className="py-2 pr-4 font-medium text-ink">
                     {u.prenom} {u.nom}
                   </td>
                   <td className="py-2 pr-4">{u.email}</td>
@@ -129,7 +129,7 @@ function UsersTab() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400">
+                  <td colSpan={5} className="py-6 text-center text-ink-muted">
                     Aucun utilisateur.
                   </td>
                 </tr>
@@ -140,7 +140,7 @@ function UsersTab() {
       </Card>
 
       <Card className="mt-6 max-w-xl">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Créer un utilisateur</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Créer un utilisateur</h2>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Nom">
@@ -231,8 +231,8 @@ function RolesTab() {
       {roles.map((role) => (
         <Card key={role.id}>
           <div className="mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">{role.nom}</h3>
-            {role.description && <p className="text-xs text-slate-500">{role.description}</p>}
+            <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
+            {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             {permissions.map((perm) => {
@@ -244,8 +244,8 @@ function RolesTab() {
                   title={perm.description ?? undefined}
                   className={`rounded-full border px-3 py-1 text-xs font-medium ${
                     active
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-300 bg-white text-slate-500 hover:border-slate-400"
+                      ? "border-primary bg-primary text-white"
+                      : "border-border bg-white text-ink-muted hover:border-primary/40"
                   }`}
                 >
                   {perm.code}
@@ -257,7 +257,7 @@ function RolesTab() {
       ))}
 
       <Card className="max-w-lg">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Créer un rôle personnalisé</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Créer un rôle personnalisé</h2>
         <form onSubmit={handleCreateRole} className="flex gap-2">
           <Input
             placeholder="CODE_ROLE"

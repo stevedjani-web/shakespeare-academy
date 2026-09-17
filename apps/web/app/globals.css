@@ -1,26 +1,78 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+ * Design system Shakespeare Academy — palette « académie » (indigo profond +
+ * or chaud), typographie serif éditoriale pour la marque/les titres. Clair
+ * uniquement (color-scheme: light) : un bloc @media (prefers-color-scheme)
+ * a déjà causé un texte invisible sur un autre projet du même auteur faute
+ * de palette sombre réellement conçue — pas de mode sombre non testé ici.
+ *
+ * Les tokens vivent dans @theme (pas seulement :root) : c'est ce qui fait
+ * générer à Tailwind v4 les utilitaires bg-primary/text-accent/border-danger
+ * etc. — les déclarer seulement en :root ne les rendrait accessibles qu'en
+ * syntaxe arbitraire bg-(--color-primary).
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  --font-display: var(--font-display);
+
+  --color-bg: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f4f1ea;
+  --color-ink: #1a1a2e;
+  --color-ink-muted: #6b6b7b;
+  --color-border: #e7e3d8;
+
+  --color-primary: #2f2b78;
+  --color-primary-dark: #211d5c;
+  --color-primary-soft: #eeecfa;
+  --color-accent: #c99a2e;
+  --color-accent-dark: #a87f22;
+  --color-accent-soft: #faf1dc;
+
+  --color-success: #157a4a;
+  --color-success-soft: #e3f6ec;
+  --color-danger: #b8302f;
+  --color-danger-soft: #fbe9e8;
+  --color-warning: #b5701a;
+  --color-warning-soft: #fbf0dc;
+  --color-info: #2563a8;
+  --color-info-soft: #e7f1fb;
+
+  --shadow-soft: 0 1px 2px rgba(26, 26, 46, 0.04), 0 8px 24px -12px rgba(26, 26, 46, 0.12);
+  --shadow-lift: 0 4px 12px rgba(26, 26, 46, 0.08), 0 16px 32px -16px rgba(26, 26, 46, 0.18);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+/* Micro-interactions partagées — un seul bloc global plutôt que du CSS-in-JS
+ * pour ces quelques règles (:hover/:active), cohérent avec le reste du projet. */
+.sa-interactive {
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+.sa-interactive:active {
+  transform: scale(0.97);
+}
+.sa-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+.sa-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.sa-scrollbar-none {
+  scrollbar-width: none;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
 }

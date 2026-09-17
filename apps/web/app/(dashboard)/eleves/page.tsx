@@ -57,7 +57,7 @@ export default function StudentsListPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="border-b border-border text-left text-ink-muted">
                 <th className="py-2 pr-4">Matricule</th>
                 <th className="py-2 pr-4">Nom</th>
                 <th className="py-2 pr-4">Prénom</th>
@@ -67,14 +67,14 @@ export default function StudentsListPage() {
             </thead>
             <tbody>
               {students.map((s) => (
-                <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <tr key={s.id} className="border-b border-border hover:bg-surface-muted">
                   <td className="py-2 pr-4">
-                    <Link href={`/eleves/${s.id}`} className="font-mono text-xs text-slate-500 hover:underline">
+                    <Link href={`/eleves/${s.id}`} className="font-mono text-xs text-ink-muted hover:underline">
                       {s.matricule}
                     </Link>
                   </td>
                   <td className="py-2 pr-4">
-                    <Link href={`/eleves/${s.id}`} className="font-medium text-slate-900 hover:underline">
+                    <Link href={`/eleves/${s.id}`} className="font-medium text-ink hover:underline">
                       {s.nom}
                     </Link>
                   </td>
@@ -89,7 +89,7 @@ export default function StudentsListPage() {
               ))}
               {students.length === 0 && !searching && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-400">
+                  <td colSpan={5} className="py-6 text-center text-ink-muted">
                     Aucun élève trouvé.
                   </td>
                 </tr>
