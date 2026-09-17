@@ -217,6 +217,31 @@ export interface Discount {
   approbateur: { id: string; nom: string; prenom: string } | null;
 }
 
+export type PaymentMode = "ESPECES" | "MOBILE_MONEY";
+export type PaymentStatus = "VALIDE" | "ANNULE";
+
+export interface Payment {
+  id: string;
+  numeroRecu: string;
+  montant: number;
+  modePaiement: PaymentMode;
+  referenceExterne: string | null;
+  datePaiement: string;
+  statut: PaymentStatus;
+  motifAnnulation: string | null;
+  recuParUser: { id: string; nom: string; prenom: string };
+  annuleParUser: { id: string; nom: string; prenom: string } | null;
+  invoiceLine?: InvoiceLine & {
+    invoice: {
+      enrollment: {
+        student: { id: string; nom: string; prenom: string; matricule: string };
+        class: { id: string; nom: string };
+        academicYear: { id: string; libelle: string };
+      };
+    };
+  };
+}
+
 export interface InvoiceLine {
   id: string;
   libelle: string;
@@ -226,6 +251,7 @@ export interface InvoiceLine {
   ordre: number;
   feeType: FeeType;
   discounts: Discount[];
+  payments?: Payment[];
 }
 
 export type InvoiceStatus = "EMISE" | "ANNULEE";

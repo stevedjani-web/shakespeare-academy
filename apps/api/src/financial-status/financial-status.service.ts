@@ -16,10 +16,8 @@ interface DueLine {
 
 /**
  * Calcule le statut de solvabilité d'un élève (cahier §6) — jamais une donnée saisie, toujours
- * dérivée. "Montant payé" reste volontairement figé à 0 : aucun mécanisme de paiement n'existe
- * encore (Lot 4), donc tout montant exigible apparaît honnêtement comme non couvert (RG13 : ne
- * jamais inventer une donnée qu'on ne peut pas connaître) — ce comportement se corrigera de
- * lui-même dès que le Lot 4 posera de vrais paiements sur les factures.
+ * dérivée. "Montant payé" (Lot 4) somme les `Payment` réellement `VALIDE` de chaque ligne — un
+ * paiement `ANNULE` (RG09 : correction, jamais une suppression) n'est jamais compté.
  */
 @Injectable()
 export class FinancialStatusService {
@@ -41,13 +39,14 @@ export class FinancialStatusService {
         enrollment: { studentId },
       },
       include: {
-        lines: { include: { discounts: true } },
+        lines: { include: { discounts: true, payments: { where: { statut: 'VALIDE' } } } },
       },
     });
 
     const now = new Date();
     let montantFacture = 0;
     let montantRemise = 0;
+    let montantPaye = 0;
     let montantExigible = 0;
     let montantAEchoir = 0;
     const lignesEnRetard: DueLine[] = [];
@@ -58,7 +57,9 @@ export class FinancialStatusService {
         montantFacture += line.montant;
         const remiseApprouvee = computeApprovedDiscountAmount(line, line.discounts);
         montantRemise += remiseApprouvee;
-        const solde = line.montant - remiseApprouvee;
+        const paye = line.payments.reduce((sum, p) => sum + p.montant, 0);
+        montantPaye += paye;
+        const solde = line.montant - remiseApprouvee - paye;
         if (solde <= 0) continue;
 
         const baseDate = line.dateEcheance ?? invoice.dateEmission;
@@ -83,7 +84,6 @@ export class FinancialStatusService {
       }
     }
 
-    const montantPaye = 0; // Lot 4 non implémenté — jamais inventé.
     const montantRestant = montantExigible + montantAEchoir;
 
     let statut: SolvencyStatus;

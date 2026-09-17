@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
-import type { FinancialStatus, Invoice, SolvencyStatus } from "@/lib/types";
+import type { FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
-import { AlertTriangle, CheckCircle2, Clock, Receipt, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Printer, Receipt, ShieldCheck, Wallet, XCircle } from "lucide-react";
+
+const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
+
+function computeSoldeRestant(line: InvoiceLine): number {
+  const remise = line.discounts
+    .filter((d) => d.statut === "APPROUVEE")
+    .reduce((sum, d) => sum + (d.type === "POURCENTAGE" ? Math.round((line.montant * d.valeur) / 100) : d.valeur), 0);
+  const paye = (line.payments ?? []).reduce((sum, p) => sum + p.montant, 0);
+  return Math.max(0, line.montant - Math.min(remise, line.montant) - paye);
+}
 
 const STATUS_META: Record<SolvencyStatus, { label: string; color: "green" | "blue" | "orange" | "red" | "slate"; icon: React.ReactNode }> = {
   SOLVABLE: { label: "Solvable", color: "green", icon: <CheckCircle2 size={16} /> },
@@ -26,10 +37,20 @@ export function FinancialStatusCard({
   const { hasPermission } = useAuth();
   const canRequestDiscount = hasPermission("ENROLLMENT_MANAGE");
   const canApproveDiscount = hasPermission("DISCOUNT_APPROVE");
+  const canPay = hasPermission("PAYMENT_CREATE");
+  const canCancelPayment = hasPermission("PAYMENT_CANCEL_APPROVE");
 
   const [status, setStatus] = useState<FinancialStatus | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [discountFormLineId, setDiscountFormLineId] = useState<string | null>(null);
+  const [paymentFormLineId, setPaymentFormLineId] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleReprint(paymentId: string) {
+    await api.post(`/payments/${paymentId}/reprint`);
+    router.push(`/recus/${paymentId}`);
+  }
 
   async function load() {
     const data = await api.get<FinancialStatus>(`/students/${studentId}/financial-status`);
@@ -42,6 +63,8 @@ export function FinancialStatusCard({
         setInvoice(null);
       }
     }
+    const payHistory = await api.get<Payment[]>(`/payments?studentId=${studentId}`);
+    setPayments(payHistory);
   }
 
   useEffect(() => {
@@ -109,6 +132,26 @@ export function FinancialStatusCard({
                 </div>
               </div>
 
+              {(() => {
+                const soldeRestant = computeSoldeRestant(line);
+                if (soldeRestant <= 0) {
+                  return <p className="mt-2 text-xs font-medium text-success">Ligne soldée.</p>;
+                }
+                return (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-ink-muted">Solde restant : {formatMontant(soldeRestant)}</p>
+                    {canPay && (
+                      <Button
+                        variant="accent"
+                        onClick={() => setPaymentFormLineId((v) => (v === line.id ? null : line.id))}
+                      >
+                        <Wallet size={15} /> Payer
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
+
               {line.discounts.length > 0 && (
                 <ul className="mt-2 space-y-1.5">
                   {line.discounts.map((d) => (
@@ -141,6 +184,65 @@ export function FinancialStatusCard({
                   }}
                 />
               )}
+
+              {paymentFormLineId === line.id && (
+                <PaymentForm
+                  invoiceLineId={line.id}
+                  soldeRestant={computeSoldeRestant(line)}
+                  onDone={() => {
+                    setPaymentFormLineId(null);
+                    void load();
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {payments.length > 0 && (
+        <div className="mt-5 space-y-2 border-t border-border pt-4">
+          <p className="text-sm font-semibold text-ink">Historique des paiements</p>
+          {payments.map((p) => (
+            <div
+              key={p.id}
+              className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm ${
+                p.statut === "ANNULE" ? "border-danger/30 bg-danger-soft/40" : "border-border"
+              }`}
+            >
+              <div>
+                <p className="font-medium text-ink">
+                  {p.numeroRecu} — {formatMontant(p.montant)}
+                </p>
+                <p className="text-xs text-ink-muted">
+                  {formatDate(p.datePaiement)} · {MODE_LABEL[p.modePaiement] ?? p.modePaiement} ·{" "}
+                  {p.invoiceLine?.libelle ?? "—"}
+                  {p.statut === "ANNULE" && <> · Annulé{p.motifAnnulation ? ` : ${p.motifAnnulation}` : ""}</>}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {canPay && (
+                  <button
+                    onClick={() => void handleReprint(p.id)}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Printer size={13} /> Réimprimer
+                  </button>
+                )}
+                {canCancelPayment && p.statut === "VALIDE" && (
+                  <button
+                    onClick={async () => {
+                      const motif = prompt("Motif de l'annulation :");
+                      if (!motif) return;
+                      await api.post(`/payments/${p.id}/cancel`, { motif });
+                      await load();
+                    }}
+                    className="flex items-center gap-1 text-xs font-medium text-danger hover:underline"
+                  >
+                    <XCircle size={13} /> Annuler
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -201,6 +303,80 @@ function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string;
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" disabled={submitting}>
         {submitting ? "Envoi…" : "Envoyer la demande"}
+      </Button>
+    </form>
+  );
+}
+
+function PaymentForm({
+  invoiceLineId,
+  soldeRestant,
+  onDone,
+}: {
+  invoiceLineId: string;
+  soldeRestant: number;
+  onDone: () => void;
+}) {
+  const [montant, setMontant] = useState(String(soldeRestant));
+  const [modePaiement, setModePaiement] = useState<"ESPECES" | "MOBILE_MONEY">("ESPECES");
+  const [referenceExterne, setReferenceExterne] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const payment = await api.post<Payment>("/payments", {
+        invoiceLineId,
+        montant: Number(montant),
+        modePaiement,
+        referenceExterne: modePaiement === "MOBILE_MONEY" ? referenceExterne : undefined,
+      });
+      onDone();
+      router.push(`/recus/${payment.id}`);
+    } catch (err) {
+      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-3 space-y-2 rounded-xl bg-surface-muted p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="Montant">
+          <Input
+            type="number"
+            required
+            min={1}
+            max={soldeRestant}
+            value={montant}
+            onChange={(e) => setMontant(e.target.value)}
+          />
+        </Field>
+        <Field label="Mode de paiement">
+          <Select value={modePaiement} onChange={(e) => setModePaiement(e.target.value as typeof modePaiement)}>
+            <option value="ESPECES">Espèces</option>
+            <option value="MOBILE_MONEY">Mobile Money</option>
+          </Select>
+        </Field>
+      </div>
+      {modePaiement === "MOBILE_MONEY" && (
+        <Field label="Référence externe">
+          <Input
+            required
+            value={referenceExterne}
+            onChange={(e) => setReferenceExterne(e.target.value)}
+            placeholder="Numéro de transaction"
+          />
+        </Field>
+      )}
+      <ErrorMessage>{error}</ErrorMessage>
+      <Button type="submit" variant="accent" disabled={submitting}>
+        {submitting ? "Encaissement…" : "Encaisser et imprimer le reçu"}
       </Button>
     </form>
   );

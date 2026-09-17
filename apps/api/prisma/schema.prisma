@@ -43,6 +43,7 @@ model School {
   feeTypes        FeeType[]
   feeSchedules    FeeSchedule[]
   invoices        Invoice[]
+  payments        Payment[]
 
   @@map("schools")
 }
@@ -218,6 +219,8 @@ model User {
   auditLogs         AuditLog[]
   discountsProposed Discount[]     @relation("DiscountAuteur")
   discountsDecided  Discount[]     @relation("DiscountApprobateur")
+  paymentsRecus     Payment[]
+  paymentsAnnules   Payment[]      @relation("PaymentAnnulePar")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -468,8 +471,54 @@ model InvoiceLine {
   createdAt       DateTime  @default(now())
 
   discounts Discount[]
+  payments  Payment[]
 
   @@map("invoice_lines")
+}
+
+// --- Paiements et reçus (Lot 4) ---------------------------------------------
+// Un paiement cible toujours une seule InvoiceLine, jamais réparti sur plusieurs (simplification
+// délibérée qui évite tout le débat D12 sur la ventilation multi-lignes : le montant est toujours
+// plafonné au solde restant de CETTE ligne, donc un trop-perçu au sens RG08 est structurellement
+// impossible sans qu'un compte d'avance existe — voir DECISIONS_PENDING.md D41). Paiement partiel
+// autorisé (D10, plusieurs paiements possibles sur la même ligne jusqu'à solde nul). RG09/RG18 :
+// jamais modifié ni supprimé une fois VALIDE — une correction passe par ANNULE + motif (écriture
+// inverse implicite, le solde de la ligne se recalcule simplement en excluant les paiements ANNULE).
+
+enum PaymentMode {
+  ESPECES
+  MOBILE_MONEY
+}
+
+enum PaymentStatus {
+  VALIDE
+  ANNULE
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  schoolId         String
+  school           School        @relation(fields: [schoolId], references: [id])
+  invoiceLineId    String
+  invoiceLine      InvoiceLine   @relation(fields: [invoiceLineId], references: [id])
+  numeroRecu       String
+  montant          Int
+  modePaiement     PaymentMode   @default(ESPECES)
+  // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais
+  // d'intégration API automatisée, un simple enregistrement manuel (cahier §11, déjà tranché).
+  referenceExterne String?
+  datePaiement     DateTime      @default(now())
+  recuParUserId    String
+  recuParUser      User          @relation(fields: [recuParUserId], references: [id])
+  statut           PaymentStatus @default(VALIDE)
+  motifAnnulation  String?
+  annuleParUserId  String?
+  annuleParUser    User?         @relation("PaymentAnnulePar", fields: [annuleParUserId], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([schoolId, numeroRecu])
+  @@map("payments")
 }
 
 enum DiscountType {

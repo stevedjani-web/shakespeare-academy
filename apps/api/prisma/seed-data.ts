@@ -42,6 +42,18 @@ export const LOT3_PERMISSIONS = [
   { code: 'DISCOUNT_APPROVE', description: 'Approuver ou rejeter une demande de remise.' },
 ] as const;
 
+/**
+ * Catalogue de permissions du Lot 4 (paiements et reçus). Codes repris tels quels du cahier §3
+ * (déjà cités en exemple). `PAYMENT_CREATE` couvre l'encaissement ET la réimpression d'un reçu
+ * (même geste opérationnel côté Secrétaire-caissier, cahier §3 : "encaissements... réimpressions").
+ * `PAYMENT_CANCEL_APPROVE` reste Direction uniquement, même principe que `DISCOUNT_APPROVE` (RG09 :
+ * le Secrétaire-caissier ne valide jamais ses propres annulations).
+ */
+export const LOT4_PERMISSIONS = [
+  { code: 'PAYMENT_CREATE', description: 'Encaisser un paiement et imprimer/réimprimer un reçu.' },
+  { code: 'PAYMENT_CANCEL_APPROVE', description: 'Approuver l’annulation (correction) d’un paiement validé.' },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -58,24 +70,26 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'STUDENT_READ',
       'ENROLLMENT_MANAGE',
       'FEE_MANAGE',
-      // Pas DISCOUNT_APPROVE : D19 (DECISIONS_PENDING.md) tranche explicitement "Direction
-      // uniquement" pour l'approbation des remises — Administrateur configure les tarifs
-      // (FEE_MANAGE) mais ne valide pas les remises, cohérent avec sa description de rôle
-      // ("validation des annulations et écarts" reste l'apanage de Direction, pas Administrateur).
+      'PAYMENT_CREATE',
+      // Pas DISCOUNT_APPROVE ni PAYMENT_CANCEL_APPROVE : D19 (DECISIONS_PENDING.md) tranche
+      // explicitement "Direction uniquement" pour l'approbation des remises, même principe pour
+      // l'annulation d'un paiement (RG09) — Administrateur configure/encaisse mais ne valide pas
+      // les annulations, cohérent avec sa description de rôle ("validation des annulations et
+      // écarts" reste l'apanage de Direction, pas Administrateur).
     ],
   },
   {
     code: 'DIRECTION',
     nom: 'Direction',
     description: 'Tableaux de bord, rapports, validation des annulations et écarts.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'DISCOUNT_APPROVE'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'DISCOUNT_APPROVE', 'PAYMENT_CANCEL_APPROVE'],
   },
   {
     code: 'SECRETAIRE_CAISSIER',
     nom: 'Secrétaire-caissier',
     description:
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
-    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE'],
+    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE'],
   },
   {
     code: 'COMPTABLE',
@@ -110,7 +124,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
       data: { nom: options.schoolName ?? 'Shakespeare Academy' },
     }));
 
-  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS, ...LOT3_PERMISSIONS]) {
+  for (const permission of [...LOT1_PERMISSIONS, ...LOT2_PERMISSIONS, ...LOT3_PERMISSIONS, ...LOT4_PERMISSIONS]) {
     await prisma.permission.upsert({
       where: { code: permission.code },
       update: { description: permission.description },

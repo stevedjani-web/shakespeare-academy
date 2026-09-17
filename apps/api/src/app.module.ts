@@ -18,6 +18,7 @@ import { FeeTypesModule } from './fee-types/fee-types.module';
 import { FeeSchedulesModule } from './fee-schedules/fee-schedules.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { DiscountsModule } from './discounts/discounts.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { DiscountsModule } from './discounts/discounts.module';
     FeeSchedulesModule,
     InvoicesModule,
     DiscountsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [],

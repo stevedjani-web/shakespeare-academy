@@ -5,7 +5,7 @@ import { SchoolService } from '../school/school.service';
 
 const INVOICE_INCLUDE = {
   lines: {
-    include: { feeType: true, discounts: true },
+    include: { feeType: true, discounts: true, payments: { where: { statut: 'VALIDE' as const } } },
     orderBy: { ordre: 'asc' as const },
   },
   enrollment: {
