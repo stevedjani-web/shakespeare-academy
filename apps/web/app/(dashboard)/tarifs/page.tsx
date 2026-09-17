@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatMontant } from "@/lib/format";
-import type { AcademicYear, FeeSchedule, FeeType, Level } from "@/lib/types";
+import type { AcademicYear, FeeApplicability, FeeSchedule, FeeType, Level } from "@/lib/types";
 import {
   Badge,
   Button,
@@ -18,6 +18,12 @@ import {
   SuccessMessage,
 } from "@/components/ui";
 import { Coins, Layers, PlusCircle, Receipt } from "lucide-react";
+
+const APPLIES_TO_LABEL: Record<FeeApplicability, string> = {
+  TOUS: "Inscription et réinscription",
+  INSCRIPTION: "Inscription uniquement",
+  REINSCRIPTION: "Réinscription uniquement",
+};
 
 type InstallmentDraft = { libelle: string; montant: string; dateLimite: string; delaiGraceJours: string };
 
@@ -177,7 +183,13 @@ function FeeTypesPanel({
   canManage: boolean;
   onChanged: () => Promise<void>;
 }) {
-  const [form, setForm] = useState({ code: "", nom: "", obligatoire: true, avecTranches: false });
+  const [form, setForm] = useState<{
+    code: string;
+    nom: string;
+    obligatoire: boolean;
+    avecTranches: boolean;
+    appliesTo: FeeApplicability;
+  }>({ code: "", nom: "", obligatoire: true, avecTranches: false, appliesTo: "TOUS" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -187,7 +199,7 @@ function FeeTypesPanel({
     setSubmitting(true);
     try {
       await api.post("/fee-types", form);
-      setForm({ code: "", nom: "", obligatoire: true, avecTranches: false });
+      setForm({ code: "", nom: "", obligatoire: true, avecTranches: false, appliesTo: "TOUS" });
       await onChanged();
     } catch (err) {
       setError(isApiError(err) ? err.message : "Une erreur est survenue.");
@@ -210,11 +222,14 @@ function FeeTypesPanel({
           <li key={ft.id} className="flex items-center justify-between rounded-xl border border-border px-3.5 py-2.5">
             <div>
               <p className="text-sm font-medium text-ink">{ft.nom}</p>
-              <p className="text-xs text-ink-muted">{ft.code}</p>
+              <p className="text-xs text-ink-muted">
+                {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
+              </p>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap justify-end gap-1.5">
               {ft.obligatoire && <Badge color="primary">Obligatoire</Badge>}
               {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
+              {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
             </div>
           </li>
         ))}
@@ -257,6 +272,16 @@ function FeeTypesPanel({
               Réparti en tranches
             </label>
           </div>
+          <Field label="S'applique à">
+            <Select
+              value={form.appliesTo}
+              onChange={(e) => setForm({ ...form, appliesTo: e.target.value as FeeApplicability })}
+            >
+              <option value="TOUS">Inscription et réinscription</option>
+              <option value="INSCRIPTION">Inscription uniquement (nouvel élève)</option>
+              <option value="REINSCRIPTION">Réinscription uniquement (élève déjà connu)</option>
+            </Select>
+          </Field>
           <ErrorMessage>{error}</ErrorMessage>
           <Button type="submit" disabled={submitting} className="w-full">
             <PlusCircle size={16} />

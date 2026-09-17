@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { FeeApplicability } from '@prisma/client';
 
 export class UpdateFeeTypeDto {
   @IsOptional()
@@ -13,4 +14,8 @@ export class UpdateFeeTypeDto {
   @IsOptional()
   @IsBoolean()
   avecTranches?: boolean;
+
+  @IsOptional()
+  @IsEnum(FeeApplicability)
+  appliesTo?: FeeApplicability;
 }

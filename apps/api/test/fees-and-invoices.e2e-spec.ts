@@ -241,6 +241,60 @@ describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
       expect(invoice.body.lines.reduce((s: number, l: { montant: number }) => s + l.montant, 0)).toBe(90000);
     });
 
+    it('D39 : un frais appliesTo=INSCRIPTION n’est jamais facturé à une réinscription, et vice versa', async () => {
+      const y1 = await createClassInYear('2025-2026');
+      const y2 = await createClassInYear('2026-2027');
+      const feeInscription = await createFeeType({
+        code: 'FRAIS_INSCRIPTION',
+        nom: "Frais d'inscription",
+        appliesTo: 'INSCRIPTION',
+      });
+      const feeReinscription = await createFeeType({
+        code: 'FRAIS_REINSCRIPTION',
+        nom: 'Frais de réinscription',
+        appliesTo: 'REINSCRIPTION',
+      });
+      for (const { level, year } of [y1, y2]) {
+        await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+          academicYearId: year.id,
+          levelId: level.id,
+          feeTypeId: feeInscription.id,
+          montant: 45000,
+        });
+        await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+          academicYearId: year.id,
+          levelId: level.id,
+          feeTypeId: feeReinscription.id,
+          montant: 60000,
+        });
+      }
+      const student = await createStudent();
+
+      const enrollment1 = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+        studentId: student.id,
+        classId: y1.class.id,
+        academicYearId: y1.year.id,
+      });
+      expect(enrollment1.body.type).toBe('INSCRIPTION');
+      const invoice1 = await auth(
+        request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment1.body.id}`),
+      );
+      expect(invoice1.body.lines).toHaveLength(1);
+      expect(invoice1.body.lines[0].montant).toBe(45000);
+
+      const enrollment2 = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+        studentId: student.id,
+        classId: y2.class.id,
+        academicYearId: y2.year.id,
+      });
+      expect(enrollment2.body.type).toBe('REINSCRIPTION');
+      const invoice2 = await auth(
+        request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment2.body.id}`),
+      );
+      expect(invoice2.body.lines).toHaveLength(1);
+      expect(invoice2.body.lines[0].montant).toBe(60000);
+    });
+
     it('un frais facultatif (obligatoire=false) n’est jamais facturé automatiquement', async () => {
       const { year, class: klass, level } = await createClassInYear('2026-2027');
       const feeType = await createFeeType({ code: 'CANTINE', nom: 'Cantine', obligatoire: false });

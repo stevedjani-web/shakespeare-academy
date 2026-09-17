@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { EnrollmentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
 
@@ -53,17 +53,27 @@ export class InvoicesService {
    * uniquement — un frais facultatif n'est jamais facturé automatiquement, cadrage §5). Appelée à
    * l'intérieur de la même transaction que la création de l'Enrollment (CA02 : la création
    * d'inscription génère exactement les frais applicables, aucune inscription sans facture).
+   *
+   * D39 (DECISIONS_PENDING.md) : un `FeeType.appliesTo` restreint le frais à un seul type
+   * d'inscription (ex. "Frais d'inscription" jamais facturé à une réinscription, et vice versa) —
+   * `TOUS` (défaut) s'applique aux deux, comme l'écolage.
    */
   async generateForEnrollment(
     tx: Prisma.TransactionClient,
-    params: { schoolId: string; enrollmentId: string; academicYearId: string; levelId: string },
+    params: {
+      schoolId: string;
+      enrollmentId: string;
+      academicYearId: string;
+      levelId: string;
+      enrollmentType: EnrollmentType;
+    },
   ) {
     const feeSchedules = await tx.feeSchedule.findMany({
       where: {
         schoolId: params.schoolId,
         academicYearId: params.academicYearId,
         levelId: params.levelId,
-        feeType: { obligatoire: true },
+        feeType: { obligatoire: true, appliesTo: { in: ['TOUS', params.enrollmentType] } },
       },
       include: { feeType: true, installments: { orderBy: { ordre: 'asc' } } },
     });

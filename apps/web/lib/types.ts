@@ -170,12 +170,15 @@ export interface Enrollment {
 
 // --- Lot 3 : tarifs, factures, remises, solvabilité -------------------------
 
+export type FeeApplicability = "TOUS" | "INSCRIPTION" | "REINSCRIPTION";
+
 export interface FeeType {
   id: string;
   code: string;
   nom: string;
   obligatoire: boolean;
   avecTranches: boolean;
+  appliesTo: FeeApplicability;
 }
 
 export interface InstallmentSchedule {

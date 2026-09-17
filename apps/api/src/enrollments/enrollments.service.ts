@@ -128,6 +128,7 @@ export class EnrollmentsService {
         enrollmentId: created.id,
         academicYearId: dto.academicYearId,
         levelId: klass.levelId,
+        enrollmentType: type,
       });
 
       return created;

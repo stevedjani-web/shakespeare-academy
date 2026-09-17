@@ -45,6 +45,7 @@ export class FeeTypesService {
         nom: dto.nom,
         obligatoire: dto.obligatoire ?? true,
         avecTranches: dto.avecTranches ?? false,
+        appliesTo: dto.appliesTo ?? 'TOUS',
       },
     });
 

@@ -367,16 +367,27 @@ model Enrollment {
 // Le statut de solvabilité (cahier §6) reflète honnêtement cette absence — RG13, jamais une donnée
 // inventée : tant que le Lot 4 n'existe pas, tout montant exigible apparaît normalement non couvert.
 
+// D39 (DECISIONS_PENDING.md) : certains frais ne s'appliquent qu'à un type d'inscription précis
+// (ex. "Frais d'inscription" pour un nouvel élève, "Frais de réinscription" pour un élève déjà
+// connu) — jamais les deux à la fois pour la même inscription, `TOUS` reste le défaut pour un
+// frais indifférent au type (ex. l'écolage).
+enum FeeApplicability {
+  TOUS
+  INSCRIPTION
+  REINSCRIPTION
+}
+
 model FeeType {
-  id           String   @id @default(cuid())
+  id           String           @id @default(cuid())
   schoolId     String
-  school       School   @relation(fields: [schoolId], references: [id])
+  school       School           @relation(fields: [schoolId], references: [id])
   code         String
   nom          String
-  obligatoire  Boolean  @default(true)
-  avecTranches Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  obligatoire  Boolean          @default(true)
+  avecTranches Boolean          @default(false)
+  appliesTo    FeeApplicability @default(TOUS)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   feeSchedules FeeSchedule[]
   invoiceLines InvoiceLine[]
