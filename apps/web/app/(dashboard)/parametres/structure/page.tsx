@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { AcademicYear, Class, Cycle, Level, Section } from "@/lib/types";
@@ -77,16 +78,34 @@ export default function AcademicStructurePage() {
   );
   const levelsForCycle = useMemo(() => levels.filter((l) => l.cycleId === selectedCycleId), [levels, selectedCycleId]);
 
+  function selectSection(id: string) {
+    setSelectedSectionId(id);
+    setSelectedCycleId("");
+    setSelectedLevelId("");
+  }
+  function selectCycle(id: string) {
+    setSelectedCycleId(id);
+    setSelectedLevelId("");
+  }
+
   // Après une création (section/cycle/niveau/classe), `loadAll()` ne rafraîchit jamais `classes`
   // lui-même : cette liste dépend de selectedLevelId/selectedYearId, qui ne changent pas suite à
   // un simple ajout. Sans ce deuxième appel, une classe fraîchement créée restait invisible tant
   // qu'aucune sélection n'était re-déclenchée manuellement (bug trouvé en vérifiant dans le navigateur).
-  async function submitOrShowError(action: () => Promise<unknown>) {
+  //
+  // `onSelected` : sans sélection automatique de l'élément fraîchement créé, rien ne se passait
+  // visuellement après avoir ajouté une section/un cycle/un niveau — la colonne suivante restait
+  // sur "Sélectionnez une section/un cycle/un niveau", donnant l'impression que la création avait
+  // échoué alors qu'elle avait réussi (bug réel signalé : "on ne peut pas ajouter un cycle, un
+  // niveau et une classe"). L'utilisateur doit pouvoir enchaîner section → cycle → niveau → classe
+  // sans avoir à deviner qu'il faut recliquer sur l'élément qu'il vient de créer.
+  async function submitOrShowError<T>(action: () => Promise<T>, onSelected?: (created: T) => void) {
     setError(null);
     try {
-      await action();
+      const created = await action();
       await loadAll();
       await loadClasses();
+      onSelected?.(created);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Une erreur est survenue.");
     }
@@ -101,25 +120,25 @@ export default function AcademicStructurePage() {
         <SectionColumn
           sections={sections}
           selectedSectionId={selectedSectionId}
-          onSelect={(id) => {
-            setSelectedSectionId(id);
-            setSelectedCycleId("");
-            setSelectedLevelId("");
-          }}
+          onSelect={selectSection}
           canManage={canManage}
-          onCreate={(dto) => submitOrShowError(() => api.post("/sections", dto))}
+          onCreate={(dto) =>
+            submitOrShowError(() => api.post<Section>("/sections", dto), (created) => selectSection(created.id))
+          }
         />
 
         <CycleColumn
           section={sections.find((s) => s.id === selectedSectionId) ?? null}
           cycles={cyclesForSection}
           selectedCycleId={selectedCycleId}
-          onSelect={(id) => {
-            setSelectedCycleId(id);
-            setSelectedLevelId("");
-          }}
+          onSelect={selectCycle}
           canManage={canManage}
-          onCreate={(dto) => submitOrShowError(() => api.post("/cycles", { ...dto, sectionId: selectedSectionId }))}
+          onCreate={(dto) =>
+            submitOrShowError(
+              () => api.post<Cycle>("/cycles", { ...dto, sectionId: selectedSectionId }),
+              (created) => selectCycle(created.id),
+            )
+          }
         />
 
         <LevelColumn
@@ -128,7 +147,12 @@ export default function AcademicStructurePage() {
           selectedLevelId={selectedLevelId}
           onSelect={setSelectedLevelId}
           canManage={canManage}
-          onCreate={(dto) => submitOrShowError(() => api.post("/levels", { ...dto, cycleId: selectedCycleId }))}
+          onCreate={(dto) =>
+            submitOrShowError(
+              () => api.post<Level>("/levels", { ...dto, cycleId: selectedCycleId }),
+              (created) => setSelectedLevelId(created.id),
+            )
+          }
         />
 
         <ClassColumn
@@ -359,6 +383,14 @@ function ClassColumn({
       </ColumnTitle>
       {!level ? (
         <p className="text-sm text-ink-muted">Sélectionnez un niveau.</p>
+      ) : years.length === 0 ? (
+        <p className="text-sm text-ink-muted">
+          Aucune année scolaire créée — créez-en une dans{" "}
+          <Link href="/parametres/annees" className="font-medium text-primary hover:underline">
+            Années scolaires
+          </Link>{" "}
+          avant de pouvoir ajouter une classe.
+        </p>
       ) : (
         <>
           <Field label="Année scolaire">
