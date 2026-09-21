@@ -15,7 +15,9 @@ export function looksLikePhoneNumber(
 ): boolean {
   if (minChiffres <= 0) return false;
   // Une « suite » : chiffre, puis (séparateur simple ou rien) et chiffre, autant de fois que nécessaire.
-  const runs = text.match(/\+?\d(?:[\s.\-()]{0,2}\d)*/g) ?? [];
+  // Type explicite : sans lui, `?? []` peut être inféré `never[]` selon l'ordre de vérification du compilateur
+  // (noImplicitAny désactivé), ce qui fait échouer le build de production sans rapport avec ce fichier.
+  const runs: string[] = text.match(/\+?\d(?:[\s.\-()]{0,2}\d)*/g) ?? [];
   return runs.some((run) => run.replace(/\D/g, '').length >= minChiffres);
 }
 
