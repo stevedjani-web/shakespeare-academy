@@ -15,6 +15,8 @@ import { addDays } from '../src/timetable/timetable.util';
  * M. Bello est enseignant mais n'est affecté à aucune classe.
  */
 describe('Messagerie sécurisée et annonces (e2e, Lot 13)', () => {
+  // Le jeu de données (plusieurs utilisateurs, hachage argon2) dépasse parfois les 5 s par défaut sur une machine chargée.
+  jest.setTimeout(30000);
   let app: INestApplication;
   let prisma: PrismaService;
   let notifications: NotificationsService;

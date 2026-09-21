@@ -198,6 +198,7 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
     prenom: "",
     sexe: "F",
     dateNaissance: "",
+    lieuNaissance: "",
     nationalite: "",
     responsable: { nom: "", prenom: "", telephone: "", lien: "" },
   });
@@ -213,7 +214,7 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
         kind: "student",
         method: "POST",
         path: "/students",
-        body: { ...form, forcerCreation },
+        body: { ...form, lieuNaissance: form.lieuNaissance.trim() || undefined, forcerCreation },
         label: `${form.prenom} ${form.nom}`,
       });
       if (res.queued) {
@@ -225,6 +226,7 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
           prenom: form.prenom,
           sexe: form.sexe as Student["sexe"],
           dateNaissance: form.dateNaissance,
+          lieuNaissance: form.lieuNaissance.trim() || null,
           nationalite: form.nationalite || null,
           statut: "ACTIF",
         });
@@ -275,6 +277,9 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
           />
         </Field>
       </div>
+      <Field label="Lieu de naissance (facultatif, figure sur les attestations)">
+        <Input value={form.lieuNaissance} onChange={(e) => setForm({ ...form, lieuNaissance: e.target.value })} />
+      </Field>
       <Field label="Nationalité (facultatif)">
         <Input value={form.nationalite} onChange={(e) => setForm({ ...form, nationalite: e.target.value })} />
       </Field>

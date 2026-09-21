@@ -10,3 +10,4 @@ coverage/
 .DS_Store
 Thumbs.db
 apps/api/uploads/
+apps/api/private-uploads/

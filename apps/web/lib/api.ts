@@ -156,6 +156,24 @@ export function sendWithKey<T>(method: "POST" | "PATCH", path: string, body: unk
   });
 }
 
+/** Récupère un fichier avec le jeton d'accès, en renouvelant la session si besoin. */
+async function fetchBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  let res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (!newToken) throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
+    headers.set("Authorization", `Bearer ${newToken}`);
+    res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+  }
+  if (!res.ok) {
+    const { message, data } = await extractErrorBody(res);
+    throw new ApiError(message, res.status, data);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
@@ -172,20 +190,7 @@ export const api = {
   // réponse JSON. Le jeton d'accès doit être posé manuellement (une balise <a> ne peut pas porter
   // d'en-tête Authorization), d'où un vrai fetch + déclenchement du téléchargement côté client.
   download: async (path: string, filename: string): Promise<void> => {
-    const headers = new Headers();
-    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-    let res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
-    if (res.status === 401) {
-      const newToken = await refreshAccessToken();
-      if (!newToken) throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
-      headers.set("Authorization", `Bearer ${newToken}`);
-      res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
-    }
-    if (!res.ok) {
-      const { message, data } = await extractErrorBody(res);
-      throw new ApiError(message, res.status, data);
-    }
-    const blob = await res.blob();
+    const blob = await fetchBlob(path);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -195,4 +200,6 @@ export const api = {
     a.remove();
     URL.revokeObjectURL(url);
   },
+  // Lit un fichier protégé (photo d'élève...) : jamais un <img src>, qui ne peut pas porter le jeton.
+  blob: (path: string): Promise<Blob> => fetchBlob(path),
 };

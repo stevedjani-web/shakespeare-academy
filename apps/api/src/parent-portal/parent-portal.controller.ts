@@ -109,6 +109,11 @@ export class ParentPortalController {
     return this.portal.attendanceOf(req.parent.guardianId, studentId);
   }
 
+  @Post('children/:studentId/attestation')
+  attestation(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
+    return this.portal.attestationOf(req.parent.guardianId, studentId);
+  }
+
   @Get('children/:studentId/textbook')
   textbook(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
     return this.portal.textbookOf(req.parent.guardianId, studentId);

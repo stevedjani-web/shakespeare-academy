@@ -19,6 +19,8 @@ export const RESERVED_PERMISSIONS = [
   // Lot 15 : corriger une note après verrouillage, valider et publier les bulletins.
   'GRADE_CORRECT',
   'BULLETIN_VALIDATE',
+  // Lot 19 : annuler un document officiel émis.
+  'DOCUMENT_CANCEL',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);

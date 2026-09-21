@@ -3,6 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { promises as fs } from 'fs';
+import { basename, extname, join } from 'path';
+import { CONTENT_TYPES, STUDENT_PHOTO_DIR } from './student-photo.storage';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
@@ -178,6 +181,7 @@ export class StudentsService {
           prenom: dto.prenom,
           sexe: dto.sexe,
           dateNaissance,
+          lieuNaissance: dto.lieuNaissance?.trim() || undefined,
           nationalite: dto.nationalite,
         },
       });
@@ -238,6 +242,8 @@ export class StudentsService {
         dateNaissance: dto.dateNaissance
           ? new Date(dto.dateNaissance)
           : undefined,
+        // Chaîne vide : efface le lieu de naissance (facultatif).
+        lieuNaissance: dto.lieuNaissance === undefined ? undefined : dto.lieuNaissance.trim() || null,
         nationalite: dto.nationalite,
         statut: dto.statut,
       },
@@ -254,6 +260,47 @@ export class StudentsService {
     });
 
     return this.findOne(id);
+  }
+
+  /** Supprime un fichier de photo sans jamais sortir du dossier privé, même si la valeur en base était altérée. */
+  private async removePhotoFile(filename: string | null | undefined): Promise<void> {
+    if (!filename) return;
+    await fs.unlink(join(STUDENT_PHOTO_DIR, basename(filename))).catch(() => undefined);
+  }
+
+  /** Lot 19 : la photo remplace la précédente, dont le fichier est supprimé. Stockée hors du dossier public. */
+  async updatePhoto(id: string, filename: string, actingUserId: string) {
+    const schoolId = await this.schoolService.getDefaultId();
+    const student = await this.prisma.student.findFirst({ where: { id, schoolId } });
+    if (!student) {
+      await this.removePhotoFile(filename);
+      throw new NotFoundException('Élève introuvable.');
+    }
+    await this.prisma.student.update({ where: { id }, data: { photoUrl: filename } });
+    await this.removePhotoFile(student.photoUrl);
+    await this.auditService.log({
+      schoolId,
+      userId: actingUserId,
+      action: 'STUDENT_PHOTO_UPDATE',
+      entite: 'Student',
+      entiteId: id,
+      nouvelleValeur: { photo: true },
+    });
+    return this.findOne(id);
+  }
+
+  /** Chemin du fichier de la photo et son type, pour la servir à un utilisateur authentifié. */
+  async getPhotoFile(id: string): Promise<{ path: string; contentType: string }> {
+    const schoolId = await this.schoolService.getDefaultId();
+    const student = await this.prisma.student.findFirst({ where: { id, schoolId }, select: { photoUrl: true } });
+    if (!student?.photoUrl) throw new NotFoundException('Aucune photo pour cet élève.');
+    const path = join(STUDENT_PHOTO_DIR, basename(student.photoUrl));
+    try {
+      await fs.access(path);
+    } catch {
+      throw new NotFoundException('Aucune photo pour cet élève.');
+    }
+    return { path, contentType: CONTENT_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream' };
   }
 
   async attachGuardian(

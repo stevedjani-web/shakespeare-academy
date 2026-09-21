@@ -15,6 +15,24 @@ if (!existsSync(SCHOOL_LOGO_UPLOAD_DIR)) {
   mkdirSync(SCHOOL_LOGO_UPLOAD_DIR, { recursive: true });
 }
 
+// Image de la signature du directeur (Lot 19) : PNG ou JPEG (les seuls formats que le PDF sait intégrer), 1 Mo.
+export const schoolSignatureMulterOptions = {
+  storage: diskStorage({
+    destination: SCHOOL_LOGO_UPLOAD_DIR,
+    filename: (_req, file, callback) => {
+      callback(null, `signature-${randomUUID()}${file.mimetype === 'image/png' ? '.png' : '.jpg'}`);
+    },
+  }),
+  fileFilter: (_req: unknown, file: Express.Multer.File, callback: (error: Error | null, accept: boolean) => void) => {
+    if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
+      callback(new BadRequestException('Format non supporté (PNG ou JPEG uniquement).'), false);
+      return;
+    }
+    callback(null, true);
+  },
+  limits: { fileSize: 1024 * 1024 },
+};
+
 export const schoolLogoMulterOptions = {
   storage: diskStorage({
     destination: SCHOOL_LOGO_UPLOAD_DIR,

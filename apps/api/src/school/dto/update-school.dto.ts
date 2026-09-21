@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsInt, IsOptional, Max, Min, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsInt, IsOptional, Max, MaxLength, Min, IsString, MinLength } from 'class-validator';
 
 export class UpdateSchoolDto {
   @IsOptional()
@@ -29,4 +29,20 @@ export class UpdateSchoolDto {
   @Min(1)
   @Max(90)
   parentCodeValiditeJours?: number;
+
+  // Documents officiels (Lot 19) : signataire et ville figurant sur une attestation.
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  directeurNom?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  directeurTitre?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  ville?: string;
 }

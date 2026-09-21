@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -25,6 +26,11 @@ export class CreateStudentDto {
 
   @IsDateString()
   dateNaissance!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  lieuNaissance?: string;
 
   @IsOptional()
   @IsString()

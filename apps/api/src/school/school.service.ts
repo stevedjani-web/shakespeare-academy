@@ -56,4 +56,19 @@ export class SchoolService {
     });
     return updated;
   }
+
+  async updateSignature(signatureUrl: string, userId: string) {
+    const school = await this.getDefault();
+    const updated = await this.prisma.school.update({ where: { id: school.id }, data: { signatureUrl } });
+    await this.auditService.log({
+      schoolId: school.id,
+      userId,
+      action: 'SCHOOL_SIGNATURE_UPDATE',
+      entite: 'School',
+      entiteId: school.id,
+      ancienneValeur: { signatureUrl: school.signatureUrl },
+      nouvelleValeur: { signatureUrl },
+    });
+    return updated;
+  }
 }

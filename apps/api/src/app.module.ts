@@ -33,6 +33,7 @@ import { PilotageModule } from './pilotage/pilotage.module';
 import { GradesModule } from './grades/grades.module';
 import { TextbookModule } from './textbook/textbook.module';
 import { OnlinePaymentsModule } from './online-payments/online-payments.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { OnlinePaymentsModule } from './online-payments/online-payments.module';
     GradesModule,
     TextbookModule,
     OnlinePaymentsModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

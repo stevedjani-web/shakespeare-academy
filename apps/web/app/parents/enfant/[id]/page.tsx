@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, BookOpenText, CalendarDays, GraduationCap, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, BookOpenText, CalendarDays, FileText, GraduationCap, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
@@ -13,8 +13,9 @@ import { formatMontant } from "@/lib/format";
 import { ParentBulletinsTab } from "@/components/parents/bulletins-tab";
 import { ParentTextbookTab } from "@/components/parents/textbook-tab";
 import { PayTranches, type PayableTranche } from "@/components/parents/pay-tranche";
+import { ParentDocumentsTab } from "@/components/parents/documents-tab";
 
-type Tab = "emploi" | "absences" | "finances" | "bulletins" | "devoirs";
+type Tab = "emploi" | "absences" | "finances" | "bulletins" | "devoirs" | "documents";
 
 interface Timetable {
   classe: string | null;
@@ -148,6 +149,7 @@ export default function ChildPage() {
     { key: "absences" as const, label: "Absences", icon: UserX },
     { key: "bulletins" as const, label: "Bulletins", icon: GraduationCap },
     { key: "finances" as const, label: "Finances", icon: Wallet },
+    { key: "documents" as const, label: "Documents", icon: FileText },
   ];
 
   return (
@@ -175,6 +177,7 @@ export default function ChildPage() {
 
       {tab === "bulletins" && <ParentBulletinsTab studentId={id} />}
       {tab === "devoirs" && <ParentTextbookTab studentId={id} />}
+      {tab === "documents" && <ParentDocumentsTab studentId={id} />}
 
       {tab === "emploi" && (
         <div>

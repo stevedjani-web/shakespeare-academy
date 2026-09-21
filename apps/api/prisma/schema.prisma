@@ -78,6 +78,13 @@ model School {
   // Interrupteur du paiement des frais par les parents (Mobile Money). Faux tant que l'Administrateur ne l'a pas activé.
   paiementEnLigneActif Boolean  @default(false)
 
+  // Lot 19 (documents officiels) : ce qui figure sur une attestation (nom et titre du signataire, ville du lieu de
+  // signature, image de la signature). Tous facultatifs : une attestation ne se génère que s'ils sont renseignés.
+  directeurNom   String?
+  directeurTitre String  @default("Le Directeur")
+  ville          String?
+  signatureUrl   String?
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -91,6 +98,7 @@ model School {
   invoices        Invoice[]
   payments        Payment[]
   onlinePayments  OnlinePayment[]
+  issuedDocuments IssuedDocument[]
   expenses        Expense[]
   rooms           Room[]
   timeSlots       TimeSlot[]
@@ -121,12 +129,13 @@ model AcademicYear {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
-  classes        Class[]
-  enrollments    Enrollment[]
-  feeSchedules   FeeSchedule[]
-  terms          Term[]
-  calendarEvents CalendarEvent[]
-  timetables     Timetable[]
+  classes         Class[]
+  enrollments     Enrollment[]
+  feeSchedules    FeeSchedule[]
+  terms           Term[]
+  calendarEvents  CalendarEvent[]
+  timetables      Timetable[]
+  issuedDocuments IssuedDocument[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -292,6 +301,7 @@ model User {
   discountsDecided       Discount[]              @relation("DiscountApprobateur")
   paymentsRecus          Payment[]
   paymentsAnnules        Payment[]               @relation("PaymentAnnulePar")
+  documentsAnnules       IssuedDocument[]        @relation("DocumentAnnulePar")
   expensesEffectuees     Expense[]               @relation("ExpenseEffectuePar")
   expensesApprouvees     Expense[]               @relation("ExpenseApprobateur")
   timetablesPublished    Timetable[]             @relation("TimetablePublishedBy")
@@ -376,7 +386,11 @@ model Student {
   prenom        String
   sexe          Sexe
   dateNaissance DateTime
+  // Lot 19 : figure sur l'attestation de scolarité ; facultatif (dossiers antérieurs).
+  lieuNaissance String?
   nationalite   String?
+  // Lot 19 : nom du fichier de la photo, stocké HORS du dossier public (private-uploads/students) : jamais servi par
+  // /uploads, uniquement par GET /students/:id/photo (authentifié).
   photoUrl      String?
   statut        StudentStatus @default(ACTIF)
   createdAt     DateTime      @default(now())
@@ -389,6 +403,7 @@ model Student {
   attendanceRecords   AttendanceRecord[]
   grades              Grade[]
   bulletins           Bulletin[]
+  issuedDocuments     IssuedDocument[]
 
   @@unique([schoolId, matricule])
   @@map("students")
@@ -639,6 +654,51 @@ model OnlinePayment {
   @@index([invoiceLineId, statut])
   @@index([schoolId, statut])
   @@map("online_payments")
+}
+
+// --- Documents officiels (Lot 19) ---------------------------------------------
+
+enum DocumentType {
+  ATTESTATION_SCOLARITE
+  CARTE_ELEVE
+}
+
+enum DocumentIssuer {
+  STAFF
+  PARENT
+}
+
+/**
+ * Document officiel émis (attestation de scolarité, carte d'élève). Le contenu est FIGÉ dans `snapshot` au moment de
+ * l'émission : une réimpression donne exactement le même document, même si l'élève a changé de classe depuis. Le numéro
+ * est séquentiel et jamais réutilisé ; le jeton (`verificationToken`) est aléatoire, et seul lui figure dans le QR code :
+ * un numéro devinable ne permet jamais de balayer les documents de l'école. Un seul document actif par élève, type et
+ * année (garanti par le service, sous verrou de la ligne élève) : émettre deux fois ne consomme pas de numéro.
+ */
+model IssuedDocument {
+  id                String         @id @default(cuid())
+  schoolId          String
+  school            School         @relation(fields: [schoolId], references: [id])
+  studentId         String
+  student           Student        @relation(fields: [studentId], references: [id])
+  academicYearId    String
+  academicYear      AcademicYear   @relation(fields: [academicYearId], references: [id])
+  type              DocumentType
+  numero            String
+  verificationToken String         @unique @default(cuid())
+  snapshot          Json
+  emisParType       DocumentIssuer
+  // Identifiant du membre du personnel ou du responsable selon `emisParType` (pas de clé étrangère : deux tables possibles).
+  emisParId         String?
+  dateEmission      DateTime       @default(now())
+  annuleLe          DateTime?
+  motifAnnulation   String?
+  annuleParUserId   String?
+  annuleParUser     User?          @relation("DocumentAnnulePar", fields: [annuleParUserId], references: [id])
+
+  @@unique([schoolId, numero])
+  @@index([studentId, type])
+  @@map("issued_documents")
 }
 
 model Payment {

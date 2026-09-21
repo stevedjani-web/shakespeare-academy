@@ -12,6 +12,7 @@ import { Badge, Button, Card, EmptyState, Input, PageTitle, Spinner } from "@/co
 import { GraduationCap, Minus, Plus, Search } from "lucide-react";
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
+import { ClassCardsPanel } from "@/components/documents/class-cards-panel";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
@@ -157,6 +158,8 @@ export default function StudentsListPage() {
           )}
         </div>
       </div>
+
+      {hasPermission("DOCUMENT_ISSUE") && <ClassCardsPanel />}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-md">

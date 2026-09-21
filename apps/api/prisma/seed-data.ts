@@ -319,6 +319,22 @@ export const LOT16_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 19 (documents officiels, vague 2). `DOCUMENT_ISSUE` : émettre et réimprimer les attestations de scolarité et les
+ * cartes d'élève (secrétariat, Direction, Administrateur) ; `DOCUMENT_CANCEL` : annuler un document émis, avec un motif
+ * (Direction seulement). Le parent, lui, télécharge l'attestation de son enfant par le portail, sans droit du personnel.
+ */
+export const LOT19_PERMISSIONS = [
+  {
+    code: 'DOCUMENT_ISSUE',
+    description: "Émettre et réimprimer les attestations de scolarité et les cartes d'élève.",
+  },
+  {
+    code: 'DOCUMENT_CANCEL',
+    description: 'Annuler un document officiel émis (attestation, carte), avec un motif.',
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -357,6 +373,7 @@ export const ROLES: Array<{
       'TEXTBOOK_READ',
       'GUARDIAN_DETAIL_READ',
       'SETTINGS_READ',
+      'DOCUMENT_ISSUE',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -400,6 +417,8 @@ export const ROLES: Array<{
       'TEXTBOOK_READ',
       'GUARDIAN_DETAIL_READ',
       'SETTINGS_READ',
+      'DOCUMENT_ISSUE',
+      'DOCUMENT_CANCEL',
     ],
   },
   {
@@ -416,6 +435,7 @@ export const ROLES: Array<{
       'TIMETABLE_READ',
       'PARENT_ACCOUNT_MANAGE',
       'GUARDIAN_DETAIL_READ',
+      'DOCUMENT_ISSUE',
     ],
   },
   {
@@ -520,6 +540,7 @@ export async function seedReferenceData(
     ...AUDIT_ROLES_PERMISSIONS,
     ...LOT15_PERMISSIONS,
     ...LOT16_PERMISSIONS,
+    ...LOT19_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

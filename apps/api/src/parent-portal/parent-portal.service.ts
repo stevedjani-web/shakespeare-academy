@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { DocumentsService } from '../documents/documents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OccurrencesService } from '../timetable/occurrences.service';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -26,6 +27,7 @@ export class ParentPortalService {
     private readonly bulletins: BulletinsService,
     private readonly textbook: TextbookService,
     private readonly onlinePayments: OnlinePaymentsService,
+    private readonly documents: DocumentsService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -96,6 +98,15 @@ export class ParentPortalService {
         })),
       })),
     };
+  }
+
+  /**
+   * Attestation de scolarité de l'enfant, émise à la demande du responsable : la même que celle du secrétariat
+   * (idempotent : un même numéro tant qu'elle n'est pas renouvelée). La carte d'élève, avec photo, reste au secrétariat.
+   */
+  async attestationOf(guardianId: string, studentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.documents.issue(studentId, 'ATTESTATION_SCOLARITE', { type: 'PARENT', id: guardianId });
   }
 
   /** Cahier de textes de la classe de l'enfant : devoirs à rendre d'abord, puis les 14 derniers jours (lecture seule). */

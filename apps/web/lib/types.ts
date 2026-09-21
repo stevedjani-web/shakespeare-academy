@@ -34,6 +34,11 @@ export interface School {
   paiementEnLigneActif: boolean;
   // Durée de validité d'un code d'activation de compte parent, en jours.
   parentCodeValiditeJours: number;
+  // Documents officiels : signataire, ville et image de signature des attestations.
+  directeurNom: string | null;
+  directeurTitre: string;
+  ville: string | null;
+  signatureUrl: string | null;
 }
 
 export type AcademicYearStatus = "BROUILLON" | "ACTIVE" | "CLOTUREE";
@@ -146,7 +151,10 @@ export interface Student {
   prenom: string;
   sexe: Sexe;
   dateNaissance: string;
+  lieuNaissance?: string | null;
   nationalite: string | null;
+  // Référence de la photo (jamais une adresse publique : la photo se lit avec le jeton, voir StudentPhoto).
+  photoUrl?: string | null;
   statut: StudentStatus;
 }
 

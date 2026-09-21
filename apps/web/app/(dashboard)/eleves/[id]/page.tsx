@@ -12,6 +12,8 @@ import type { Class, Enrollment, Student, StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
 import { AttendanceHistoryCard } from "@/components/attendance-history-card";
+import { StudentDocumentsCard } from "@/components/documents/student-documents-card";
+import { StudentPhoto } from "@/components/documents/student-photo";
 import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
@@ -36,7 +38,7 @@ export default function StudentDossierPage() {
   const [guardianForm, setGuardianForm] = useState({ nom: "", prenom: "", telephone: "", lien: "" });
   const [showGuardianForm, setShowGuardianForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState(false);
-  const [studentForm, setStudentForm] = useState({ nom: "", prenom: "", sexe: "M", dateNaissance: "", nationalite: "" });
+  const [studentForm, setStudentForm] = useState({ nom: "", prenom: "", sexe: "M", dateNaissance: "", lieuNaissance: "", nationalite: "" });
   const [studentError, setStudentError] = useState<string | null>(null);
   const [savingStudent, setSavingStudent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,6 +93,7 @@ export default function StudentDossierPage() {
       prenom: student.prenom,
       sexe: student.sexe,
       dateNaissance: student.dateNaissance.slice(0, 10),
+      lieuNaissance: student.lieuNaissance ?? "",
       nationalite: student.nationalite ?? "",
     });
     setStudentError(null);
@@ -115,7 +118,7 @@ export default function StudentDossierPage() {
       if (res.queued) {
         setNotice("Correction enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
         // Affichage immédiat de ce qui a été saisi ; le serveur reste la référence à la synchronisation.
-        setStudent((s) => (s ? { ...s, ...studentForm, sexe: studentForm.sexe as Student["sexe"], nationalite: studentForm.nationalite || null } : s));
+        setStudent((s) => (s ? { ...s, ...studentForm, sexe: studentForm.sexe as Student["sexe"], lieuNaissance: studentForm.lieuNaissance || null, nationalite: studentForm.nationalite || null } : s));
       } else {
         await load();
       }
@@ -148,10 +151,13 @@ export default function StudentDossierPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft font-display text-xl font-semibold text-primary">
-            {student.prenom.charAt(0)}
-            {student.nom.charAt(0)}
-          </span>
+          <StudentPhoto
+            studentId={student.id}
+            photoRef={student.photoUrl ?? null}
+            initials={`${student.prenom.charAt(0)}${student.nom.charAt(0)}`.toUpperCase()}
+            canEdit={canManage}
+            onChanged={() => void load().catch(() => {})}
+          />
           <PageTitle subtitle={`Matricule ${student.matricule}`}>
             {student.prenom} {student.nom}
           </PageTitle>
@@ -220,6 +226,12 @@ export default function StudentDossierPage() {
                   />
                 </Field>
               </div>
+              <Field label="Lieu de naissance (facultatif)">
+                <Input
+                  value={studentForm.lieuNaissance}
+                  onChange={(e) => setStudentForm({ ...studentForm, lieuNaissance: e.target.value })}
+                />
+              </Field>
               <Field label="Nationalité">
                 <Input
                   value={studentForm.nationalite}
@@ -240,6 +252,7 @@ export default function StudentDossierPage() {
             <dl className="space-y-2 text-sm">
               <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
               <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
+              <Row label="Lieu de naissance" value={student.lieuNaissance ?? "—"} />
               <Row label="Nationalité" value={student.nationalite ?? "—"} />
               <Row
                 label="Statut"
@@ -355,6 +368,15 @@ export default function StudentDossierPage() {
             }}
           />
         </div>
+        )}
+
+        {hasPermission("DOCUMENT_ISSUE") && (
+          <StudentDocumentsCard
+            studentId={student.id}
+            hasPhoto={Boolean(student.photoUrl)}
+            open={expand.isOpen("documents")}
+            onToggle={() => expand.toggle("documents")}
+          />
         )}
 
         <Card className="lg:col-span-3">

@@ -18,6 +18,8 @@ import { toDateOnly } from '../src/pedagogy/pedagogy.util';
  *  j4 : A : Alice absente, justificatif en attente ; Brice et Chloé présents ; B : pas d'appel
  */
 describe('Pilotage 360° (e2e, Lot 14)', () => {
+  // Le jeu de données (plusieurs utilisateurs, hachage argon2) dépasse parfois les 5 s par défaut sur une machine chargée.
+  jest.setTimeout(30000);
   let app: INestApplication;
   let prisma: PrismaService;
   let admin: string;

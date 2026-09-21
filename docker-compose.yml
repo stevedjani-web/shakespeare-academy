@@ -67,6 +67,8 @@ services:
       # Logo de l'établissement (et futurs fichiers uploadés) : nommé pour survivre à une
       # recréation du conteneur (rebuild d'image), jamais dans l'image elle-même.
       - academy_uploads:/app/uploads
+      # Photos des élèves (Lot 19) : volume distinct, jamais servi par le dossier public /uploads.
+      - academy_private_uploads:/app/private-uploads
     networks:
       - default
       - proxy
@@ -106,3 +108,4 @@ networks:
 volumes:
   shakespeare_db_data:
   academy_uploads:
+  academy_private_uploads:

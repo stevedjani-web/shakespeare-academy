@@ -9,6 +9,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.refreshToken.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.onlinePayment.deleteMany();
+  await prisma.issuedDocument.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.expense.deleteMany();
   await prisma.messageReport.deleteMany();

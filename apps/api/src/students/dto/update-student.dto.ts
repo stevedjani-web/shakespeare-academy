@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 import { Sexe, StudentStatus } from '@prisma/client';
@@ -25,6 +26,11 @@ export class UpdateStudentDto {
   @IsOptional()
   @IsDateString()
   dateNaissance?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  lieuNaissance?: string;
 
   @IsOptional()
   @IsString()
