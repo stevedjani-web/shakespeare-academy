@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomInt } from 'crypto';
 
 /** Version de la politique de confidentialité que le responsable accepte à l'activation (D76). */
-export const CONSENT_VERSION = '2026-09-v1';
+export const CONSENT_VERSION = '2026-09-v2';
 
 /** Alphabet du code d'activation : sans 0/O, 1/I/L, faciles à confondre quand on le dicte ou le recopie. */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

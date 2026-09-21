@@ -12,6 +12,8 @@ import {
   mergedBody,
   notificationTitle,
   publishedBody,
+  announcementBody,
+  messageReceivedBody,
   pushBody,
   replacedBody,
   retardBody,
@@ -23,6 +25,8 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'RETARD',
   'ENSEIGNANT_ABSENT',
   'EMPLOI_DU_TEMPS_MODIFIE',
+  'MESSAGE_RECU',
+  'ANNONCE',
 ];
 
 /** Un fait à signaler pour un élève, avant de savoir à quels responsables il sera adressé. */
@@ -33,6 +37,8 @@ interface Draft {
   /** Jour scolaire de l'événement (« AAAA-MM-JJ »). */
   jour: string;
   corps: string;
+  /** Si renseigné, seul ce responsable est prévenu (un message ne concerne qu'un destinataire). */
+  onlyGuardianId?: string;
 }
 
 export interface AttendanceItem {
@@ -154,6 +160,64 @@ export class NotificationsService {
     }
   }
 
+  /** Un message vient d'arriver pour un responsable précis. Le contenu n'est jamais transmis (RV10). */
+  async notifyMessage(
+    studentId: string,
+    guardianId: string,
+    from: string,
+  ): Promise<void> {
+    try {
+      const [student, school] = await Promise.all([
+        this.prisma.student.findUnique({
+          where: { id: studentId },
+          select: { id: true, prenom: true },
+        }),
+        this.prisma.school.findFirstOrThrow({
+          select: { fuseauHoraire: true },
+        }),
+      ]);
+      if (!student) return;
+      await this.deliver([
+        {
+          studentId,
+          prenom: student.prenom,
+          type: 'MESSAGE_RECU',
+          jour: dayInTimezone(new Date(), school.fuseauHoraire),
+          corps: messageReceivedBody(student.prenom, from),
+          onlyGuardianId: guardianId,
+        },
+      ]);
+    } catch (err) {
+      this.logger.error(
+        `Notification de message non envoyée : ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /** Une annonce est publiée pour une classe : les responsables de ses élèves sont prévenus (regroupé). */
+  async notifyAnnouncement(classId: string, titre: string): Promise<void> {
+    try {
+      const school = await this.prisma.school.findFirstOrThrow({
+        select: { fuseauHoraire: true },
+      });
+      const jour = dayInTimezone(new Date(), school.fuseauHoraire);
+      const students = await this.studentsOfClass(classId);
+      await this.deliver(
+        students.map((s) => ({
+          studentId: s.id,
+          prenom: s.prenom,
+          type: 'ANNONCE' as const,
+          jour,
+          corps: announcementBody(s.prenom, titre),
+        })),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Notification d'annonce non envoyée : ${(err as Error).message}`,
+      );
+    }
+  }
+
   /** Publication d'un nouvel emploi du temps : tous les élèves inscrits de l'année. */
   async notifyTimetablePublished(
     academicYearId: string,
@@ -203,7 +267,7 @@ export class NotificationsService {
   /** Responsables qui doivent recevoir une notification pour chaque élève : actifs et avec accès. */
   private async recipients(
     studentIds: string[],
-  ): Promise<Map<string, string[]>> {
+  ): Promise<Map<string, Array<{ accountId: string; guardianId: string }>>> {
     const links = await this.prisma.studentGuardian.findMany({
       where: {
         studentId: { in: studentIds },
@@ -212,14 +276,21 @@ export class NotificationsService {
       },
       select: {
         studentId: true,
+        guardianId: true,
         guardian: { select: { parentAccount: { select: { id: true } } } },
       },
     });
-    const map = new Map<string, string[]>();
+    const map = new Map<
+      string,
+      Array<{ accountId: string; guardianId: string }>
+    >();
     for (const l of links) {
       const accountId = l.guardian.parentAccount?.id;
       if (!accountId) continue;
-      map.set(l.studentId, [...(map.get(l.studentId) ?? []), accountId]);
+      map.set(l.studentId, [
+        ...(map.get(l.studentId) ?? []),
+        { accountId, guardianId: l.guardianId },
+      ]);
     }
     return map;
   }
@@ -239,7 +310,10 @@ export class NotificationsService {
     const created: Array<{ row: ParentNotification; prenom: string }> = [];
 
     for (const draft of drafts) {
-      for (const accountId of recipients.get(draft.studentId) ?? []) {
+      for (const { accountId, guardianId } of recipients.get(draft.studentId) ??
+        []) {
+        if (draft.onlyGuardianId && draft.onlyGuardianId !== guardianId)
+          continue;
         const policy = coalescePolicy(draft.type);
         const existing = await this.prisma.parentNotification.findFirst({
           where: {

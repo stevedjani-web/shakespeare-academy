@@ -58,6 +58,12 @@ model School {
   // au lieu d'en envoyer une nouvelle (une seule alerte push par rafale).
   notifGroupeMinutes Int @default(60)
 
+  // Lot 13 (D74, RV09 : valeurs provisoires modifiables). Délai de réponse indicatif affiché aux parents
+  // (jours ouvrés), et nombre de chiffres à partir duquel un message est refusé car il ressemble à un
+  // numéro de téléphone : aucun numéro personnel n'est échangé (RV09).
+  messageDelaiReponseJours Int @default(2)
+  messageNumeroMinChiffres Int @default(9)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -187,6 +193,7 @@ model Class {
   timetableEntries TimetableEntry[]
   attendanceCalls  AttendanceCall[]
   sessionCheckins  TeacherSessionCheckin[]
+  announcements    Announcement[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -275,6 +282,13 @@ model User {
   checkinsDecided        TeacherSessionCheckin[] @relation("SessionCheckinDecidedBy")
   dayCheckinsDecided     TeacherDayCheckin[]     @relation("DayCheckinDecidedBy")
   activationCodesCreated ParentActivationCode[]
+  threadsAsStaff         MessageThread[]         @relation("ThreadStaff")
+  messagesAuthored       Message[]               @relation("MessageAuthorUser")
+  messagesWithdrawn      Message[]               @relation("MessageWithdrawnBy")
+  reportsFiled           MessageReport[]         @relation("ReportReporter")
+  reportsHandled         MessageReport[]         @relation("ReportHandler")
+  announcementsAuthored  Announcement[]          @relation("AnnouncementAuthor")
+  announcementsWithdrawn Announcement[]          @relation("AnnouncementWithdrawnBy")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -344,6 +358,7 @@ model Student {
 
   studentGuardians    StudentGuardian[]
   parentNotifications ParentNotification[]
+  messageThreads      MessageThread[]
   enrollments         Enrollment[]
   attendanceRecords   AttendanceRecord[]
 
@@ -366,6 +381,7 @@ model Guardian {
 
   studentGuardians StudentGuardian[]
   parentAccount    ParentAccount?
+  messageThreads   MessageThread[]
   activationCodes  ParentActivationCode[]
 
   // R9-like (cf. Elyon) : un même numéro identifie le même responsable au sein d'un établissement,
@@ -1268,6 +1284,9 @@ enum NotificationType {
   RETARD
   ENSEIGNANT_ABSENT
   EMPLOI_DU_TEMPS_MODIFIE
+  // Lot 13 : un message vient d'arriver (jamais son contenu, RV10) ; une annonce de classe est publiée.
+  MESSAGE_RECU
+  ANNONCE
 }
 
 enum PushDelivery {
@@ -1329,4 +1348,106 @@ model ParentPushSubscription {
 
   @@index([accountId])
   @@map("parent_push_subscriptions")
+}
+
+// --- Lot 13 : messagerie sécurisée et annonces (addendum v1.1, RV09, RV11, D72 à D75) ------------
+// Une conversation relie UN responsable et UN interlocuteur du personnel, à propos d'UN élève. Elle n'existe
+// que si le couple est autorisé (RV09) : un enseignant affecté à la classe de l'enfant, ou l'école
+// (Direction et vie scolaire). Jamais de parent à parent. Texte seul, aucun numéro échangé ni affiché.
+
+enum ThreadKind {
+  // Un enseignant précis (staffUserId).
+  ENSEIGNANT
+  // Le guichet de l'école : Direction et vie scolaire, partagé entre elles (staffUserId vide).
+  ECOLE
+}
+
+enum MessageAuthor {
+  PARENT
+  PERSONNEL
+}
+
+model MessageThread {
+  id               String        @id @default(cuid())
+  studentId        String
+  student          Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardianId       String
+  guardian         Guardian      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  type             ThreadKind
+  staffUserId      String?
+  staffUser        User?         @relation("ThreadStaff", fields: [staffUserId], references: [id])
+  createdByType    MessageAuthor
+  createdAt        DateTime      @default(now())
+  dernierMessageAt DateTime      @default(now())
+  // Dernière lecture de chaque côté : un message est non lu s'il est plus récent et vient de l'autre côté.
+  parentLuAt       DateTime?
+  personnelLuAt    DateTime?
+
+  messages Message[]
+
+  @@index([guardianId, dernierMessageAt])
+  @@index([staffUserId, dernierMessageAt])
+  @@index([studentId])
+  @@map("message_threads")
+}
+
+model Message {
+  id           String        @id @default(cuid())
+  threadId     String
+  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  auteur       MessageAuthor
+  // Renseigné pour un message du personnel ; le responsable est celui de la conversation.
+  auteurUserId String?
+  auteurUser   User?         @relation("MessageAuthorUser", fields: [auteurUserId], references: [id])
+  texte        String
+  createdAt    DateTime      @default(now())
+  // Pas de suppression (D75) : la Direction retire un message avec un motif, la trace reste.
+  retireAt     DateTime?
+  retireParId  String?
+  retirePar    User?         @relation("MessageWithdrawnBy", fields: [retireParId], references: [id])
+  retireMotif  String?
+
+  reports MessageReport[]
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+// Signalement d'un message à la Direction (D75), par un responsable ou un membre du personnel.
+model MessageReport {
+  id                   String        @id @default(cuid())
+  messageId            String
+  message              Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  signaleParType       MessageAuthor
+  signaleParUserId     String?
+  signaleParUser       User?         @relation("ReportReporter", fields: [signaleParUserId], references: [id])
+  signaleParGuardianId String?
+  motif                String?
+  createdAt            DateTime      @default(now())
+  traiteAt             DateTime?
+  traiteParId          String?
+  traitePar            User?         @relation("ReportHandler", fields: [traiteParId], references: [id])
+
+  @@index([traiteAt, createdAt])
+  @@index([messageId])
+  @@map("message_reports")
+}
+
+// Annonce à tous les responsables des élèves d'une classe.
+model Announcement {
+  id          String    @id @default(cuid())
+  classId     String
+  class       Class     @relation(fields: [classId], references: [id])
+  auteurId    String
+  auteur      User      @relation("AnnouncementAuthor", fields: [auteurId], references: [id])
+  titre       String
+  corps       String
+  createdAt   DateTime  @default(now())
+  retireAt    DateTime?
+  retireParId String?
+  retirePar   User?     @relation("AnnouncementWithdrawnBy", fields: [retireParId], references: [id])
+  retireMotif String?
+
+  @@index([classId, createdAt])
+  @@map("announcements")
 }

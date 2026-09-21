@@ -16,6 +16,8 @@ const TYPES: NotificationType[] = [
   'RETARD',
   'ENSEIGNANT_ABSENT',
   'EMPLOI_DU_TEMPS_MODIFIE',
+  'MESSAGE_RECU',
+  'ANNONCE',
 ];
 
 describe('textes des notifications', () => {

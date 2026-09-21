@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Politique de confidentialité, espace parents | Shakespeare Academy" };
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-const VERSION = "2026-09-v1";
+const VERSION = "2026-09-v2";
 
 const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
@@ -35,6 +35,20 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
     ],
   },
   {
+    titre: "Notifications",
+    contenu: [
+      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages et des annonces de classe. Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note ni de montant. Vous pouvez couper les alertes par type d'événement.",
+    ],
+  },
+  {
+    titre: "Messagerie et annonces",
+    contenu: [
+      "Vous pouvez écrire aux enseignants de la classe de votre enfant et à l'école. Vous ne pouvez jamais écrire à un autre parent, et personne ne peut vous écrire hors de ce cadre. Les messages sont du texte seulement, sans pièce jointe, et les numéros de téléphone ne s'y échangent pas.",
+      "La Direction de l'école peut consulter les échanges de la messagerie, par exemple pour traiter un signalement ou vérifier un usage inapproprié. Chaque consultation est enregistrée dans un journal. Vous pouvez signaler un message reçu à la Direction. Un message n'est jamais supprimé : la Direction peut le retirer, et il n'est alors plus lisible pour vous, mais sa trace est conservée.",
+      "L'école indique un délai de réponse indicatif, affiché dans la messagerie. Ce n'est pas un engagement.",
+    ],
+  },
+  {
     titre: "Sécurité",
     contenu: [
       "Les échanges avec cet espace sont chiffrés. Un code d'activation ne sert qu'une fois et expire. Après plusieurs mots de passe faux, le compte est bloqué quelques minutes. Vous pouvez demander à tout moment à l'école de désactiver votre compte.",
@@ -43,7 +57,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
     titre: "Combien de temps",
     contenu: [
-      "Les présences et les informations de l'année scolaire en cours sont conservées pendant cette année et l'année suivante, puis archivées. Ces durées peuvent être précisées par l'école.",
+      "Les présences, les messages, les notifications et les informations de l'année scolaire en cours sont conservés pendant cette année et l'année suivante, puis archivés. Ces durées peuvent être précisées par l'école.",
     ],
   },
   {

@@ -24,6 +24,8 @@ import {
   KeyRound,
   ScanLine,
   UserCheck,
+  MessagesSquare,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -48,6 +50,8 @@ const LINKS: NavLink[] = [
   { href: "/pointage", label: "Mon pointage", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
   { href: "/pointage-enseignants", label: "Pointage enseignants", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
   { href: "/portail-parents", label: "Comptes parents", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
+  { href: "/messagerie", label: "Messagerie", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
+  { href: "/annonces", label: "Annonces", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
   { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },

@@ -35,6 +35,11 @@ export function pushBody(type: NotificationType, names: string[]): string {
       return `Un cours de la classe ${dePrenom(who)} est annulé ou remplacé. Ouvrez l'application pour le détail.`;
     case 'EMPLOI_DU_TEMPS_MODIFIE':
       return `L'emploi du temps de la classe ${dePrenom(who)} a changé. Ouvrez l'application pour le détail.`;
+    // Jamais le contenu du message ni de l'annonce (RV10) : seulement qu'il y en a un.
+    case 'MESSAGE_RECU':
+      return `Vous avez un nouveau message concernant ${who}. Ouvrez l'application pour le lire.`;
+    case 'ANNONCE':
+      return `Une annonce a été publiée pour la classe ${dePrenom(who)}. Ouvrez l'application pour la lire.`;
   }
 }
 
@@ -48,6 +53,10 @@ export function notificationTitle(type: NotificationType): string {
       return 'Cours annulé ou remplacé';
     case 'EMPLOI_DU_TEMPS_MODIFIE':
       return "Changement d'emploi du temps";
+    case 'MESSAGE_RECU':
+      return 'Nouveau message';
+    case 'ANNONCE':
+      return 'Nouvelle annonce';
   }
 }
 
@@ -109,7 +118,19 @@ export function mergedBody(
       return `${count} séances de la classe ${dePrenom(prenom)} sont annulées ou remplacées le ${frenchDate(jour)}. Le détail est dans l'emploi du temps.`;
     case 'EMPLOI_DU_TEMPS_MODIFIE':
       return `${count} changements de l'emploi du temps de la classe ${dePrenom(prenom)} ont été enregistrés. Consultez l'emploi du temps.`;
+    case 'MESSAGE_RECU':
+      return `${count} nouveaux messages concernant ${prenom} vous attendent dans la messagerie.`;
+    case 'ANNONCE':
+      return `${count} annonces ont été publiées pour la classe ${dePrenom(prenom)}. Consultez les annonces.`;
   }
+}
+
+export function messageReceivedBody(prenom: string, from: string): string {
+  return `Vous avez reçu un message de ${from} à propos de ${prenom}.`;
+}
+
+export function announcementBody(prenom: string, titre: string): string {
+  return `Nouvelle annonce pour la classe ${dePrenom(prenom)} : « ${titre} ».`;
 }
 
 /**
@@ -118,5 +139,8 @@ export function mergedBody(
  * journée. Les changements d'emploi du temps sont regroupés par fenêtre de temps paramétrée.
  */
 export function coalescePolicy(type: NotificationType): 'JOUR' | 'FENETRE' {
-  return type === 'EMPLOI_DU_TEMPS_MODIFIE' ? 'FENETRE' : 'JOUR';
+  // Les annonces et les changements d'emploi du temps sont regroupés par fenêtre de temps ; le reste, tout de suite.
+  return type === 'EMPLOI_DU_TEMPS_MODIFIE' || type === 'ANNONCE'
+    ? 'FENETRE'
+    : 'JOUR';
 }

@@ -10,7 +10,7 @@ import { ParentPushOptIn } from "@/components/parent-push-opt-in";
 
 interface Notification {
   id: string;
-  type: "ABSENCE" | "RETARD" | "ENSEIGNANT_ABSENT" | "EMPLOI_DU_TEMPS_MODIFIE";
+  type: "ABSENCE" | "RETARD" | "ENSEIGNANT_ABSENT" | "EMPLOI_DU_TEMPS_MODIFIE" | "MESSAGE_RECU" | "ANNONCE";
   titre: string;
   corps: string;
   occurrences: number;
@@ -30,13 +30,17 @@ const TYPE_HELP: Record<Notification["type"], string> = {
   RETARD: "Quand un retard est saisi pour votre enfant",
   ENSEIGNANT_ABSENT: "Quand un cours de sa classe est annulé ou remplacé",
   EMPLOI_DU_TEMPS_MODIFIE: "Quand l'emploi du temps de sa classe change (regroupé)",
+  MESSAGE_RECU: "Quand vous recevez un message d'un enseignant ou de l'école",
+  ANNONCE: "Quand une annonce est publiée pour la classe de votre enfant (regroupé)",
 };
 
-const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "primary"> = {
+const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "primary" | "green"> = {
   ABSENCE: "red",
   RETARD: "orange",
   ENSEIGNANT_ABSENT: "blue",
   EMPLOI_DU_TEMPS_MODIFIE: "primary",
+  MESSAGE_RECU: "green",
+  ANNONCE: "blue",
 };
 
 function formatWhen(value: string): string {
@@ -95,7 +99,10 @@ export default function ParentNotificationsPage() {
         // Ne pas empêcher d'ouvrir la fiche de l'enfant si le marquage échoue.
       }
     }
-    router.push(`/parents/enfant/${n.enfant.id}`);
+    // Un message ou une annonce s'ouvre dans la messagerie ; le reste, sur la fiche de l'enfant.
+    if (n.type === "MESSAGE_RECU") router.push("/parents/messages");
+    else if (n.type === "ANNONCE") router.push("/parents/annonces");
+    else router.push(`/parents/enfant/${n.enfant.id}`);
   }
 
   async function readAll() {
@@ -128,7 +135,7 @@ export default function ParentNotificationsPage() {
 
   return (
     <div>
-      <PageTitle subtitle="Absences, retards, cours annulés et changements d'emploi du temps de vos enfants.">Notifications</PageTitle>
+      <PageTitle subtitle="Absences, retards, cours annulés, changements d'emploi du temps, messages et annonces.">Notifications</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
 
       <div className="mb-3 flex items-center justify-between gap-3">
