@@ -7,6 +7,7 @@ import { buildSection, type ExportSection } from "@/lib/export";
 import type { CashClosing, CashClosingEntry, CashClosingExpense, ExpenseCategory } from "@/lib/types";
 import { Badge, Card, EmptyState, Input, PageTitle, StatCard } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
+import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { ArrowDownCircle, ArrowUpCircle, ClipboardList, Wallet } from "lucide-react";
 
 const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
@@ -27,6 +28,8 @@ export default function CashClosingPage() {
   const [date, setDate] = useState(todayIso());
   const [closing, setClosing] = useState<CashClosing | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const expandIn = useExpanded();
+  const expandOut = useExpanded();
 
   useEffect(() => {
     setLoaded(false);
@@ -145,19 +148,49 @@ export default function CashClosingPage() {
               {closing.entrees.items.length === 0 ? (
                 <EmptyState icon={<ArrowDownCircle />} title="Aucune entrée ce jour." />
               ) : (
-                <ul className="space-y-2">
-                  {closing.entrees.items.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-success bg-success-soft/40 p-3 text-sm">
-                      <p className="flex flex-wrap items-center justify-between gap-2 font-medium text-ink">
-                        <span>{item.numeroRecu}</span>
-                        <span className="font-semibold text-success">+ {formatMontant(item.montant)}</span>
-                      </p>
-                      <p className="text-xs text-ink-muted">
-                        {item.libelle} {item.eleve && <>· {item.eleve}</>} · {item.recuPar}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ExpandAll
+                    count={closing.entrees.items.length}
+                    onOpenAll={() => expandIn.openAll(closing.entrees.items.map((i) => i.id))}
+                    onCloseAll={expandIn.closeAll}
+                  />
+                  <ul className="space-y-2">
+                    {closing.entrees.items.map((item) => {
+                      const expanded = expandIn.isOpen(item.id);
+                      return (
+                        <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-success bg-success-soft/40 p-3 text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <ExpandButton open={expanded} onClick={() => expandIn.toggle(item.id)} label={item.numeroRecu} />
+                            <p className="flex flex-1 flex-wrap items-center justify-between gap-2 font-medium text-ink">
+                              <span>{item.numeroRecu}</span>
+                              <span className="font-semibold text-success">+ {formatMontant(item.montant)}</span>
+                            </p>
+                          </div>
+                          {expanded && (
+                            <dl className="mt-3 grid gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2">
+                              <div className="sm:col-span-2">
+                                <dt className="text-xs text-ink-muted">Motif</dt>
+                                <dd className="font-medium text-ink">{item.libelle}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-ink-muted">Élève</dt>
+                                <dd className="font-medium text-ink">{item.eleve ?? "-"}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-ink-muted">Mode de paiement</dt>
+                                <dd className="font-medium text-ink">{MODE_LABEL[item.modePaiement] ?? item.modePaiement}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-ink-muted">Reçu par</dt>
+                                <dd className="font-medium text-ink">{item.recuPar}</dd>
+                              </div>
+                            </dl>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
             </Card>
 
@@ -166,19 +199,42 @@ export default function CashClosingPage() {
               {closing.sorties.items.length === 0 ? (
                 <EmptyState icon={<ArrowUpCircle />} title="Aucune sortie approuvée ce jour." />
               ) : (
-                <ul className="space-y-2">
-                  {closing.sorties.items.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-danger bg-danger-soft/40 p-3 text-sm">
-                      <p className="flex flex-wrap items-center justify-between gap-2 font-medium text-ink">
-                        <span>{CATEGORY_LABEL[item.categorie] ?? item.categorie}</span>
-                        <span className="font-semibold text-danger">- {formatMontant(item.montant)}</span>
-                      </p>
-                      <p className="text-xs text-ink-muted">
-                        {item.description} · {item.effectuePar}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ExpandAll
+                    count={closing.sorties.items.length}
+                    onOpenAll={() => expandOut.openAll(closing.sorties.items.map((i) => i.id))}
+                    onCloseAll={expandOut.closeAll}
+                  />
+                  <ul className="space-y-2">
+                    {closing.sorties.items.map((item) => {
+                      const expanded = expandOut.isOpen(item.id);
+                      const label = CATEGORY_LABEL[item.categorie] ?? item.categorie;
+                      return (
+                        <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-danger bg-danger-soft/40 p-3 text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <ExpandButton open={expanded} onClick={() => expandOut.toggle(item.id)} label={label} />
+                            <p className="flex flex-1 flex-wrap items-center justify-between gap-2 font-medium text-ink">
+                              <span>{label}</span>
+                              <span className="font-semibold text-danger">- {formatMontant(item.montant)}</span>
+                            </p>
+                          </div>
+                          {expanded && (
+                            <dl className="mt-3 grid gap-x-6 gap-y-2 border-t border-border pt-3 sm:grid-cols-2">
+                              <div className="sm:col-span-2">
+                                <dt className="text-xs text-ink-muted">Description</dt>
+                                <dd className="font-medium text-ink">{item.description}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs text-ink-muted">Effectuée par</dt>
+                                <dd className="font-medium text-ink">{item.effectuePar}</dd>
+                              </div>
+                            </dl>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
             </Card>
           </div>
