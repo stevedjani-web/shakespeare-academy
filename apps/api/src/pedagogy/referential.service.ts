@@ -122,7 +122,9 @@ export class ReferentialService {
       (dto.type !== undefined && dto.type !== before.type)
     ) {
       // Les séances copient les heures du créneau : les changer ici les désynchroniserait.
-      const used = await this.prisma.timetableEntry.count({ where: { timeSlotId: id } });
+      const used = await this.prisma.timetableEntry.count({
+        where: { timeSlotId: id },
+      });
       if (used > 0) {
         throw new ConflictException(
           'Ce créneau est utilisé dans un emploi du temps : ses heures et son type ne peuvent plus changer. Créez un nouveau créneau et déplacez les séances.',
@@ -149,8 +151,13 @@ export class ReferentialService {
     if (!before) {
       throw new NotFoundException('Créneau introuvable.');
     }
-    if ((await this.prisma.timetableEntry.count({ where: { timeSlotId: id } })) > 0) {
-      throw new ConflictException('Ce créneau est utilisé dans un emploi du temps : il ne peut pas être supprimé.');
+    if (
+      (await this.prisma.timetableEntry.count({ where: { timeSlotId: id } })) >
+      0
+    ) {
+      throw new ConflictException(
+        'Ce créneau est utilisé dans un emploi du temps : il ne peut pas être supprimé.',
+      );
     }
     await this.prisma.timeSlot.delete({ where: { id } });
     await this.log(userId, 'TIME_SLOT_DELETE', 'TimeSlot', id, before, null);
@@ -215,7 +222,9 @@ export class ReferentialService {
       (await this.prisma.timetableEntry.count({ where: { roomId: id } })) +
       (await this.prisma.timetableException.count({ where: { roomId: id } }));
     if (used > 0) {
-      throw new ConflictException('Cette salle est utilisée dans un emploi du temps : désactivez-la plutôt que de la supprimer.');
+      throw new ConflictException(
+        'Cette salle est utilisée dans un emploi du temps : désactivez-la plutôt que de la supprimer.',
+      );
     }
     // Son QR de pointage n'a plus d'objet une fois la salle supprimée.
     await this.prisma.pointageCode.deleteMany({ where: { roomId: id } });
@@ -231,7 +240,9 @@ export class ReferentialService {
       orderBy: { nom: 'asc' },
       include: {
         levels: {
-          include: { level: { include: { cycle: { include: { section: true } } } } },
+          include: {
+            level: { include: { cycle: { include: { section: true } } } },
+          },
         },
         _count: { select: { teachers: true, assignments: true } },
       },
@@ -258,7 +269,14 @@ export class ReferentialService {
         nom: dto.nom.trim(),
       },
     });
-    await this.log(userId, 'SUBJECT_CREATE', 'Subject', subject.id, null, subject);
+    await this.log(
+      userId,
+      'SUBJECT_CREATE',
+      'Subject',
+      subject.id,
+      null,
+      subject,
+    );
     return subject;
   }
 
@@ -282,7 +300,9 @@ export class ReferentialService {
   async deleteSubject(id: string, userId: string) {
     const subject = await this.prisma.subject.findUnique({
       where: { id },
-      include: { _count: { select: { levels: true, teachers: true, assignments: true } } },
+      include: {
+        _count: { select: { levels: true, teachers: true, assignments: true } },
+      },
     });
     if (!subject) {
       throw new NotFoundException('Matière introuvable.');
@@ -346,7 +366,9 @@ export class ReferentialService {
       }),
     ]);
 
-    const after = await this.prisma.subjectLevel.findMany({ where: { subjectId: id } });
+    const after = await this.prisma.subjectLevel.findMany({
+      where: { subjectId: id },
+    });
     await this.log(
       userId,
       'SUBJECT_LEVELS_UPDATE',

@@ -70,7 +70,11 @@ export class TeachersService {
     return teacher;
   }
 
-  private async assertNameFree(nom: string, prenom: string, excludeId?: string) {
+  private async assertNameFree(
+    nom: string,
+    prenom: string,
+    excludeId?: string,
+  ) {
     const teachers = await this.prisma.teacher.findMany();
     const clash = teachers.find(
       (t) =>
@@ -96,7 +100,14 @@ export class TeachersService {
         email: dto.email?.trim() || null,
       },
     });
-    await this.log(userId, 'TEACHER_CREATE', 'Teacher', teacher.id, null, teacher);
+    await this.log(
+      userId,
+      'TEACHER_CREATE',
+      'Teacher',
+      teacher.id,
+      null,
+      teacher,
+    );
     return teacher;
   }
 
@@ -108,11 +119,18 @@ export class TeachersService {
       await this.assertNameFree(nom, prenom, id);
     }
     if (dto.userId) {
-      const account = await this.prisma.user.findUnique({ where: { id: dto.userId }, include: { teacher: true } });
-      if (!account) throw new NotFoundException('Compte utilisateur introuvable.');
-      if (account.statut !== 'ACTIF') throw new ConflictException('Ce compte est désactivé.');
+      const account = await this.prisma.user.findUnique({
+        where: { id: dto.userId },
+        include: { teacher: true },
+      });
+      if (!account)
+        throw new NotFoundException('Compte utilisateur introuvable.');
+      if (account.statut !== 'ACTIF')
+        throw new ConflictException('Ce compte est désactivé.');
       if (account.teacher && account.teacher.id !== id) {
-        throw new ConflictException(`Ce compte est déjà relié à ${account.teacher.prenom} ${account.teacher.nom}.`);
+        throw new ConflictException(
+          `Ce compte est déjà relié à ${account.teacher.prenom} ${account.teacher.nom}.`,
+        );
       }
     }
     const teacher = await this.prisma.teacher.update({
@@ -120,7 +138,10 @@ export class TeachersService {
       data: {
         nom: dto.nom?.trim(),
         prenom: dto.prenom?.trim(),
-        telephone: dto.telephone === undefined ? undefined : dto.telephone.trim() || null,
+        telephone:
+          dto.telephone === undefined
+            ? undefined
+            : dto.telephone.trim() || null,
         email: dto.email === undefined ? undefined : dto.email.trim() || null,
         statut: dto.statut,
         modePointage: dto.modePointage,
@@ -136,7 +157,10 @@ export class TeachersService {
     const users = await this.prisma.user.findMany({
       where: { statut: 'ACTIF' },
       orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
-      include: { role: { select: { code: true, nom: true } }, teacher: { select: { id: true } } },
+      include: {
+        role: { select: { code: true, nom: true } },
+        teacher: { select: { id: true } },
+      },
     });
     return users.map((u) => ({
       id: u.id,
@@ -149,7 +173,11 @@ export class TeachersService {
   }
 
   /** Matières que l'enseignant peut enseigner (indicatif, non bloquant pour les affectations). */
-  async setTeacherSubjects(id: string, dto: SetTeacherSubjectsDto, userId: string) {
+  async setTeacherSubjects(
+    id: string,
+    dto: SetTeacherSubjectsDto,
+    userId: string,
+  ) {
     const before = await this.findTeacher(id);
     const subjects = await this.prisma.subject.findMany({
       where: { id: { in: dto.subjectIds } },
@@ -164,19 +192,34 @@ export class TeachersService {
         data: dto.subjectIds.map((subjectId) => ({ teacherId: id, subjectId })),
       }),
     ]);
-    const after = await this.prisma.teacherSubject.findMany({ where: { teacherId: id } });
-    await this.log(userId, 'TEACHER_SUBJECTS_UPDATE', 'Teacher', id, before.subjects, after);
+    const after = await this.prisma.teacherSubject.findMany({
+      where: { teacherId: id },
+    });
+    await this.log(
+      userId,
+      'TEACHER_SUBJECTS_UPDATE',
+      'Teacher',
+      id,
+      before.subjects,
+      after,
+    );
     return after;
   }
 
   // --------------------------------------------------------------- Affectations
 
-  listAssignments(filters: { classId?: string; teacherId?: string; academicYearId?: string }) {
+  listAssignments(filters: {
+    classId?: string;
+    teacherId?: string;
+    academicYearId?: string;
+  }) {
     return this.prisma.teachingAssignment.findMany({
       where: {
         classId: filters.classId || undefined,
         teacherId: filters.teacherId || undefined,
-        class: filters.academicYearId ? { academicYearId: filters.academicYearId } : undefined,
+        class: filters.academicYearId
+          ? { academicYearId: filters.academicYearId }
+          : undefined,
       },
       include: { subject: true, teacher: true, class: true },
       orderBy: [{ classId: 'asc' }],
@@ -188,7 +231,9 @@ export class TeachersService {
    * C'est la grille de saisie des affectations.
    */
   async assignmentsByClass(classId: string) {
-    const klass = await this.prisma.class.findUnique({ where: { id: classId } });
+    const klass = await this.prisma.class.findUnique({
+      where: { id: classId },
+    });
     if (!klass) {
       throw new NotFoundException('Classe introuvable.');
     }
@@ -206,35 +251,46 @@ export class TeachersService {
       matieres: levelSubjects.map((ls) => ({
         subject: ls.subject,
         minutesParSemaine: ls.minutesParSemaine,
-        assignment: assignments.find((a) => a.subjectId === ls.subjectId) ?? null,
+        assignment:
+          assignments.find((a) => a.subjectId === ls.subjectId) ?? null,
       })),
     };
   }
 
   private async activeTeacher(teacherId: string) {
-    const teacher = await this.prisma.teacher.findUnique({ where: { id: teacherId } });
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { id: teacherId },
+    });
     if (!teacher) {
       throw new NotFoundException('Enseignant introuvable.');
     }
     if (teacher.statut !== 'ACTIF') {
-      throw new ConflictException('Cet enseignant est inactif : réactivez-le avant de lui affecter une classe.');
+      throw new ConflictException(
+        'Cet enseignant est inactif : réactivez-le avant de lui affecter une classe.',
+      );
     }
     return teacher;
   }
 
   async createAssignment(dto: CreateAssignmentDto, userId: string) {
-    const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
+    const klass = await this.prisma.class.findUnique({
+      where: { id: dto.classId },
+    });
     if (!klass) {
       throw new NotFoundException('Classe introuvable.');
     }
-    const subject = await this.prisma.subject.findUnique({ where: { id: dto.subjectId } });
+    const subject = await this.prisma.subject.findUnique({
+      where: { id: dto.subjectId },
+    });
     if (!subject) {
       throw new NotFoundException('Matière introuvable.');
     }
     await this.activeTeacher(dto.teacherId);
 
     const atLevel = await this.prisma.subjectLevel.findUnique({
-      where: { subjectId_levelId: { subjectId: subject.id, levelId: klass.levelId } },
+      where: {
+        subjectId_levelId: { subjectId: subject.id, levelId: klass.levelId },
+      },
     });
     if (!atLevel) {
       throw new UnprocessableEntityException(
@@ -243,7 +299,9 @@ export class TeachersService {
     }
 
     const existing = await this.prisma.teachingAssignment.findUnique({
-      where: { classId_subjectId: { classId: klass.id, subjectId: subject.id } },
+      where: {
+        classId_subjectId: { classId: klass.id, subjectId: subject.id },
+      },
       include: { teacher: true },
     });
     if (existing) {
@@ -253,14 +311,27 @@ export class TeachersService {
     }
 
     const assignment = await this.prisma.teachingAssignment.create({
-      data: { classId: klass.id, subjectId: subject.id, teacherId: dto.teacherId },
+      data: {
+        classId: klass.id,
+        subjectId: subject.id,
+        teacherId: dto.teacherId,
+      },
     });
-    await this.log(userId, 'ASSIGNMENT_CREATE', 'TeachingAssignment', assignment.id, null, assignment);
+    await this.log(
+      userId,
+      'ASSIGNMENT_CREATE',
+      'TeachingAssignment',
+      assignment.id,
+      null,
+      assignment,
+    );
     return assignment;
   }
 
   async updateAssignment(id: string, dto: UpdateAssignmentDto, userId: string) {
-    const before = await this.prisma.teachingAssignment.findUnique({ where: { id } });
+    const before = await this.prisma.teachingAssignment.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Affectation introuvable.');
     }
@@ -269,12 +340,21 @@ export class TeachersService {
       where: { id },
       data: { teacherId: dto.teacherId },
     });
-    await this.log(userId, 'ASSIGNMENT_UPDATE', 'TeachingAssignment', id, before, assignment);
+    await this.log(
+      userId,
+      'ASSIGNMENT_UPDATE',
+      'TeachingAssignment',
+      id,
+      before,
+      assignment,
+    );
     return assignment;
   }
 
   async deleteAssignment(id: string, userId: string) {
-    const before = await this.prisma.teachingAssignment.findUnique({ where: { id } });
+    const before = await this.prisma.teachingAssignment.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Affectation introuvable.');
     }
@@ -287,7 +367,14 @@ export class TeachersService {
       );
     }
     await this.prisma.teachingAssignment.delete({ where: { id } });
-    await this.log(userId, 'ASSIGNMENT_DELETE', 'TeachingAssignment', id, before, null);
+    await this.log(
+      userId,
+      'ASSIGNMENT_DELETE',
+      'TeachingAssignment',
+      id,
+      before,
+      null,
+    );
     return { id };
   }
 }

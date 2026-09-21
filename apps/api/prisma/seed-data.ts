@@ -225,6 +225,18 @@ export const LOT13_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 14 (pilotage 360°). `PILOTAGE_READ` : consulter le tableau de bord de la Direction (assiduité, ponctualité des
+ * enseignants, alertes de décrochage) et exporter ses tableaux. Direction seulement : données de mineurs (RV12).
+ */
+export const LOT14_PERMISSIONS = [
+  {
+    code: 'PILOTAGE_READ',
+    description:
+      "Consulter le tableau de bord de pilotage (assiduité, ponctualité, alertes de décrochage) et l'exporter.",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -289,6 +301,7 @@ export const ROLES: Array<{
       'MESSAGE_USE',
       'MESSAGE_DESK',
       'MESSAGE_SUPERVISE',
+      'PILOTAGE_READ',
     ],
   },
   {
@@ -383,6 +396,7 @@ export async function seedReferenceData(
     ...LOT10_PERMISSIONS,
     ...LOT11_PERMISSIONS,
     ...LOT13_PERMISSIONS,
+    ...LOT14_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

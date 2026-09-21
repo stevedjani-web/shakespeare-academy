@@ -37,6 +37,13 @@ export class UpdatePedagogySettingsDto {
   @Max(6, { each: true })
   joursClasse?: number[];
 
+  // Lot 14 (D61) : nombre d'absences non justifiées à partir duquel un élève est signalé. `null` désactive les alertes.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  seuilAlerteAbsences?: number | null;
+
   // Lot 9 (D57) : minutes de retard au-delà desquelles un élève est absent de la séance.
   @IsOptional()
   @IsInt()

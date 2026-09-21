@@ -64,6 +64,11 @@ model School {
   messageDelaiReponseJours Int @default(2)
   messageNumeroMinChiffres Int @default(9)
 
+  // Lot 14 (D61 : AUCUN seuil inventé). Nombre d'absences non justifiées, sur la période du tableau de bord,
+  // à partir duquel un élève apparaît dans les alertes de décrochage. `null` = alertes désactivées : elles le
+  // restent tant que la Direction n'a pas fixé un seuil.
+  seuilAlerteAbsences Int?
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]

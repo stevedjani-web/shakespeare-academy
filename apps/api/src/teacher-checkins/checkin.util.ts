@@ -12,13 +12,25 @@ function timezoneOffsetMs(instantMs: number, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(new Date(instantMs));
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+  const get = (type: string) =>
+    Number(parts.find((p) => p.type === type)?.value);
+  const asUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second'),
+  );
   return asUtc - (instantMs - (instantMs % 1000));
 }
 
 /** Instant réel de « jour + HH:mm » dans le fuseau de l'établissement (les séances sont en heure locale). */
-export function localToInstant(day: string, hhmm: string, timeZone: string): Date {
+export function localToInstant(
+  day: string,
+  hhmm: string,
+  timeZone: string,
+): Date {
   const [y, m, d] = day.split('-').map(Number);
   const [h, mi] = hhmm.split(':').map(Number);
   const guess = Date.UTC(y, m - 1, d, h, mi);
@@ -41,5 +53,10 @@ export function plannedMinutes(heureDebut: string, heureFin: string): number {
 
 /** "HH:mm" d'un instant, dans le fuseau de l'établissement. */
 export function timeInTimezone(instant: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('fr-FR', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(instant);
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(instant);
 }

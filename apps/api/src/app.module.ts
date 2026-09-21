@@ -29,6 +29,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { TeacherCheckinsModule } from './teacher-checkins/teacher-checkins.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { MessagingModule } from './messaging/messaging.module';
+import { PilotageModule } from './pilotage/pilotage.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { MessagingModule } from './messaging/messaging.module';
     TeacherCheckinsModule,
     ParentPortalModule,
     MessagingModule,
+    PilotageModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

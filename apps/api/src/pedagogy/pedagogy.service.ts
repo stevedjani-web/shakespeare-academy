@@ -26,6 +26,7 @@ export class PedagogyService {
         pointageFenetreMinutes: true,
         pointageToleranceMinutes: true,
         pointageEcartMinMinutes: true,
+        seuilAlerteAbsences: true,
       },
     });
     return school;
@@ -36,12 +37,16 @@ export class PedagogyService {
     const school = await this.prisma.school.update({
       where: { id: await this.school.getDefaultId() },
       data: {
-        joursClasse: dto.joursClasse ? [...dto.joursClasse].sort((a, b) => a - b) : undefined,
+        joursClasse: dto.joursClasse
+          ? [...dto.joursClasse].sort((a, b) => a - b)
+          : undefined,
         retardMaxMinutes: dto.retardMaxMinutes,
         delaiJustificatifJours: dto.delaiJustificatifJours,
         pointageFenetreMinutes: dto.pointageFenetreMinutes,
         pointageToleranceMinutes: dto.pointageToleranceMinutes,
         pointageEcartMinMinutes: dto.pointageEcartMinMinutes,
+        // null efface le seuil (alertes désactivées), undefined ne change rien.
+        seuilAlerteAbsences: dto.seuilAlerteAbsences,
       },
       select: {
         id: true,
@@ -51,6 +56,7 @@ export class PedagogyService {
         pointageFenetreMinutes: true,
         pointageToleranceMinutes: true,
         pointageEcartMinMinutes: true,
+        seuilAlerteAbsences: true,
       },
     });
     await this.audit.log({
@@ -67,6 +73,7 @@ export class PedagogyService {
         pointageFenetreMinutes: school.pointageFenetreMinutes,
         pointageToleranceMinutes: school.pointageToleranceMinutes,
         pointageEcartMinMinutes: school.pointageEcartMinMinutes,
+        seuilAlerteAbsences: school.seuilAlerteAbsences,
       },
     });
     return {
@@ -76,6 +83,7 @@ export class PedagogyService {
       pointageFenetreMinutes: school.pointageFenetreMinutes,
       pointageToleranceMinutes: school.pointageToleranceMinutes,
       pointageEcartMinMinutes: school.pointageEcartMinMinutes,
+      seuilAlerteAbsences: school.seuilAlerteAbsences,
     };
   }
 
@@ -88,13 +96,17 @@ export class PedagogyService {
     const before = await this.getPilot();
 
     if (dto.classId) {
-      const klass = await this.prisma.class.findUnique({ where: { id: dto.classId } });
+      const klass = await this.prisma.class.findUnique({
+        where: { id: dto.classId },
+      });
       if (!klass) {
         throw new NotFoundException('Classe introuvable.');
       }
     }
     if (dto.teacherId) {
-      const teacher = await this.prisma.teacher.findUnique({ where: { id: dto.teacherId } });
+      const teacher = await this.prisma.teacher.findUnique({
+        where: { id: dto.teacherId },
+      });
       if (!teacher) {
         throw new NotFoundException('Enseignant introuvable.');
       }
@@ -105,9 +117,15 @@ export class PedagogyService {
 
     await this.prisma.$transaction(async (tx) => {
       if (dto.classId !== undefined) {
-        await tx.class.updateMany({ where: { pilote: true }, data: { pilote: false } });
+        await tx.class.updateMany({
+          where: { pilote: true },
+          data: { pilote: false },
+        });
         if (dto.classId) {
-          await tx.class.update({ where: { id: dto.classId }, data: { pilote: true } });
+          await tx.class.update({
+            where: { id: dto.classId },
+            data: { pilote: true },
+          });
         }
       }
       if (dto.teacherId !== undefined) {
@@ -154,25 +172,36 @@ export class PedagogyService {
   /** Tableau de suivi de la saisie : ce qui est rempli, ce qui manque encore. */
   async summary(academicYearId?: string) {
     const year = academicYearId
-      ? await this.prisma.academicYear.findUnique({ where: { id: academicYearId } })
-      : await this.prisma.academicYear.findFirst({ where: { statut: 'ACTIVE' } });
+      ? await this.prisma.academicYear.findUnique({
+          where: { id: academicYearId },
+        })
+      : await this.prisma.academicYear.findFirst({
+          where: { statut: 'ACTIVE' },
+        });
     if (academicYearId && !year) {
       throw new NotFoundException('Année scolaire introuvable.');
     }
 
-    const [settings, slots, subjects, teachers, rooms, pilot] = await Promise.all([
-      this.getSettings(),
-      this.prisma.timeSlot.findMany({ select: { sectionId: true, type: true } }),
-      this.prisma.subject.findMany({
-        where: { actif: true },
-        select: { id: true, _count: { select: { levels: true } } },
-      }),
-      this.prisma.teacher.findMany({
-        select: { id: true, statut: true, _count: { select: { assignments: true } } },
-      }),
-      this.prisma.room.count({ where: { actif: true } }),
-      this.getPilot(),
-    ]);
+    const [settings, slots, subjects, teachers, rooms, pilot] =
+      await Promise.all([
+        this.getSettings(),
+        this.prisma.timeSlot.findMany({
+          select: { sectionId: true, type: true },
+        }),
+        this.prisma.subject.findMany({
+          where: { actif: true },
+          select: { id: true, _count: { select: { levels: true } } },
+        }),
+        this.prisma.teacher.findMany({
+          select: {
+            id: true,
+            statut: true,
+            _count: { select: { assignments: true } },
+          },
+        }),
+        this.prisma.room.count({ where: { actif: true } }),
+        this.getPilot(),
+      ]);
 
     const yearId = year?.id;
     const [terms, events, classes, subjectLevels, assignments] = yearId
@@ -199,11 +228,16 @@ export class PedagogyService {
       : [0, [], [], [], []];
 
     const eventCount = (type: string) =>
-      (events as Array<{ type: string; _count: number }>).find((e) => e.type === type)?._count ?? 0;
+      (events as Array<{ type: string; _count: number }>).find(
+        (e) => e.type === type,
+      )?._count ?? 0;
 
     // Matières attendues par classe (celles de son niveau) moins celles déjà affectées.
     const subjectsByLevel = new Map<string, Set<string>>();
-    for (const ls of subjectLevels as Array<{ levelId: string; subjectId: string }>) {
+    for (const ls of subjectLevels as Array<{
+      levelId: string;
+      subjectId: string;
+    }>) {
       const set = subjectsByLevel.get(ls.levelId) ?? new Set<string>();
       set.add(ls.subjectId);
       subjectsByLevel.set(ls.levelId, set);
@@ -218,7 +252,9 @@ export class PedagogyService {
     let classesCompletes = 0;
     for (const c of classes as Array<{ id: string; levelId: string }>) {
       const required = subjectsByLevel.get(c.levelId) ?? new Set<string>();
-      const missing = [...required].filter((s) => !assigned.has(`${c.id}|${s}`)).length;
+      const missing = [...required].filter(
+        (s) => !assigned.has(`${c.id}|${s}`),
+      ).length;
       manquantes += missing;
       requises += required.size;
       if (required.size > 0 && missing === 0) {
@@ -250,7 +286,7 @@ export class PedagogyService {
         requises,
         manquantes,
       },
-      trimestres: terms as number,
+      trimestres: terms,
       calendrier: {
         vacances: eventCount('VACANCES'),
         feries: eventCount('FERIE'),

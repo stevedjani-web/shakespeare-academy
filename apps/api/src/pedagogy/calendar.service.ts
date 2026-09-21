@@ -126,7 +126,9 @@ export class CalendarService {
         where: { academicYearId: year.id, ordre },
       })
     ) {
-      throw new ConflictException(`Le trimestre n° ${ordre} existe déjà pour cette année.`);
+      throw new ConflictException(
+        `Le trimestre n° ${ordre} existe déjà pour cette année.`,
+      );
     }
 
     const term = await this.prisma.term.create({
@@ -201,12 +203,21 @@ export class CalendarService {
         dateFin: toDateOnly(fin),
       },
     });
-    await this.log(userId, 'CALENDAR_EVENT_CREATE', 'CalendarEvent', event.id, null, event);
+    await this.log(
+      userId,
+      'CALENDAR_EVENT_CREATE',
+      'CalendarEvent',
+      event.id,
+      null,
+      event,
+    );
     return event;
   }
 
   async updateEvent(id: string, dto: UpdateCalendarEventDto, userId: string) {
-    const before = await this.prisma.calendarEvent.findUnique({ where: { id } });
+    const before = await this.prisma.calendarEvent.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Événement introuvable.');
     }
@@ -225,18 +236,34 @@ export class CalendarService {
         dateFin: toDateOnly(fin),
       },
     });
-    await this.log(userId, 'CALENDAR_EVENT_UPDATE', 'CalendarEvent', id, before, event);
+    await this.log(
+      userId,
+      'CALENDAR_EVENT_UPDATE',
+      'CalendarEvent',
+      id,
+      before,
+      event,
+    );
     return event;
   }
 
   async deleteEvent(id: string, userId: string) {
-    const before = await this.prisma.calendarEvent.findUnique({ where: { id } });
+    const before = await this.prisma.calendarEvent.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Événement introuvable.');
     }
     await this.editableYear(before.academicYearId);
     await this.prisma.calendarEvent.delete({ where: { id } });
-    await this.log(userId, 'CALENDAR_EVENT_DELETE', 'CalendarEvent', id, before, null);
+    await this.log(
+      userId,
+      'CALENDAR_EVENT_DELETE',
+      'CalendarEvent',
+      id,
+      before,
+      null,
+    );
     return { id };
   }
 }

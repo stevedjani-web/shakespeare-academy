@@ -26,6 +26,7 @@ import {
   UserCheck,
   MessagesSquare,
   Megaphone,
+  Gauge,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -50,6 +51,7 @@ const LINKS: NavLink[] = [
   { href: "/pointage", label: "Mon pointage", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
   { href: "/pointage-enseignants", label: "Pointage enseignants", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
   { href: "/portail-parents", label: "Comptes parents", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
+  { href: "/pilotage", label: "Pilotage 360°", icon: Gauge, requiredPermission: "PILOTAGE_READ" },
   { href: "/messagerie", label: "Messagerie", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
   { href: "/annonces", label: "Annonces", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },

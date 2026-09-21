@@ -6,17 +6,35 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, type Teacher, type TeacherDayCheckin, type TeacherSessionCheckin } from '@prisma/client';
+import {
+  Prisma,
+  type Teacher,
+  type TeacherDayCheckin,
+  type TeacherSessionCheckin,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
-import { OccurrencesService, type Occurrence } from '../timetable/occurrences.service';
+import {
+  OccurrencesService,
+  type Occurrence,
+} from '../timetable/occurrences.service';
 import { addDays } from '../timetable/timetable.util';
 import { isoDay, toDateOnly } from '../pedagogy/pedagogy.util';
 import { dayInTimezone } from '../attendance/attendance.util';
 import { PointageCodesService } from './pointage-codes.service';
-import { localToInstant, minutesBetween, plannedMinutes, timeInTimezone } from './checkin.util';
-import { DecideCheckinDto, ManualDayDto, ManualSessionDto, ScanDto } from './dto/checkin.dto';
+import {
+  localToInstant,
+  minutesBetween,
+  plannedMinutes,
+  timeInTimezone,
+} from './checkin.util';
+import {
+  DecideCheckinDto,
+  ManualDayDto,
+  ManualSessionDto,
+  ScanDto,
+} from './dto/checkin.dto';
 
 const OFFLINE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 const OFFLINE_CLOCK_SKEW_MS = 5 * 60 * 1000;
@@ -47,7 +65,10 @@ export class TeacherCheckinsService {
         pointageEcartMinMinutes: true,
       },
     });
-    return { ...school, today: dayInTimezone(new Date(), school.fuseauHoraire) };
+    return {
+      ...school,
+      today: dayInTimezone(new Date(), school.fuseauHoraire),
+    };
   }
 
   private async log(
@@ -84,8 +105,12 @@ export class TeacherCheckinsService {
     if (!scanneLe) return null;
     const at = new Date(scanneLe);
     const now = Date.now();
-    if (at.getTime() > now + OFFLINE_CLOCK_SKEW_MS) throw new BadRequestException("L'heure du scan est dans le futur.");
-    if (at.getTime() < now - OFFLINE_MAX_AGE_MS) throw new BadRequestException("L'heure du scan est trop ancienne (plus de 45 jours).");
+    if (at.getTime() > now + OFFLINE_CLOCK_SKEW_MS)
+      throw new BadRequestException("L'heure du scan est dans le futur.");
+    if (at.getTime() < now - OFFLINE_MAX_AGE_MS)
+      throw new BadRequestException(
+        "L'heure du scan est trop ancienne (plus de 45 jours).",
+      );
     return at;
   }
 
@@ -95,7 +120,9 @@ export class TeacherCheckinsService {
     const ctx = await this.context();
     const teacher = await this.requireTeacher(userId);
     if (teacher.statut !== 'ACTIF') {
-      throw new ConflictException('Votre fiche enseignant est inactive : le pointage est fermé.');
+      throw new ConflictException(
+        'Votre fiche enseignant est inactive : le pointage est fermé.',
+      );
     }
     const stamp = this.checkStamp(dto.scanneLe);
     const at = stamp ?? new Date();
@@ -104,12 +131,23 @@ export class TeacherCheckinsService {
 
     if (teacher.modePointage === 'SEANCE') {
       if (!code.roomId) {
-        throw new UnprocessableEntityException("Ce QR est celui de l'entrée de l'école. Scannez le QR de votre salle de cours.");
+        throw new UnprocessableEntityException(
+          "Ce QR est celui de l'entrée de l'école. Scannez le QR de votre salle de cours.",
+        );
       }
-      return this.scanSession(ctx, teacher, { roomId: code.roomId, roomNom: code.room?.nom ?? '' }, day, at, stamp !== null);
+      return this.scanSession(
+        ctx,
+        teacher,
+        { roomId: code.roomId, roomNom: code.room?.nom ?? '' },
+        day,
+        at,
+        stamp !== null,
+      );
     }
     if (code.roomId) {
-      throw new UnprocessableEntityException("Ce QR est celui d'une salle. Scannez le QR de l'entrée de l'école.");
+      throw new UnprocessableEntityException(
+        "Ce QR est celui d'une salle. Scannez le QR de l'entrée de l'école.",
+      );
     }
     return this.scanDay(ctx, teacher, day, at, stamp !== null);
   }
@@ -133,16 +171,26 @@ export class TeacherCheckinsService {
     offline: boolean,
     retried = false,
   ): Promise<Record<string, unknown>> {
-    const resolved = await this.occurrences.resolveDay(day, { teacherId: teacher.id });
+    const resolved = await this.occurrences.resolveDay(day, {
+      teacherId: teacher.id,
+    });
     if (resolved.sansClasse) {
-      throw new UnprocessableEntityException(`Ce jour est sans classe (${resolved.sansClasse.libelle}).`);
+      throw new UnprocessableEntityException(
+        `Ce jour est sans classe (${resolved.sansClasse.libelle}).`,
+      );
     }
     const seances = resolved.seances.filter((s) => s.statut !== 'ANNULEE');
     if (seances.length === 0) {
-      throw new UnprocessableEntityException("Vous n'avez aucune séance ce jour-là.");
+      throw new UnprocessableEntityException(
+        "Vous n'avez aucune séance ce jour-là.",
+      );
     }
     const existing = await this.prisma.teacherSessionCheckin.findMany({
-      where: { teacherId: teacher.id, date: toDateOnly(day), entryId: { in: seances.map((s) => s.entryId) } },
+      where: {
+        teacherId: teacher.id,
+        date: toDateOnly(day),
+        entryId: { in: seances.map((s) => s.entryId) },
+      },
     });
     const byEntry = new Map(existing.map((c) => [c.entryId, c]));
     const window = ctx.pointageFenetreMinutes * 60000;
@@ -151,15 +199,30 @@ export class TeacherCheckinsService {
     // Le même scan renvoyé (réponse perdue, relecture de la file) ne change rien.
     for (const s of seances) {
       const ck = byEntry.get(s.entryId);
-      if (ck && (ck.debutAt?.getTime() === at.getTime() || ck.finAt?.getTime() === at.getTime())) {
-        return this.sessionResult(ctx, s, ck, ck.finAt?.getTime() === at.getTime() ? 'FIN' : 'DEBUT', offline);
+      if (
+        ck &&
+        (ck.debutAt?.getTime() === at.getTime() ||
+          ck.finAt?.getTime() === at.getTime())
+      ) {
+        return this.sessionResult(
+          ctx,
+          s,
+          ck,
+          ck.finAt?.getTime() === at.getTime() ? 'FIN' : 'DEBUT',
+          offline,
+        );
       }
     }
 
     // Ce que ce scan peut signifier : un début (dès la fenêtre d'ouverture) ou une fin (jusqu'à la fenêtre
     // après l'heure prévue). On retient l'événement dont l'heure prévue est la plus proche ; à égalité,
     // la fin d'abord (à la jonction de deux cours, le scan suivant ouvre le cours d'après).
-    type Cand = { kind: 'DEBUT' | 'FIN'; s: Occurrence; ref: Date; ck?: TeacherSessionCheckin };
+    type Cand = {
+      kind: 'DEBUT' | 'FIN';
+      s: Occurrence;
+      ref: Date;
+      ck?: TeacherSessionCheckin;
+    };
     const candidates: Cand[] = [];
     for (const s of seances) {
       const ck = byEntry.get(s.entryId);
@@ -167,33 +230,54 @@ export class TeacherCheckinsService {
       const startAt = localToInstant(day, s.heureDebut, ctx.fuseauHoraire);
       const endAt = localToInstant(day, s.heureFin, ctx.fuseauHoraire);
       if (!ck?.debutAt) {
-        if (at.getTime() >= startAt.getTime() - window && at.getTime() <= endAt.getTime()) {
+        if (
+          at.getTime() >= startAt.getTime() - window &&
+          at.getTime() <= endAt.getTime()
+        ) {
           candidates.push({ kind: 'DEBUT', s, ref: startAt, ck });
         }
       } else if (!ck.finAt) {
-        if (at.getTime() >= ck.debutAt.getTime() + gap && at.getTime() <= endAt.getTime() + window) {
+        if (
+          at.getTime() >= ck.debutAt.getTime() + gap &&
+          at.getTime() <= endAt.getTime() + window
+        ) {
           candidates.push({ kind: 'FIN', s, ref: endAt, ck });
         }
       }
     }
     candidates.sort(
       (a, b) =>
-        Math.abs(at.getTime() - a.ref.getTime()) - Math.abs(at.getTime() - b.ref.getTime()) ||
+        Math.abs(at.getTime() - a.ref.getTime()) -
+          Math.abs(at.getTime() - b.ref.getTime()) ||
         (a.kind === b.kind ? 0 : a.kind === 'FIN' ? -1 : 1),
     );
     const chosen = candidates[0];
     if (!chosen) {
-      const recent = existing.find((c) => c.debutAt && at.getTime() - c.debutAt.getTime() < gap && at.getTime() >= c.debutAt.getTime());
+      const recent = existing.find(
+        (c) =>
+          c.debutAt &&
+          at.getTime() - c.debutAt.getTime() < gap &&
+          at.getTime() >= c.debutAt.getTime(),
+      );
       if (recent?.debutAt) {
-        throw new ConflictException(`Vous avez déjà pointé à ${timeInTimezone(recent.debutAt, ctx.fuseauHoraire)}.`);
+        throw new ConflictException(
+          `Vous avez déjà pointé à ${timeInTimezone(recent.debutAt, ctx.fuseauHoraire)}.`,
+        );
       }
       const done = seances.every((s) => {
         const ck = byEntry.get(s.entryId);
         return ck && (ck.finAt || ck.statut !== 'EN_ATTENTE');
       });
-      if (done) throw new ConflictException('Toutes vos séances de ce jour sont déjà pointées.');
-      const list = seances.map((s) => `${s.heureDebut}-${s.heureFin} ${s.className}`).join(', ');
-      throw new UnprocessableEntityException(`Aucune séance à pointer à cette heure. Vos séances ce jour-là : ${list}.`);
+      if (done)
+        throw new ConflictException(
+          'Toutes vos séances de ce jour sont déjà pointées.',
+        );
+      const list = seances
+        .map((s) => `${s.heureDebut}-${s.heureFin} ${s.className}`)
+        .join(', ');
+      throw new UnprocessableEntityException(
+        `Aucune séance à pointer à cette heure. Vos séances ce jour-là : ${list}.`,
+      );
     }
 
     const { s, kind, ck } = chosen;
@@ -219,20 +303,34 @@ export class TeacherCheckinsService {
       } else {
         saved = await this.prisma.teacherSessionCheckin.update({
           where: { id: ck!.id },
-          data: { finAt: at, finRecuAt: new Date(), ecartSalle: ck!.ecartSalle || ecart },
+          data: {
+            finAt: at,
+            finRecuAt: new Date(),
+            ecartSalle: ck!.ecartSalle || ecart,
+          },
         });
       }
       return this.sessionResult(ctx, s, saved, kind, offline);
     } catch (err) {
       // Deux scans simultanés ont créé le même pointage : le second rejoue sur celui du premier.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && !retried) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002' &&
+        !retried
+      ) {
         return this.scanSession(ctx, teacher, room, day, at, offline, true);
       }
       throw err;
     }
   }
 
-  private sessionResult(ctx: Ctx, s: Occurrence, ck: TeacherSessionCheckin, type: 'DEBUT' | 'FIN', offline: boolean) {
+  private sessionResult(
+    ctx: Ctx,
+    s: Occurrence,
+    ck: TeacherSessionCheckin,
+    type: 'DEBUT' | 'FIN',
+    offline: boolean,
+  ) {
     const at = type === 'DEBUT' ? ck.debutAt : ck.finAt;
     const retard = type === 'DEBUT' ? (ck.retardMinutes ?? 0) : 0;
     return {
@@ -250,20 +348,42 @@ export class TeacherCheckinsService {
     };
   }
 
-  private async scanDay(ctx: Ctx, teacher: Teacher, day: string, at: Date, offline: boolean, retried = false): Promise<Record<string, unknown>> {
+  private async scanDay(
+    ctx: Ctx,
+    teacher: Teacher,
+    day: string,
+    at: Date,
+    offline: boolean,
+    retried = false,
+  ): Promise<Record<string, unknown>> {
     const existing = await this.prisma.teacherDayCheckin.findUnique({
-      where: { teacherId_date: { teacherId: teacher.id, date: toDateOnly(day) } },
+      where: {
+        teacherId_date: { teacherId: teacher.id, date: toDateOnly(day) },
+      },
     });
     const gap = ctx.pointageEcartMinMinutes * 60000;
 
-    if (existing && (existing.arriveeAt?.getTime() === at.getTime() || existing.departAt?.getTime() === at.getTime())) {
-      return this.dayResult(ctx, existing, existing.departAt?.getTime() === at.getTime() ? 'DEPART' : 'ARRIVEE', offline);
+    if (
+      existing &&
+      (existing.arriveeAt?.getTime() === at.getTime() ||
+        existing.departAt?.getTime() === at.getTime())
+    ) {
+      return this.dayResult(
+        ctx,
+        existing,
+        existing.departAt?.getTime() === at.getTime() ? 'DEPART' : 'ARRIVEE',
+        offline,
+      );
     }
 
     if (!existing) {
       // Retard : comparé à la première séance prévue ce jour-là. Sans séance, aucune heure d'attente n'est inventée.
-      const resolved = await this.occurrences.resolveDay(day, { teacherId: teacher.id });
-      const first = resolved.seances.filter((s) => s.statut !== 'ANNULEE').sort((a, b) => a.heureDebut.localeCompare(b.heureDebut))[0];
+      const resolved = await this.occurrences.resolveDay(day, {
+        teacherId: teacher.id,
+      });
+      const first = resolved.seances
+        .filter((s) => s.statut !== 'ANNULEE')
+        .sort((a, b) => a.heureDebut.localeCompare(b.heureDebut))[0];
       const heurePrevue = first?.heureDebut ?? null;
       try {
         const created = await this.prisma.teacherDayCheckin.create({
@@ -273,12 +393,24 @@ export class TeacherCheckinsService {
             arriveeAt: at,
             arriveeRecuAt: new Date(),
             heurePrevue,
-            retardMinutes: heurePrevue ? Math.max(0, minutesBetween(localToInstant(day, heurePrevue, ctx.fuseauHoraire), at)) : null,
+            retardMinutes: heurePrevue
+              ? Math.max(
+                  0,
+                  minutesBetween(
+                    localToInstant(day, heurePrevue, ctx.fuseauHoraire),
+                    at,
+                  ),
+                )
+              : null,
           },
         });
         return this.dayResult(ctx, created, 'ARRIVEE', offline);
       } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && !retried) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002' &&
+          !retried
+        ) {
           return this.scanDay(ctx, teacher, day, at, offline, true);
         }
         throw err;
@@ -286,11 +418,15 @@ export class TeacherCheckinsService {
     }
 
     if (existing.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Votre pointage de ce jour a déjà été traité par la vie scolaire.');
+      throw new ConflictException(
+        'Votre pointage de ce jour a déjà été traité par la vie scolaire.',
+      );
     }
     const last = existing.departAt ?? existing.arriveeAt;
     if (last && at.getTime() - last.getTime() < gap) {
-      throw new ConflictException(`Vous avez déjà pointé à ${timeInTimezone(last, ctx.fuseauHoraire)}.`);
+      throw new ConflictException(
+        `Vous avez déjà pointé à ${timeInTimezone(last, ctx.fuseauHoraire)}.`,
+      );
     }
     // Le départ est le dernier scan de la journée.
     const updated = await this.prisma.teacherDayCheckin.update({
@@ -300,7 +436,12 @@ export class TeacherCheckinsService {
     return this.dayResult(ctx, updated, 'DEPART', offline);
   }
 
-  private dayResult(ctx: Ctx, ck: TeacherDayCheckin, type: 'ARRIVEE' | 'DEPART', offline: boolean) {
+  private dayResult(
+    ctx: Ctx,
+    ck: TeacherDayCheckin,
+    type: 'ARRIVEE' | 'DEPART',
+    offline: boolean,
+  ) {
     const at = type === 'ARRIVEE' ? ck.arriveeAt : ck.departAt;
     const retard = type === 'ARRIVEE' ? ck.retardMinutes : null;
     return {
@@ -325,16 +466,29 @@ export class TeacherCheckinsService {
     const teacher = await this.requireTeacher(userId);
     const day = ctx.today;
     const base = {
-      teacher: { id: teacher.id, nom: teacher.nom, prenom: teacher.prenom, modePointage: teacher.modePointage },
+      teacher: {
+        id: teacher.id,
+        nom: teacher.nom,
+        prenom: teacher.prenom,
+        modePointage: teacher.modePointage,
+      },
       date: day,
     };
     if (teacher.modePointage === 'JOURNEE') {
       const ck = await this.prisma.teacherDayCheckin.findUnique({
-        where: { teacherId_date: { teacherId: teacher.id, date: toDateOnly(day) } },
+        where: {
+          teacherId_date: { teacherId: teacher.id, date: toDateOnly(day) },
+        },
       });
-      return { ...base, seances: [], journee: ck ? this.daySerialize(ctx, ck) : null };
+      return {
+        ...base,
+        seances: [],
+        journee: ck ? this.daySerialize(ctx, ck) : null,
+      };
     }
-    const resolved = await this.occurrences.resolveDay(day, { teacherId: teacher.id });
+    const resolved = await this.occurrences.resolveDay(day, {
+      teacherId: teacher.id,
+    });
     const list = resolved.seances.filter((s) => s.statut !== 'ANNULEE');
     const cks = await this.prisma.teacherSessionCheckin.findMany({
       where: { teacherId: teacher.id, date: toDateOnly(day) },
@@ -345,13 +499,18 @@ export class TeacherCheckinsService {
       sansClasse: resolved.sansClasse,
       seances: list.map((s) => {
         const ck = cks.find((c) => c.entryId === s.entryId);
-        return { ...this.sessionView(s), entryId: s.entryId, pointage: ck ? this.sessionSerialize(ctx, ck) : null };
+        return {
+          ...this.sessionView(s),
+          entryId: s.entryId,
+          pointage: ck ? this.sessionSerialize(ctx, ck) : null,
+        };
       }),
     };
   }
 
   private sessionSerialize(ctx: Ctx, ck: TeacherSessionCheckin) {
-    const late = (recu: Date | null, at: Date | null) => (recu && at ? Math.abs(recu.getTime() - at.getTime()) > 120000 : false);
+    const late = (recu: Date | null, at: Date | null) =>
+      recu && at ? Math.abs(recu.getTime() - at.getTime()) > 120000 : false;
     return {
       id: ck.id,
       statut: ck.statut,
@@ -361,23 +520,31 @@ export class TeacherCheckinsService {
       retardMinutes: ck.retardMinutes,
       retardSignale: (ck.retardMinutes ?? 0) > ctx.pointageToleranceMinutes,
       ecartSalle: ck.ecartSalle,
-      horsLigne: late(ck.debutRecuAt, ck.debutAt) || late(ck.finRecuAt, ck.finAt),
+      horsLigne:
+        late(ck.debutRecuAt, ck.debutAt) || late(ck.finRecuAt, ck.finAt),
       motif: ck.motif,
     };
   }
 
   private daySerialize(ctx: Ctx, ck: TeacherDayCheckin) {
-    const late = (recu: Date | null, at: Date | null) => (recu && at ? Math.abs(recu.getTime() - at.getTime()) > 120000 : false);
+    const late = (recu: Date | null, at: Date | null) =>
+      recu && at ? Math.abs(recu.getTime() - at.getTime()) > 120000 : false;
     return {
       id: ck.id,
       statut: ck.statut,
       source: ck.source,
-      arrivee: ck.arriveeAt ? timeInTimezone(ck.arriveeAt, ctx.fuseauHoraire) : null,
-      depart: ck.departAt ? timeInTimezone(ck.departAt, ctx.fuseauHoraire) : null,
+      arrivee: ck.arriveeAt
+        ? timeInTimezone(ck.arriveeAt, ctx.fuseauHoraire)
+        : null,
+      depart: ck.departAt
+        ? timeInTimezone(ck.departAt, ctx.fuseauHoraire)
+        : null,
       heurePrevue: ck.heurePrevue,
       retardMinutes: ck.retardMinutes,
       retardSignale: (ck.retardMinutes ?? 0) > ctx.pointageToleranceMinutes,
-      horsLigne: late(ck.arriveeRecuAt, ck.arriveeAt) || late(ck.departRecuAt, ck.departAt),
+      horsLigne:
+        late(ck.arriveeRecuAt, ck.arriveeAt) ||
+        late(ck.departRecuAt, ck.departAt),
       motif: ck.motif,
     };
   }
@@ -391,14 +558,26 @@ export class TeacherCheckinsService {
     const teachers = await this.prisma.teacher.findMany();
     const byTeacher = new Map(teachers.map((t) => [t.id, t]));
 
-    const seances = resolved.seances.filter((s) => s.statut !== 'ANNULEE' && byTeacher.get(s.teacherId)?.modePointage === 'SEANCE');
-    const cks = await this.prisma.teacherSessionCheckin.findMany({ where: { date: toDateOnly(day) } });
+    const seances = resolved.seances.filter(
+      (s) =>
+        s.statut !== 'ANNULEE' &&
+        byTeacher.get(s.teacherId)?.modePointage === 'SEANCE',
+    );
+    const cks = await this.prisma.teacherSessionCheckin.findMany({
+      where: { date: toDateOnly(day) },
+    });
 
     const journeeTeachers = new Set<string>();
     for (const s of resolved.seances) {
-      if (s.statut !== 'ANNULEE' && byTeacher.get(s.teacherId)?.modePointage === 'JOURNEE') journeeTeachers.add(s.teacherId);
+      if (
+        s.statut !== 'ANNULEE' &&
+        byTeacher.get(s.teacherId)?.modePointage === 'JOURNEE'
+      )
+        journeeTeachers.add(s.teacherId);
     }
-    const dayCks = await this.prisma.teacherDayCheckin.findMany({ where: { date: toDateOnly(day) } });
+    const dayCks = await this.prisma.teacherDayCheckin.findMany({
+      where: { date: toDateOnly(day) },
+    });
     for (const d of dayCks) journeeTeachers.add(d.teacherId);
 
     return {
@@ -412,13 +591,21 @@ export class TeacherCheckinsService {
       // Séances pointées pour un enseignant qui n'est plus celui de l'emploi du temps (séance déplacée ou annulée après coup).
       orphelins: cks
         .filter((c) => !seances.some((s) => s.entryId === c.entryId))
-        .map((c) => ({ teacherId: c.teacherId, teacherName: this.teacherName(byTeacher.get(c.teacherId)), ...this.sessionSerialize(ctx, c), heureDebut: c.heureDebut, heureFin: c.heureFin })),
+        .map((c) => ({
+          teacherId: c.teacherId,
+          teacherName: this.teacherName(byTeacher.get(c.teacherId)),
+          ...this.sessionSerialize(ctx, c),
+          heureDebut: c.heureDebut,
+          heureFin: c.heureFin,
+        })),
       journees: [...journeeTeachers].map((teacherId) => {
         const ck = dayCks.find((d) => d.teacherId === teacherId);
         return {
           teacherId,
           teacherName: this.teacherName(byTeacher.get(teacherId)),
-          prevue: resolved.seances.some((s) => s.teacherId === teacherId && s.statut !== 'ANNULEE'),
+          prevue: resolved.seances.some(
+            (s) => s.teacherId === teacherId && s.statut !== 'ANNULEE',
+          ),
           pointage: ck ? this.daySerialize(ctx, ck) : null,
         };
       }),
@@ -431,9 +618,13 @@ export class TeacherCheckinsService {
 
   /** RV06 : le validateur ne traite jamais un pointage dont il est l'enseignant. */
   private async assertNotSelf(actorId: string, teacherId: string) {
-    const own = await this.prisma.teacher.findUnique({ where: { userId: actorId } });
+    const own = await this.prisma.teacher.findUnique({
+      where: { userId: actorId },
+    });
     if (own && own.id === teacherId) {
-      throw new ForbiddenException('Vous ne pouvez pas valider ni corriger votre propre pointage : un autre responsable doit le faire.');
+      throw new ForbiddenException(
+        'Vous ne pouvez pas valider ni corriger votre propre pointage : un autre responsable doit le faire.',
+      );
     }
   }
 
@@ -451,20 +642,32 @@ export class TeacherCheckinsService {
     if (!before) throw new NotFoundException('Pointage introuvable.');
     await this.assertNotSelf(actorId, before.teacherId);
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Ce pointage a déjà été traité. Pour le changer, saisissez une correction avec un motif.');
+      throw new ConflictException(
+        'Ce pointage a déjà été traité. Pour le changer, saisissez une correction avec un motif.',
+      );
     }
     const motif = dto.motif?.trim() || null;
     if (dto.statut === 'REJETE' && !motif) {
       throw new UnprocessableEntityException('Un rejet exige un motif.');
     }
-    const data = { statut: dto.statut, decidedById: actorId, decidedAt: new Date(), motif };
+    const data = {
+      statut: dto.statut,
+      decidedById: actorId,
+      decidedAt: new Date(),
+      motif,
+    };
     const after =
       entity === 'session'
-        ? await this.prisma.teacherSessionCheckin.update({ where: { id }, data })
+        ? await this.prisma.teacherSessionCheckin.update({
+            where: { id },
+            data,
+          })
         : await this.prisma.teacherDayCheckin.update({ where: { id }, data });
     await this.log(
       actorId,
-      dto.statut === 'VALIDE' ? 'TEACHER_CHECKIN_VALIDATE' : 'TEACHER_CHECKIN_REJECT',
+      dto.statut === 'VALIDE'
+        ? 'TEACHER_CHECKIN_VALIDATE'
+        : 'TEACHER_CHECKIN_REJECT',
       entity === 'session' ? 'TeacherSessionCheckin' : 'TeacherDayCheckin',
       id,
       before.statut,
@@ -487,26 +690,44 @@ export class TeacherCheckinsService {
    */
   async manualSession(dto: ManualSessionDto, actorId: string) {
     const ctx = await this.context();
-    if (dto.date > ctx.today) throw new UnprocessableEntityException("Impossible de pointer une séance qui n'a pas encore eu lieu.");
-    if (dto.fin <= dto.debut) throw new BadRequestException("L'heure de fin doit suivre l'heure de début.");
+    if (dto.date > ctx.today)
+      throw new UnprocessableEntityException(
+        "Impossible de pointer une séance qui n'a pas encore eu lieu.",
+      );
+    if (dto.fin <= dto.debut)
+      throw new BadRequestException(
+        "L'heure de fin doit suivre l'heure de début.",
+      );
     const resolved = await this.occurrences.resolveDay(dto.date);
     const seance = resolved.seances.find((s) => s.entryId === dto.entryId);
     if (!seance || seance.statut === 'ANNULEE') {
-      throw new UnprocessableEntityException("Cette séance n'a pas lieu (ou est annulée) à cette date.");
+      throw new UnprocessableEntityException(
+        "Cette séance n'a pas lieu (ou est annulée) à cette date.",
+      );
     }
-    const teacher = await this.prisma.teacher.findUnique({ where: { id: seance.teacherId } });
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { id: seance.teacherId },
+    });
     if (!teacher) throw new NotFoundException('Enseignant introuvable.');
     if (teacher.modePointage !== 'SEANCE') {
-      throw new UnprocessableEntityException("Cet enseignant pointe à l'arrivée et au départ : saisissez son pointage de journée.");
+      throw new UnprocessableEntityException(
+        "Cet enseignant pointe à l'arrivée et au départ : saisissez son pointage de journée.",
+      );
     }
     await this.assertNotSelf(actorId, teacher.id);
 
     const debutAt = localToInstant(dto.date, dto.debut, ctx.fuseauHoraire);
     const finAt = localToInstant(dto.date, dto.fin, ctx.fuseauHoraire);
-    const startAt = localToInstant(dto.date, seance.heureDebut, ctx.fuseauHoraire);
+    const startAt = localToInstant(
+      dto.date,
+      seance.heureDebut,
+      ctx.fuseauHoraire,
+    );
     const now = new Date();
     const before = await this.prisma.teacherSessionCheckin.findUnique({
-      where: { entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) } },
+      where: {
+        entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) },
+      },
     });
     const data = {
       debutAt,
@@ -522,7 +743,9 @@ export class TeacherCheckinsService {
       motif: dto.motif.trim(),
     };
     const saved = await this.prisma.teacherSessionCheckin.upsert({
-      where: { entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) } },
+      where: {
+        entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) },
+      },
       update: data,
       create: {
         ...data,
@@ -534,37 +757,72 @@ export class TeacherCheckinsService {
         heureFin: seance.heureFin,
       },
     });
-    await this.log(actorId, 'TEACHER_CHECKIN_MANUAL', 'TeacherSessionCheckin', saved.id, before ? this.sessionSerialize(ctx, before) : null, {
-      ...this.sessionSerialize(ctx, saved),
-      teacher: this.teacherName(teacher),
-    });
+    await this.log(
+      actorId,
+      'TEACHER_CHECKIN_MANUAL',
+      'TeacherSessionCheckin',
+      saved.id,
+      before ? this.sessionSerialize(ctx, before) : null,
+      {
+        ...this.sessionSerialize(ctx, saved),
+        teacher: this.teacherName(teacher),
+      },
+    );
     return this.sessionSerialize(ctx, saved);
   }
 
   async manualDay(dto: ManualDayDto, actorId: string) {
     const ctx = await this.context();
-    if (dto.date > ctx.today) throw new UnprocessableEntityException("Impossible de pointer un jour qui n'a pas encore eu lieu.");
-    if (dto.depart && dto.depart <= dto.arrivee) throw new BadRequestException("L'heure de départ doit suivre l'heure d'arrivée.");
-    const teacher = await this.prisma.teacher.findUnique({ where: { id: dto.teacherId } });
+    if (dto.date > ctx.today)
+      throw new UnprocessableEntityException(
+        "Impossible de pointer un jour qui n'a pas encore eu lieu.",
+      );
+    if (dto.depart && dto.depart <= dto.arrivee)
+      throw new BadRequestException(
+        "L'heure de départ doit suivre l'heure d'arrivée.",
+      );
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { id: dto.teacherId },
+    });
     if (!teacher) throw new NotFoundException('Enseignant introuvable.');
     if (teacher.modePointage !== 'JOURNEE') {
-      throw new UnprocessableEntityException('Cet enseignant pointe séance par séance : saisissez le pointage de sa séance.');
+      throw new UnprocessableEntityException(
+        'Cet enseignant pointe séance par séance : saisissez le pointage de sa séance.',
+      );
     }
     await this.assertNotSelf(actorId, teacher.id);
 
-    const resolved = await this.occurrences.resolveDay(dto.date, { teacherId: teacher.id });
-    const first = resolved.seances.filter((s) => s.statut !== 'ANNULEE').sort((a, b) => a.heureDebut.localeCompare(b.heureDebut))[0];
+    const resolved = await this.occurrences.resolveDay(dto.date, {
+      teacherId: teacher.id,
+    });
+    const first = resolved.seances
+      .filter((s) => s.statut !== 'ANNULEE')
+      .sort((a, b) => a.heureDebut.localeCompare(b.heureDebut))[0];
     const arriveeAt = localToInstant(dto.date, dto.arrivee, ctx.fuseauHoraire);
     const now = new Date();
-    const key = { teacherId_date: { teacherId: teacher.id, date: toDateOnly(dto.date) } };
-    const before = await this.prisma.teacherDayCheckin.findUnique({ where: key });
+    const key = {
+      teacherId_date: { teacherId: teacher.id, date: toDateOnly(dto.date) },
+    };
+    const before = await this.prisma.teacherDayCheckin.findUnique({
+      where: key,
+    });
     const data = {
       arriveeAt,
-      departAt: dto.depart ? localToInstant(dto.date, dto.depart, ctx.fuseauHoraire) : null,
+      departAt: dto.depart
+        ? localToInstant(dto.date, dto.depart, ctx.fuseauHoraire)
+        : null,
       arriveeRecuAt: now,
       departRecuAt: dto.depart ? now : null,
       heurePrevue: first?.heureDebut ?? null,
-      retardMinutes: first ? Math.max(0, minutesBetween(localToInstant(dto.date, first.heureDebut, ctx.fuseauHoraire), arriveeAt)) : null,
+      retardMinutes: first
+        ? Math.max(
+            0,
+            minutesBetween(
+              localToInstant(dto.date, first.heureDebut, ctx.fuseauHoraire),
+              arriveeAt,
+            ),
+          )
+        : null,
       source: 'MANUEL' as const,
       statut: 'VALIDE' as const,
       decidedById: actorId,
@@ -576,10 +834,17 @@ export class TeacherCheckinsService {
       update: data,
       create: { ...data, teacherId: teacher.id, date: toDateOnly(dto.date) },
     });
-    await this.log(actorId, 'TEACHER_CHECKIN_MANUAL', 'TeacherDayCheckin', saved.id, before ? this.daySerialize(ctx, before) : null, {
-      ...this.daySerialize(ctx, saved),
-      teacher: this.teacherName(teacher),
-    });
+    await this.log(
+      actorId,
+      'TEACHER_CHECKIN_MANUAL',
+      'TeacherDayCheckin',
+      saved.id,
+      before ? this.daySerialize(ctx, before) : null,
+      {
+        ...this.daySerialize(ctx, saved),
+        teacher: this.teacherName(teacher),
+      },
+    );
     return this.daySerialize(ctx, saved);
   }
 
@@ -592,10 +857,32 @@ export class TeacherCheckinsService {
    * crédité de la séance qu'il tient ; l'absent voit la séance comptée comme confiée à un remplaçant.
    */
   async summary(month: string, teacherId?: string) {
+    const [year, m] = month.split('-').map(Number);
+    const lastDay = String(
+      new Date(Date.UTC(year, m, 0)).getUTCDate(),
+    ).padStart(2, '0');
+    const r = await this.summaryRange(
+      `${month}-01`,
+      `${month}-${lastDay}`,
+      teacherId,
+    );
+    return {
+      mois: month,
+      jusquau: r.jusquau,
+      toleranceRetardMinutes: r.toleranceRetardMinutes,
+      enseignants: r.enseignants,
+    };
+  }
+
+  /**
+   * Même calcul sur une période quelconque (Lot 14, tableau de bord de la Direction) : jamais au-delà d'aujourd'hui,
+   * les séances futures n'ont pas eu lieu. Les indicateurs restent calculés d'après les pointages, jamais saisis.
+   */
+  async summaryRange(first: string, last: string, teacherId?: string) {
     const ctx = await this.context();
-    const first = `${month}-01`;
     const days: string[] = [];
-    for (let d = first; d.startsWith(month) && d <= ctx.today; d = addDays(d, 1)) days.push(d);
+    for (let d = first; d <= last && d <= ctx.today; d = addDays(d, 1))
+      days.push(d);
 
     const teachers = await this.prisma.teacher.findMany({
       where: { id: teacherId || undefined },
@@ -605,8 +892,12 @@ export class TeacherCheckinsService {
     const lastDay = addDays(days.length > 0 ? days[days.length - 1] : first, 0);
     const to = toDateOnly(lastDay);
     const [sessionCks, dayCks, replaced] = await Promise.all([
-      this.prisma.teacherSessionCheckin.findMany({ where: { date: { gte: from, lte: to } } }),
-      this.prisma.teacherDayCheckin.findMany({ where: { date: { gte: from, lte: to } } }),
+      this.prisma.teacherSessionCheckin.findMany({
+        where: { date: { gte: from, lte: to } },
+      }),
+      this.prisma.teacherDayCheckin.findMany({
+        where: { date: { gte: from, lte: to } },
+      }),
       this.prisma.timetableException.findMany({
         where: { date: { gte: from, lte: to }, type: 'REMPLACEE' },
         include: { entry: { select: { teacherId: true } } },
@@ -622,7 +913,8 @@ export class TeacherCheckinsService {
         if (s.statut === 'ANNULEE') continue;
         if (!planned.has(s.teacherId)) planned.set(s.teacherId, []);
         planned.get(s.teacherId)!.push(s);
-        if (!plannedDays.has(s.teacherId)) plannedDays.set(s.teacherId, new Set());
+        if (!plannedDays.has(s.teacherId))
+          plannedDays.set(s.teacherId, new Set());
         plannedDays.get(s.teacherId)!.add(day);
       }
     }
@@ -634,11 +926,14 @@ export class TeacherCheckinsService {
         enseignant: this.teacherName(t),
         mode: t.modePointage,
         statutFiche: t.statut,
-        confieesARemplacant: replaced.filter((r) => r.entry.teacherId === t.id).length,
+        confieesARemplacant: replaced.filter((r) => r.entry.teacherId === t.id)
+          .length,
       };
       if (t.modePointage === 'JOURNEE') {
         const mine = dayCks.filter((d) => d.teacherId === t.id);
-        const validated = mine.filter((d) => d.statut === 'VALIDE' && d.arriveeAt && d.departAt);
+        const validated = mine.filter(
+          (d) => d.statut === 'VALIDE' && d.arriveeAt && d.departAt,
+        );
         const prevus = plannedDays.get(t.id) ?? new Set<string>();
         const pointed = new Set(mine.map((d) => isoDay(d.date)));
         return {
@@ -648,17 +943,28 @@ export class TeacherCheckinsService {
           joursEnAttente: mine.filter((d) => d.statut === 'EN_ATTENTE').length,
           joursRejetes: mine.filter((d) => d.statut === 'REJETE').length,
           // Validés mais sans départ pointé : leurs heures ne sont pas comptées tant que le départ manque.
-          joursIncomplets: mine.filter((d) => d.statut === 'VALIDE' && (!d.arriveeAt || !d.departAt)).length,
+          joursIncomplets: mine.filter(
+            (d) => d.statut === 'VALIDE' && (!d.arriveeAt || !d.departAt),
+          ).length,
           joursNonPointes: [...prevus].filter((d) => !pointed.has(d)).length,
-          minutesEffectuees: validated.reduce((n, d) => n + Math.max(0, minutesBetween(d.arriveeAt!, d.departAt!)), 0),
+          minutesEffectuees: validated.reduce(
+            (n, d) =>
+              n + Math.max(0, minutesBetween(d.arriveeAt!, d.departAt!)),
+            0,
+          ),
           retards: validated.filter((d) => (d.retardMinutes ?? 0) > tol).length,
-          minutesRetard: validated.reduce((n, d) => n + (d.retardMinutes ?? 0), 0),
+          minutesRetard: validated.reduce(
+            (n, d) => n + (d.retardMinutes ?? 0),
+            0,
+          ),
         };
       }
       const seances = planned.get(t.id) ?? [];
       const mine = sessionCks.filter((c) => c.teacherId === t.id);
       const key = (entryId: string, date: string) => `${entryId}|${date}`;
-      const ckByKey = new Map(mine.map((c) => [key(c.entryId, isoDay(c.date)), c]));
+      const ckByKey = new Map(
+        mine.map((c) => [key(c.entryId, isoDay(c.date)), c]),
+      );
       let tenues = 0;
       let enAttente = 0;
       let rejetees = 0;
@@ -675,7 +981,9 @@ export class TeacherCheckinsService {
           minutes += plannedMinutes(s.heureDebut, s.heureFin);
         } else incompletes += 1;
       }
-      const validated = mine.filter((c) => c.statut === 'VALIDE' && c.debutAt && c.finAt);
+      const validated = mine.filter(
+        (c) => c.statut === 'VALIDE' && c.debutAt && c.finAt,
+      );
       return {
         ...base,
         seancesPrevues: seances.length,
@@ -686,14 +994,20 @@ export class TeacherCheckinsService {
         seancesNonPointees: nonPointees,
         minutesEffectuees: minutes,
         retards: validated.filter((c) => (c.retardMinutes ?? 0) > tol).length,
-        minutesRetard: validated.reduce((n, c) => n + (c.retardMinutes ?? 0), 0),
+        minutesRetard: validated.reduce(
+          (n, c) => n + (c.retardMinutes ?? 0),
+          0,
+        ),
       };
     });
     return {
-      mois: month,
       jusquau: days.length > 0 ? days[days.length - 1] : null,
       toleranceRetardMinutes: tol,
-      enseignants: rows.filter((r) => r.statutFiche === 'ACTIF' || ('seancesPrevues' in r ? r.seancesPrevues > 0 : r.joursPrevus > 0)),
+      enseignants: rows.filter(
+        (r) =>
+          r.statutFiche === 'ACTIF' ||
+          ('seancesPrevues' in r ? r.seancesPrevues > 0 : r.joursPrevus > 0),
+      ),
     };
   }
 }

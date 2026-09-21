@@ -10,6 +10,8 @@ import { describeError, TAB_HINT } from "./shared";
 interface Settings {
   retardMaxMinutes: number;
   delaiJustificatifJours: number;
+  // Aucune valeur par défaut (D61) : vide tant que la Direction n'en a pas fixé une.
+  seuilAlerteAbsences: number | null;
 }
 
 /**
@@ -19,6 +21,7 @@ interface Settings {
 export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [form, setForm] = useState({ retard: "", delai: "" });
+  const [seuil, setSeuil] = useState("");
   const [reasons, setReasons] = useState<AbsenceReason[]>([]);
   const [libelle, setLibelle] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
     const [s, r] = await Promise.all([api.get<Settings>("/pedagogy/settings"), api.get<AbsenceReason[]>("/absence-reasons")]);
     setSettings(s);
     setForm({ retard: String(s.retardMaxMinutes), delai: String(s.delaiJustificatifJours) });
+    setSeuil(s.seuilAlerteAbsences === null ? "" : String(s.seuilAlerteAbsences));
     setReasons(r);
   }
 
@@ -80,6 +84,30 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
         >
           Enregistrer les règles
         </Button>
+      </Card>
+
+      <Card>
+        <h2 className="font-display text-lg font-semibold text-ink">Alertes de décrochage</h2>
+        <p className={`mb-3 ${TAB_HINT}`}>
+          Aucun seuil n&apos;est proposé : les alertes sont désactivées tant que la Direction n&apos;en fixe pas un. Un élève apparaît dans les alertes du tableau de bord de pilotage
+          quand il atteint ce nombre d&apos;absences non justifiées sur la période affichée (une absence dont le délai de justification court encore n&apos;est pas comptée).
+        </p>
+        <Field label="Nombre d'absences non justifiées à partir duquel signaler un élève (vide = alertes désactivées)">
+          <Input type="number" min={1} max={500} value={seuil} placeholder="Désactivées" onChange={(e) => setSeuil(e.target.value)} />
+        </Field>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            disabled={seuil.trim() === "" || !(Number(seuil) >= 1) || Number(seuil) === settings?.seuilAlerteAbsences}
+            onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: Number(seuil) }), "Seuil d'alerte enregistré.")}
+          >
+            Enregistrer le seuil
+          </Button>
+          {settings?.seuilAlerteAbsences !== null && settings?.seuilAlerteAbsences !== undefined && (
+            <Button variant="secondary" onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: null }), "Alertes désactivées.")}>
+              Désactiver les alertes
+            </Button>
+          )}
+        </div>
       </Card>
 
       <Card>

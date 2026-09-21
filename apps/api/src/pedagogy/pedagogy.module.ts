@@ -11,8 +11,14 @@ import {
   SubjectsController,
   TimeSlotsController,
 } from './referential.controller';
-import { CalendarEventsController, TermsController } from './calendar.controller';
-import { AssignmentsController, TeachersController } from './teachers.controller';
+import {
+  CalendarEventsController,
+  TermsController,
+} from './calendar.controller';
+import {
+  AssignmentsController,
+  TeachersController,
+} from './teachers.controller';
 
 /** Lot 7 : référentiel pédagogique et personnel (addendum v1.1). */
 @Module({
@@ -27,6 +33,11 @@ import { AssignmentsController, TeachersController } from './teachers.controller
     TeachersController,
     AssignmentsController,
   ],
-  providers: [PedagogyService, ReferentialService, CalendarService, TeachersService],
+  providers: [
+    PedagogyService,
+    ReferentialService,
+    CalendarService,
+    TeachersService,
+  ],
 })
 export class PedagogyModule {}

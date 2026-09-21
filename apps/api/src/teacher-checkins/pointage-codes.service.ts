@@ -18,7 +18,12 @@ export class PointageCodesService {
     private readonly school: SchoolService,
   ) {}
 
-  private async log(userId: string, action: string, entiteId: string, nouvelleValeur?: unknown) {
+  private async log(
+    userId: string,
+    action: string,
+    entiteId: string,
+    nouvelleValeur?: unknown,
+  ) {
     await this.audit.log({
       schoolId: await this.school.getDefaultId(),
       userId,
@@ -33,12 +38,20 @@ export class PointageCodesService {
   /** Codes à imprimer : l'entrée, puis chaque salle active (avec ou sans code encore généré). */
   async list() {
     const [rooms, codes] = await Promise.all([
-      this.prisma.room.findMany({ where: { actif: true }, orderBy: { nom: 'asc' } }),
+      this.prisma.room.findMany({
+        where: { actif: true },
+        orderBy: { nom: 'asc' },
+      }),
       this.prisma.pointageCode.findMany(),
     ]);
     const gate = codes.find((c) => c.roomId === null);
     return [
-      { type: 'ENTREE' as const, roomId: null, nom: "Entrée de l'école", token: gate?.token ?? null },
+      {
+        type: 'ENTREE' as const,
+        roomId: null,
+        nom: "Entrée de l'école",
+        token: gate?.token ?? null,
+      },
       ...rooms.map((r) => ({
         type: 'SALLE' as const,
         roomId: r.id,
@@ -59,11 +72,15 @@ export class PointageCodesService {
     }
     for (const room of rooms) {
       if (!codes.some((c) => c.roomId === room.id)) {
-        await this.prisma.pointageCode.create({ data: { roomId: room.id, token: newToken() } });
+        await this.prisma.pointageCode.create({
+          data: { roomId: room.id, token: newToken() },
+        });
         created += 1;
       }
     }
-    await this.log(userId, 'POINTAGE_CODES_GENERATE', 'pointage', { crees: created });
+    await this.log(userId, 'POINTAGE_CODES_GENERATE', 'pointage', {
+      crees: created,
+    });
     return this.list();
   }
 
@@ -72,24 +89,49 @@ export class PointageCodesService {
     if (roomId) {
       const room = await this.prisma.room.findUnique({ where: { id: roomId } });
       if (!room) throw new NotFoundException('Salle introuvable.');
-      const existing = await this.prisma.pointageCode.findUnique({ where: { roomId } });
-      if (existing) await this.prisma.pointageCode.update({ where: { id: existing.id }, data: { token: newToken() } });
-      else await this.prisma.pointageCode.create({ data: { roomId, token: newToken() } });
-      await this.log(userId, 'POINTAGE_CODE_ROTATE', roomId, { salle: room.nom });
+      const existing = await this.prisma.pointageCode.findUnique({
+        where: { roomId },
+      });
+      if (existing)
+        await this.prisma.pointageCode.update({
+          where: { id: existing.id },
+          data: { token: newToken() },
+        });
+      else
+        await this.prisma.pointageCode.create({
+          data: { roomId, token: newToken() },
+        });
+      await this.log(userId, 'POINTAGE_CODE_ROTATE', roomId, {
+        salle: room.nom,
+      });
     } else {
-      const gate = await this.prisma.pointageCode.findFirst({ where: { roomId: null } });
-      if (gate) await this.prisma.pointageCode.update({ where: { id: gate.id }, data: { token: newToken() } });
-      else await this.prisma.pointageCode.create({ data: { token: newToken() } });
-      await this.log(userId, 'POINTAGE_CODE_ROTATE', 'entree', { entree: true });
+      const gate = await this.prisma.pointageCode.findFirst({
+        where: { roomId: null },
+      });
+      if (gate)
+        await this.prisma.pointageCode.update({
+          where: { id: gate.id },
+          data: { token: newToken() },
+        });
+      else
+        await this.prisma.pointageCode.create({ data: { token: newToken() } });
+      await this.log(userId, 'POINTAGE_CODE_ROTATE', 'entree', {
+        entree: true,
+      });
     }
     return this.list();
   }
 
   /** Ce que désigne un jeton scanné : une salle ou l'entrée. Inconnu ou remplacé : introuvable. */
   async resolve(token: string) {
-    const code = await this.prisma.pointageCode.findUnique({ where: { token }, include: { room: true } });
+    const code = await this.prisma.pointageCode.findUnique({
+      where: { token },
+      include: { room: true },
+    });
     if (!code) {
-      throw new NotFoundException('QR code inconnu ou remplacé. Demandez à la vie scolaire le QR à jour.');
+      throw new NotFoundException(
+        'QR code inconnu ou remplacé. Demandez à la vie scolaire le QR à jour.',
+      );
     }
     return code;
   }
