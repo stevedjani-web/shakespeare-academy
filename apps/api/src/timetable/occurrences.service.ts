@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateExceptionDto } from './dto/timetable.dto';
 import { ENTRY_INCLUDE } from './timetables.service';
 import { addDays, isoDay, mondayOf, overlaps, toDateOnly, weekdayOf } from './timetable.util';
@@ -30,6 +31,7 @@ export class OccurrencesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly school: SchoolService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Version en vigueur à cette date : la plus récente dont la date d'effet est atteinte. */
@@ -178,6 +180,7 @@ export class OccurrencesService {
 
     let replacementTeacherId: string | null = null;
     let roomId: string | null = null;
+    let roomName: string | undefined;
 
     if (dto.type === 'REMPLACEE') {
       if (!dto.replacementTeacherId) {
@@ -215,6 +218,7 @@ export class OccurrencesService {
         );
       }
       roomId = room.id;
+      roomName = room.nom;
     }
 
     const created = await this.prisma.timetableException.create({
@@ -237,6 +241,15 @@ export class OccurrencesService {
       entiteId: created.id,
       ancienneValeur: null,
       nouvelleValeur: { ...created, date: isoDay(created.date) },
+    });
+    // Lot 12 : prévenir les responsables de la classe. Le motif reste interne : il n'est jamais transmis.
+    await this.notifications.notifySessionChange(entry.classId, {
+      kind: dto.type,
+      date: dto.date,
+      heureDebut: entry.heureDebut,
+      heureFin: entry.heureFin,
+      matiere: entry.subject.nom,
+      salle: roomName,
     });
     return created;
   }

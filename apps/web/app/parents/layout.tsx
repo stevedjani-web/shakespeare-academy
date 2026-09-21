@@ -1,9 +1,44 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, LogOut } from "lucide-react";
 import { ParentProvider, useParent } from "@/contexts/parent-context";
+import { portalApi } from "@/lib/portal-api";
 import { Button } from "@/components/ui";
+
+/** Cloche des notifications : nombre de non lues, à jour au changement de page et toutes les minutes. */
+function NotificationBell() {
+  const pathname = usePathname();
+  const [count, setCount] = useState(0);
+  const refresh = useCallback(async () => {
+    try {
+      setCount((await portalApi.get<{ nonLues: number }>("/portal/notifications/unread-count")).nonLues);
+    } catch {
+      // La cloche ne doit jamais gêner : sans réponse, on garde le dernier nombre connu.
+    }
+  }, []);
+  useEffect(() => {
+    void refresh();
+    const timer = setInterval(() => void refresh(), 60_000);
+    return () => clearInterval(timer);
+  }, [refresh, pathname]);
+  return (
+    <Link
+      href="/parents/notifications"
+      aria-label={count > 0 ? `Notifications, ${count} non lue${count > 1 ? "s" : ""}` : "Notifications"}
+      className="relative flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-white/10"
+    >
+      <Bell size={20} />
+      {count > 0 && (
+        <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-primary">
+          {count > 9 ? "9+" : count}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { parent, logout } = useParent();
@@ -19,9 +54,12 @@ function Shell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           {parent && (
-            <Button variant="ghost" onClick={() => void logout()} className="text-white hover:bg-white/10">
-              <LogOut size={16} /> <span className="hidden sm:inline">Se déconnecter</span>
-            </Button>
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              <Button variant="ghost" onClick={() => void logout()} className="text-white hover:bg-white/10">
+                <LogOut size={16} /> <span className="hidden sm:inline">Se déconnecter</span>
+              </Button>
+            </div>
           )}
         </div>
       </header>

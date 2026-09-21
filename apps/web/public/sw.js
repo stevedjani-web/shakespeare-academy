@@ -105,6 +105,48 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// Alertes push du portail parents (Lot 12). Le contenu est générique par construction (prénom de l'enfant
+// et renvoi vers l'application) : jamais de motif, de note ni de montant sur un écran verrouillé.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  const title = typeof data.title === "string" && data.title ? data.title : "Shakespeare Academy";
+  const url = typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/parents/notifications";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: typeof data.body === "string" ? data.body : "",
+      tag: data.tag || undefined,
+      // Une alerte de même étiquette en remplace une autre : on refait vibrer plutôt que d'échouer en silence.
+      renotify: Boolean(data.tag),
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/parents/notifications", self.location.origin).toString();
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of windows) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(target).catch(() => undefined);
+          return;
+        }
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
+});
+
 // Copie anticipée de pages (appelée par l'application après la connexion) : sans elle, une page
 // jamais ouverte n'existerait pas hors ligne.
 self.addEventListener("message", (event) => {

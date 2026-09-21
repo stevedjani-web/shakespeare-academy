@@ -6,12 +6,14 @@ import { TimetableModule } from '../timetable/timetable.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { StudentsModule } from '../students/students.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
 import { ParentAccountsService } from './parent-accounts.service';
 import { ParentAuthController, ParentPortalController } from './parent-portal.controller';
 import { ParentAccountsController } from './parent-accounts.controller';
+import { ParentNotificationsController } from './parent-notifications.controller';
 
 /** Lot 11 : comptes parents et portail en lecture (addendum v1.1). */
 @Module({
@@ -23,8 +25,9 @@ import { ParentAccountsController } from './parent-accounts.controller';
     AttendanceModule,
     StudentsModule,
     PaymentsModule,
+    NotificationsModule,
   ],
-  controllers: [ParentAuthController, ParentPortalController, ParentAccountsController],
+  controllers: [ParentAuthController, ParentPortalController, ParentNotificationsController, ParentAccountsController],
   providers: [ParentAuthService, ParentAuthGuard, ParentPortalService, ParentAccountsService],
 })
 export class ParentPortalModule {}

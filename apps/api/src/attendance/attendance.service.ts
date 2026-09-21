@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
+import { NotificationsService, type AttendanceItem } from '../notifications/notifications.service';
 import { OccurrencesService, type Occurrence } from '../timetable/occurrences.service';
 import { toMinutes } from '../timetable/timetable.util';
 import { isoDay, toDateOnly } from '../pedagogy/pedagogy.util';
@@ -44,6 +45,7 @@ export class AttendanceService {
     private readonly audit: AuditService,
     private readonly school: SchoolService,
     private readonly occurrences: OccurrencesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async context() {
@@ -393,6 +395,27 @@ export class AttendanceService {
         : null,
       { ...summary, date: dto.date, entryId: dto.entryId, ...(correction ? { motif } : {}), horsLigne: stamp !== null },
     );
+
+    // Lot 12 : on ne prévient les responsables que de ce qui vient de CHANGER (un appel renvoyé à
+    // l'identique, par exemple après une coupure, ne renotifie personne). Jamais bloquant : le service
+    // de notification attrape toute erreur.
+    const changes: AttendanceItem[] = [];
+    for (const studentId of idsToWrite) {
+      const next = stateOf(studentId);
+      if (next.statut === 'PRESENT') continue;
+      const before = existing?.records.find((r) => r.studentId === studentId)?.statut ?? 'PRESENT';
+      if (before === next.statut) continue;
+      changes.push({
+        studentId,
+        statut: next.statut,
+        minutesRetard: next.minutesRetard,
+        date: dto.date,
+        heureDebut: seance.heureDebut,
+        heureFin: seance.heureFin,
+        matiere: seance.subjectName,
+      });
+    }
+    await this.notifications.notifyAttendance(changes);
     return this.sheet(dto.entryId, dto.date);
   }
 

@@ -55,6 +55,10 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-https://academy.lobima.online}
       ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
+      # Lot 12 : alertes push aux parents. Vides = pas d'alerte push (notifications dans l'application seulement).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-https://academy.lobima.online}
     volumes:
       # Logo de l'établissement (et futurs fichiers uploadés) : nommé pour survivre à une
       # recréation du conteneur (rebuild d'image), jamais dans l'image elle-même.

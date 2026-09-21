@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolModule } from '../school/school.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TimetableModule } from '../timetable/timetable.module';
 import { AttendanceService } from './attendance.service';
 import { JustificationsService } from './justifications.service';
@@ -8,7 +9,7 @@ import { AbsenceReasonsController, AttendanceController } from './attendance.con
 
 /** Lot 9 : assiduité des élèves (addendum v1.1). */
 @Module({
-  imports: [AuditModule, SchoolModule, TimetableModule],
+  imports: [AuditModule, SchoolModule, TimetableModule, NotificationsModule],
   controllers: [AttendanceController, AbsenceReasonsController],
   providers: [AttendanceService, JustificationsService],
   exports: [AttendanceService],

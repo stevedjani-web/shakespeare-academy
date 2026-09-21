@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateEntryDto,
   CreateTimetableDto,
@@ -37,6 +38,7 @@ export class TimetablesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly school: SchoolService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async log(
@@ -507,6 +509,8 @@ export class TimetablesService {
       ...published,
       remplace: previous?.id ?? null,
     });
+    // Lot 12 : les responsables des élèves inscrits sont prévenus (regroupé, sans détail sensible).
+    await this.notifications.notifyTimetablePublished(timetable.academicYearId, dto.dateEffet);
     return published;
   }
 

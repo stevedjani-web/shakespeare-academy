@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { portalApi, setPortalToken, tryPortalRefresh } from "@/lib/portal-api";
+import { disablePush } from "@/lib/push";
 
 export interface ParentIdentity {
   id: string;
@@ -70,6 +71,8 @@ export function ParentProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // Cet appareil ne doit plus recevoir les alertes de ce parent une fois déconnecté (téléphone partagé).
+      await disablePush();
       await portalApi.post("/portal/logout");
     } finally {
       setPortalToken(null);

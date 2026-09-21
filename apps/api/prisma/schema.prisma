@@ -53,6 +53,11 @@ model School {
   // Lot 11 (D66 : valeur provisoire modifiable) : durée de validité d'un code d'activation de compte parent.
   parentCodeValiditeJours Int @default(7)
 
+  // Lot 12 (D71 : valeur provisoire modifiable) : les changements d'emploi du temps sont regroupés :
+  // tant qu'une notification du même type n'est pas lue et a moins de N minutes, elle est complétée
+  // au lieu d'en envoyer une nouvelle (une seule alerte push par rafale).
+  notifGroupeMinutes Int @default(60)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -337,9 +342,10 @@ model Student {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  studentGuardians  StudentGuardian[]
-  enrollments       Enrollment[]
-  attendanceRecords AttendanceRecord[]
+  studentGuardians    StudentGuardian[]
+  parentNotifications ParentNotification[]
+  enrollments         Enrollment[]
+  attendanceRecords   AttendanceRecord[]
 
   @@unique([schoolId, matricule])
   @@map("students")
@@ -1199,8 +1205,11 @@ model ParentAccount {
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
-  refreshTokens ParentRefreshToken[]
-  consents      ParentConsent[]
+  refreshTokens           ParentRefreshToken[]
+  consents                ParentConsent[]
+  notifications           ParentNotification[]
+  notificationPreferences ParentNotificationPreference[]
+  pushSubscriptions       ParentPushSubscription[]
 
   @@map("parent_accounts")
 }
@@ -1247,4 +1256,77 @@ model ParentActivationCode {
 
   @@index([guardianId])
   @@map("parent_activation_codes")
+}
+
+// --- Lot 12 : notifications aux parents (addendum v1.1, D65, D69, D70, D71, RV10) ----------------
+// Canal : message dans l'application (toujours) et notification push (gratuite, selon les préférences).
+// Un canal externe ne transporte jamais de contenu sensible : ni motif d'absence, ni note, ni montant.
+// Aucune notification financière en vague 1 (D70) : il n'y a donc pas de type pour cela.
+
+enum NotificationType {
+  ABSENCE
+  RETARD
+  ENSEIGNANT_ABSENT
+  EMPLOI_DU_TEMPS_MODIFIE
+}
+
+enum PushDelivery {
+  EN_ATTENTE
+  ENVOYE
+  ECHEC
+  // Le parent a coupé les alertes push pour ce type d'événement.
+  DESACTIVE
+  // Aucun appareil enregistré : la notification reste dans l'application.
+  AUCUN_APPAREIL
+  // Ajoutée à une notification récente non lue (regroupement) : pas de nouvelle alerte.
+  GROUPE
+}
+
+model ParentNotification {
+  id          String           @id @default(cuid())
+  accountId   String
+  account     ParentAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  // Jour scolaire de l'événement (fuseau de l'école) : sert au regroupement des absences d'une journée.
+  jour        DateTime         @db.Date
+  titre       String
+  // Détail lisible dans l'application authentifiée uniquement, jamais le motif, une note ou un montant.
+  corps       String
+  occurrences Int              @default(1)
+  pushStatut  PushDelivery     @default(EN_ATTENTE)
+  pushErreur  String?
+  luAt        DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([accountId, luAt, createdAt])
+  @@index([accountId, studentId, type, jour])
+  @@map("parent_notifications")
+}
+
+// Préférences par parent et par type d'événement. Absent = alerte push activée (valeur par défaut).
+model ParentNotificationPreference {
+  id        String           @id @default(cuid())
+  accountId String
+  account   ParentAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  push      Boolean          @default(true)
+
+  @@unique([accountId, type])
+  @@map("parent_notification_preferences")
+}
+
+model ParentPushSubscription {
+  id        String        @id @default(cuid())
+  accountId String
+  account   ParentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  endpoint  String        @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime      @default(now())
+
+  @@index([accountId])
+  @@map("parent_push_subscriptions")
 }
