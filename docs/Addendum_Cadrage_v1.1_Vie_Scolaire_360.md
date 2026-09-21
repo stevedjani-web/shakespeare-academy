@@ -1,7 +1,7 @@
 # Addendum au cahier de cadrage v1.0 : vie scolaire 360°
 
-**Statut : PROPOSITION du 21 septembre 2026, en attente de validation par la Direction de Shakespeare Academy.**
-Tant que les décisions D51 à D78 de `DECISIONS_PENDING.md` (§17) ne sont pas validées, ce document ne remplace pas le cahier de cadrage v1.0 : il le complète. En cas de divergence, le cahier v1.0 continue de faire foi pour les Lots 1 à 6.
+**Statut : VALIDÉ par la Direction le 21 septembre 2026 (décisions D50 à D78 acceptées telles que proposées).**
+Les décisions D51 à D78 de `DECISIONS_PENDING.md` (§17) sont validées : ce document complète le cahier de cadrage v1.0. En cas de divergence, le cahier v1.0 continue de faire foi pour les Lots 1 à 6.
 
 ## 1. Objet
 

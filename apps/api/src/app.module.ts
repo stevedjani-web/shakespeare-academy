@@ -23,6 +23,7 @@ import { DiscountsModule } from './discounts/discounts.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { ReportsModule } from './reports/reports.module';
+import { PedagogyModule } from './pedagogy/pedagogy.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { ReportsModule } from './reports/reports.module';
     PaymentsModule,
     ExpensesModule,
     ReportsModule,
+    PedagogyModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

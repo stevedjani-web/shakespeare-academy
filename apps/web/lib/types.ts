@@ -388,3 +388,89 @@ export interface StudentByClassRow {
   responsable: string;
   telephoneResponsable: string;
 }
+
+// --- Lot 7 : vie scolaire, référentiel pédagogique et personnel -------------
+
+export type TimeSlotType = "COURS" | "PAUSE";
+
+export interface TimeSlot {
+  id: string;
+  sectionId: string | null;
+  libelle: string;
+  heureDebut: string;
+  heureFin: string;
+  type: TimeSlotType;
+}
+
+export interface Room {
+  id: string;
+  nom: string;
+  capacite: number | null;
+  actif: boolean;
+}
+
+export interface Subject {
+  id: string;
+  code: string;
+  nom: string;
+  actif: boolean;
+  levels: Array<{ id: string; levelId: string; minutesParSemaine: number | null }>;
+  _count: { teachers: number; assignments: number };
+}
+
+export interface Teacher {
+  id: string;
+  nom: string;
+  prenom: string;
+  telephone: string | null;
+  email: string | null;
+  statut: "ACTIF" | "INACTIF";
+  volontairePilote: boolean;
+  subjects: Array<{ subjectId: string; subject: { id: string; code: string; nom: string } }>;
+  _count: { assignments: number };
+}
+
+export interface ClassAssignments {
+  classe: Class;
+  matieres: Array<{
+    subject: { id: string; code: string; nom: string };
+    minutesParSemaine: number | null;
+    assignment: { id: string; teacherId: string; teacher: { id: string; nom: string; prenom: string } } | null;
+  }>;
+}
+
+export interface Term {
+  id: string;
+  academicYearId: string;
+  libelle: string;
+  dateDebut: string;
+  dateFin: string;
+  ordre: number;
+}
+
+export type CalendarEventType = "VACANCES" | "FERIE" | "AUTRE";
+
+export interface CalendarEvent {
+  id: string;
+  academicYearId: string;
+  type: CalendarEventType;
+  libelle: string;
+  dateDebut: string;
+  dateFin: string;
+}
+
+export interface PedagogySummary {
+  anneeScolaire: { id: string; libelle: string } | null;
+  joursClasse: number[];
+  creneaux: { communs: number; parSection: number };
+  matieres: { total: number; sansNiveau: number };
+  enseignants: { total: number; actifs: number; sansAffectation: number };
+  affectations: { classes: number; classesCompletes: number; requises: number; manquantes: number };
+  trimestres: number;
+  calendrier: { vacances: number; feries: number; autres: number };
+  salles: number;
+  pilote: {
+    classe: { id: string; nom: string } | null;
+    enseignant: { id: string; nom: string; prenom: string } | null;
+  };
+}

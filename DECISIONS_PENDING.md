@@ -150,7 +150,11 @@ Statut possible : `OUVERT` · `TRANCHÉ` (avec date et décideur) · `PROVISOIRE
 
 ## 17. Vie scolaire 360° : emploi du temps, assiduité, pointage, portail parent, communication (proposition du 21 septembre 2026)
 
-Source : `docs/Addendum_Cadrage_v1.1_Vie_Scolaire_360.md`. Ces décisions préparent les Lots 7 à 14. **Toutes les valeurs ci-dessous sont des propositions provisoires** : elles ne sont pas validées par la Direction, restent **OUVERT** sauf mention contraire, et doivent être des **paramètres modifiables**, jamais des constantes codées en dur. Aucune donnée réelle (horaires, matières, seuils) n'est préchargée.
+Source : `docs/Addendum_Cadrage_v1.1_Vie_Scolaire_360.md`. Ces décisions préparent les Lots 7 à 14.
+
+**Statut au 21 septembre 2026 : D50 à D78 TRANCHÉES.** La Direction de Shakespeare Academy a validé, sur le document de validation qui lui a été remis, **toutes les valeurs proposées ci-dessous, telles quelles** (aucune réponse différente). Elles restent néanmoins des **paramètres modifiables**, jamais des constantes codées en dur (la Direction peut les changer plus tard sans intervention technique), et aucune donnée réelle (horaires, matières, seuils) n'est préchargée : la Direction la saisit elle-même dans l'application (espace « Vie scolaire », Lot 7).
+
+Restent à fournir par la Direction, par saisie dans l'application : emploi du temps actuel, liste des enseignants et des matières, jours et horaires, calendrier scolaire, classe pilote et enseignant volontaire. Le règlement intérieur et le modèle de justificatif d'absence sont à transmettre en document.
 
 ### 17.1 Périmètre
 
@@ -237,4 +241,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 21 septembre 2026 : ajout de D49 (mode hors ligne) puis de D50 à D78 (vie scolaire 360°, proposition en attente de validation). Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 21 septembre 2026 : D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

@@ -67,6 +67,20 @@ export const LOT5_PERMISSIONS = [
   { code: 'CASH_CLOSE', description: "Consulter l'état de clôture de journée (entrées, sorties, solde)." },
 ] as const;
 
+/**
+ * Catalogue de permissions du Lot 7 (vie scolaire : référentiel pédagogique et personnel, addendum
+ * v1.1). `PEDAGOGY_MANAGE` couvre la saisie des horaires, matières, enseignants, affectations,
+ * calendrier et salles. Les permissions des lots suivants (emploi du temps, appel, pointage...) seront
+ * ajoutées avec leurs modules.
+ */
+export const LOT7_PERMISSIONS = [
+  {
+    code: 'PEDAGOGY_MANAGE',
+    description:
+      'Saisir et modifier le référentiel pédagogique : horaires, matières, enseignants, affectations, calendrier, salles.',
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -86,6 +100,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'PAYMENT_CREATE',
       'CASH_CLOSE',
       'EXPENSE_CREATE',
+      'PEDAGOGY_MANAGE',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -104,6 +119,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'PAYMENT_CANCEL_APPROVE',
       'EXPENSE_APPROVE',
       'CASH_CLOSE',
+      'PEDAGOGY_MANAGE',
     ],
   },
   {
@@ -152,6 +168,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
     ...LOT3_PERMISSIONS,
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
+    ...LOT7_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

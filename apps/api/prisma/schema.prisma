@@ -32,6 +32,10 @@ model School {
   // inactive : le statut restera toujours EN_RETARD, jamais IMPAYE_CRITIQUE, tant qu'il n'est pas réglé.
   seuilImpayeCritiqueFcfa Int?
 
+  // Lot 7 (D52, validée) : jours de classe, 0 = dimanche ... 6 = samedi. Lundi à vendredi par défaut,
+  // le samedi s'active par paramètre. Jamais codé en dur dans la logique.
+  joursClasse Int[] @default([1, 2, 3, 4, 5])
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -45,6 +49,10 @@ model School {
   invoices        Invoice[]
   payments        Payment[]
   expenses        Expense[]
+  rooms           Room[]
+  timeSlots       TimeSlot[]
+  subjects        Subject[]
+  teachers        Teacher[]
 
   @@map("schools")
 }
@@ -70,9 +78,11 @@ model AcademicYear {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
-  classes      Class[]
-  enrollments  Enrollment[]
-  feeSchedules FeeSchedule[]
+  classes        Class[]
+  enrollments    Enrollment[]
+  feeSchedules   FeeSchedule[]
+  terms          Term[]
+  calendarEvents CalendarEvent[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -91,7 +101,8 @@ model Section {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cycles Cycle[]
+  cycles    Cycle[]
+  timeSlots TimeSlot[]
 
   @@unique([schoolId, code])
   @@map("sections")
@@ -123,8 +134,9 @@ model Level {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes      Class[]
-  feeSchedules FeeSchedule[]
+  classes       Class[]
+  feeSchedules  FeeSchedule[]
+  subjectLevels SubjectLevel[]
 
   @@unique([cycleId, code])
   @@map("levels")
@@ -142,10 +154,13 @@ model Class {
   serie          String?
   groupe         String?
   capacite       Int?
+  // Lot 7 : classe pilote pour tester l'appel et le pointage (une seule à la fois, garanti par le service).
+  pilote         Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   enrollments Enrollment[]
+  assignments TeachingAssignment[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -499,35 +514,35 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id               String        @id @default(cuid())
-  schoolId         String
-  school           School        @relation(fields: [schoolId], references: [id])
-  invoiceLineId    String
-  invoiceLine      InvoiceLine   @relation(fields: [invoiceLineId], references: [id])
-  numeroRecu       String
+  id                String        @id @default(cuid())
+  schoolId          String
+  school            School        @relation(fields: [schoolId], references: [id])
+  invoiceLineId     String
+  invoiceLine       InvoiceLine   @relation(fields: [invoiceLineId], references: [id])
+  numeroRecu        String
   // Vérification d'authenticité du reçu (D29) : jeton aléatoire distinct de numeroRecu (séquentiel
   // et donc devinable) — sert de clé pour GET /payments/verify/:token, un endpoint public qui ne
   // doit jamais permettre d'énumérer tous les reçus de l'école en incrémentant un numéro.
-  verificationToken String       @unique @default(cuid())
+  verificationToken String        @unique @default(cuid())
   // Encaissement saisi sans Internet (D49) : numéro du reçu PROVISOIRE remis au parent (généré sur
   // l'appareil, jamais un numéro officiel) et instant réel de la saisie. Le reçu officiel REC-xxxxxx
   // n'est attribué qu'à la synchronisation, par le serveur (RG10 inchangée).
   numeroProvisoire  String?
   saisieHorsLigneAt DateTime?
-  montant          Int
-  modePaiement     PaymentMode   @default(ESPECES)
+  montant           Int
+  modePaiement      PaymentMode   @default(ESPECES)
   // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais
   // d'intégration API automatisée, un simple enregistrement manuel (cahier §11, déjà tranché).
-  referenceExterne String?
-  datePaiement     DateTime      @default(now())
-  recuParUserId    String
-  recuParUser      User          @relation(fields: [recuParUserId], references: [id])
-  statut           PaymentStatus @default(VALIDE)
-  motifAnnulation  String?
-  annuleParUserId  String?
-  annuleParUser    User?         @relation("PaymentAnnulePar", fields: [annuleParUserId], references: [id])
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  referenceExterne  String?
+  datePaiement      DateTime      @default(now())
+  recuParUserId     String
+  recuParUser       User          @relation(fields: [recuParUserId], references: [id])
+  statut            PaymentStatus @default(VALIDE)
+  motifAnnulation   String?
+  annuleParUserId   String?
+  annuleParUser     User?         @relation("PaymentAnnulePar", fields: [annuleParUserId], references: [id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@unique([schoolId, numeroRecu])
   @@unique([schoolId, numeroProvisoire])
@@ -635,4 +650,171 @@ model Expense {
   updatedAt     DateTime      @updatedAt
 
   @@map("expenses")
+}
+
+// --- Lot 7 : référentiel pédagogique et personnel (addendum v1.1, décisions D52 à D56) -----------
+// Rien n'est prérempli : horaires, matières, enseignants, dates sont saisis par la Direction.
+
+enum TimeSlotType {
+  COURS
+  PAUSE
+}
+
+// Créneau horaire. `sectionId` nul = grille commune à toutes les sections (D53) ; renseigné = grille
+// propre à cette section, qui remplace alors la grille commune pour elle. Heures au format "HH:mm"
+// (heure locale de l'établissement), jamais un fuseau : un créneau est une heure murale récurrente.
+model TimeSlot {
+  id         String       @id @default(cuid())
+  schoolId   String
+  school     School       @relation(fields: [schoolId], references: [id])
+  sectionId  String?
+  section    Section?     @relation(fields: [sectionId], references: [id])
+  libelle    String
+  heureDebut String
+  heureFin   String
+  type       TimeSlotType @default(COURS)
+  ordre      Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@map("time_slots")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  nom       String
+  capacite  Int?
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, nom])
+  @@map("rooms")
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  code      String
+  nom       String
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  levels      SubjectLevel[]
+  teachers    TeacherSubject[]
+  assignments TeachingAssignment[]
+
+  @@unique([schoolId, code])
+  @@map("subjects")
+}
+
+// Matière enseignée à un niveau (donc à sa section, le niveau appartenant à un cycle d'une section).
+model SubjectLevel {
+  id                String  @id @default(cuid())
+  subjectId         String
+  subject           Subject @relation(fields: [subjectId], references: [id])
+  levelId           String
+  level             Level   @relation(fields: [levelId], references: [id])
+  // Volume hebdomadaire indicatif, facultatif (jamais imposé).
+  minutesParSemaine Int?
+
+  @@unique([subjectId, levelId])
+  @@map("subject_levels")
+}
+
+enum TeacherStatus {
+  ACTIF
+  INACTIF
+}
+
+// Fiche enseignant (D56). Le compte utilisateur (rôle ENSEIGNANT) sera rattaché aux lots suivants ;
+// aucune donnée de paie ni de contrat, par décision.
+model Teacher {
+  id               String        @id @default(cuid())
+  schoolId         String
+  school           School        @relation(fields: [schoolId], references: [id])
+  nom              String
+  prenom           String
+  telephone        String?
+  email            String?
+  statut           TeacherStatus @default(ACTIF)
+  // Enseignant volontaire pour la classe pilote (D-liste "à fournir").
+  volontairePilote Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  subjects    TeacherSubject[]
+  assignments TeachingAssignment[]
+
+  @@map("teachers")
+}
+
+model TeacherSubject {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([teacherId, subjectId])
+  @@map("teacher_subjects")
+}
+
+// Affectation : qui enseigne quelle matière dans quelle classe. Un seul enseignant par classe et par
+// matière (RV01 : pas de co-enseignement en vague 1).
+model TeachingAssignment {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id])
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, subjectId])
+  @@map("teaching_assignments")
+}
+
+// Trimestre (D55) : dates saisies par la Direction chaque année, jamais codées.
+model Term {
+  id             String       @id @default(cuid())
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  libelle        String
+  dateDebut      DateTime     @db.Date
+  dateFin        DateTime     @db.Date
+  ordre          Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([academicYearId, ordre])
+  @@map("terms")
+}
+
+enum CalendarEventType {
+  VACANCES
+  FERIE
+  AUTRE
+}
+
+// Jour sans classe : vacances, jour férié, autre fermeture. Saisi à la main, sans calendrier
+// national préchargé (D55).
+model CalendarEvent {
+  id             String            @id @default(cuid())
+  academicYearId String
+  academicYear   AcademicYear      @relation(fields: [academicYearId], references: [id])
+  type           CalendarEventType
+  libelle        String
+  dateDebut      DateTime          @db.Date
+  dateFin        DateTime          @db.Date
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("calendar_events")
 }
