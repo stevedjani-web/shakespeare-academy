@@ -66,10 +66,10 @@ const LINKS: NavLink[] = [
   { href: "/paiements-en-ligne", label: "Paiements en ligne", icon: Smartphone, requiredPermission: "FINANCE_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
   { href: "/cloture", label: "Clôture de journée", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
-  { href: "/parametres/annees", label: "Années scolaires", icon: CalendarRange },
-  { href: "/parametres/structure", label: "Structure académique", icon: Building2 },
+  { href: "/parametres/annees", label: "Années scolaires", icon: CalendarRange, requiredPermission: "SETTINGS_READ" },
+  { href: "/parametres/structure", label: "Structure académique", icon: Building2, requiredPermission: "SETTINGS_READ" },
   { href: "/parametres/utilisateurs", label: "Utilisateurs & rôles", icon: Users, requiredPermission: "USER_MANAGE" },
-  { href: "/parametres/etablissement", label: "Établissement", icon: Building2 },
+  { href: "/parametres/etablissement", label: "Établissement", icon: Building2, requiredPermission: "SETTINGS_READ" },
   { href: "/hors-ligne", label: "Synchronisation", icon: RefreshCw },
   { href: "/audit", label: "Journal d'audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
 ];

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CloudOff, Pencil, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, isOfflineError } from "@/lib/api";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { frDay, frShort, TEXTBOOK_MAX_LENGTH, type TextbookContext, type TextbookRow } from "@/lib/textbook";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select, Spinner, SuccessMessage } from "@/components/ui";
@@ -62,7 +62,13 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
       setRows(await api.get<TextbookRow[]>(`/textbook?${q}`));
       setError(null);
     } catch (err) {
-      setError(describeError(err));
+      // Sans Internet, la liste n'est pas copiée sur l'appareil, mais la saisie d'une entrée reste possible : on le dit
+      // calmement plutôt que d'afficher une erreur au-dessus d'un formulaire qui marche.
+      setError(
+        isOfflineError(err)
+          ? "La liste des entrées n'est pas disponible sans Internet. Vous pouvez quand même saisir une entrée : elle sera envoyée au retour du réseau."
+          : describeError(err),
+      );
     }
   }, [classId, subjectId, days, today]);
 

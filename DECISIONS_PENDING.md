@@ -278,6 +278,15 @@ Trois choix ont été faits par le propriétaire du projet le 23 septembre 2026 
 | D100 | Comment activer ? | Ne rien proposer aux parents avant que tout soit prêt. | **PROVISOIRE** : un interrupteur de l'Administrateur (« Établissement »), éteint par défaut. L'option ne s'affiche aux parents que si l'interrupteur est allumé **et** que la clé du fournisseur est configurée sur le serveur. |
 | D101 | Remboursement, frais à la charge du parent, montant minimum, reçu envoyé par SMS, rappels, paiement par un autre moyen que Mobile Money, paiement de plusieurs tranches en une fois. | Périmètre. | **OUVERT**, non construit. Le remboursement d'un paiement en ligne se fait hors de l'application (chez le fournisseur), puis la Direction annule le paiement ou clôture la tentative. Aucun montant minimum n'est inventé : le fournisseur refuse un montant trop faible et la phrase est renvoyée au parent. |
 
+## 21. Points ouverts de l'audit des rôles (23 septembre 2026)
+
+Deux choix ont été faits par le propriétaire du projet le 23 septembre 2026, tous deux **tranchés**.
+
+| # | Question | Impact si non tranchée | Décision |
+|---|---|---|---|
+| D102 | Que voit le surveillant (vie scolaire) dans un dossier d'élève ? | Il lisait tout, y compris l'e-mail, l'adresse et la profession de chaque responsable (RV12, strict nécessaire). | **TRANCHÉ (23 septembre 2026)** : identité de l'élève, classe et, pour chaque responsable, **nom, lien et téléphone** (il appelle un parent pour une absence). L'e-mail, l'adresse et la profession sont réservés au nouveau droit `GUARDIAN_DETAIL_READ`, porté par tous les rôles qui lisaient les dossiers **sauf** le surveillant (Administrateur, Direction, secrétariat, comptable, auditeur) ; un rôle sur mesure qui lit les dossiers le reçoit par la migration. Appliqué par le serveur sur `GET /students/:id` et `GET /students/search` (les champs sont remis à `null`, la forme de la réponse ne change pas). |
+| D103 | Qui voit les pages Établissement, Années scolaires et Structure académique dans le menu ? | Elles étaient visibles de tous les comptes (enseignant, surveillant...), en lecture seule. | **TRANCHÉ (23 septembre 2026)** : l'Administrateur, la Direction et l'Auditeur, par le nouveau droit `SETTINGS_READ` (les rôles sur mesure qui gèrent déjà l'une de ces pages le reçoivent aussi). **Portée honnête** : cela ne masque que le **menu**. Les routes de lecture (`GET /school`, `/academic-years`, `/classes`...) restent ouvertes à tout compte connecté, car ces données de référence alimentent d'autres écrans (reçus, listes de classes, formulaires) ; les modifications restaient et restent protégées par leurs droits de gestion. |
+
 ---
 
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
@@ -294,4 +303,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 23 septembre 2026 : D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 23 septembre 2026 : D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

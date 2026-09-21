@@ -120,6 +120,16 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
     }
   };
 
+  // Cahier de textes : l'enseignant écrit sans Internet. Le contexte (classes, matières, affectations) doit être en
+  // cache, sinon la page ne s'ouvre pas et la saisie ne peut pas partir dans la file d'attente.
+  const warmTextbook = async (): Promise<void> => {
+    try {
+      await api.get("/textbook/context");
+    } catch {
+      // la saisie reste possible si la page était déjà ouverte
+    }
+  };
+
   const warmAttendance = async (): Promise<void> => {
     try {
       const day = await api.get<AttendanceDay>(`/attendance/day?date=${new Date().toISOString().slice(0, 10)}`);
@@ -148,6 +158,10 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
       if (can("GRADE_ENTER")) {
         await warmGrades();
         precachePages(["/notes"]);
+      }
+      if (can("TEXTBOOK_WRITE")) {
+        await warmTextbook();
+        precachePages(["/cahier-de-textes"]);
       }
       await dbPut("meta", "lastWarmup", Date.now());
       return;
@@ -202,6 +216,9 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
     }
     if (can("GRADE_ENTER")) {
       await warmGrades();
+    }
+    if (can("TEXTBOOK_WRITE")) {
+      await warmTextbook();
     }
 
     precachePages([...STATIC_PAGES, ...students.map((s) => `/eleves/${s.id}`), ...receiptIds.map((id) => `/recus/${id}`)]);

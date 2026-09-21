@@ -17,6 +17,7 @@ import { UpdateGuardianDto } from './dto/update-guardian.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
+import { redactStudentGuardians } from './guardian-redaction.util';
 
 @Controller('students')
 @RequirePermission('STUDENT_READ')
@@ -35,13 +36,15 @@ export class StudentsController {
   }
 
   @Get('search')
-  search(@Query('q') q: string) {
-    return this.studentsService.search(q ?? '');
+  async search(@Query('q') q: string, @CurrentUser() user: CurrentUserData) {
+    // Sans GUARDIAN_DETAIL_READ (surveillant), les responsables sont réduits au nom, au lien et au téléphone.
+    const students = await this.studentsService.search(q ?? '');
+    return students.map((s) => redactStudentGuardians(s, user));
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.studentsService.findOne(id);
+  async findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserData) {
+    return redactStudentGuardians(await this.studentsService.findOne(id), user);
   }
 
   @Get(':id/financial-status')

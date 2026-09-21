@@ -253,6 +253,27 @@ export const HARDENING_PERMISSIONS = [
 ] as const;
 
 /**
+ * Points ouverts de l'audit des rôles (23 septembre 2026). `GUARDIAN_DETAIL_READ` : lire la fiche complète d'un
+ * responsable (e-mail, adresse, profession). Sans lui, un dossier d'élève ne montre du responsable que son nom, son lien
+ * et son téléphone : c'est le cas du surveillant, qui appelle un parent pour une absence mais n'a pas besoin du reste
+ * (RV12, strict nécessaire). `SETTINGS_READ` : voir dans le menu les pages Établissement, Années scolaires et Structure
+ * académique (supervision : Administrateur, Direction, Auditeur). Elle ne protège que le menu : ces données de référence
+ * restent lisibles par toute route qui en a besoin (reçus, listes de classes, formulaires).
+ */
+export const AUDIT_ROLES_PERMISSIONS = [
+  {
+    code: 'GUARDIAN_DETAIL_READ',
+    description:
+      "Lire la fiche complète d'un responsable (e-mail, adresse, profession) ; sans ce droit, un dossier d'élève montre seulement son nom, son lien et son téléphone.",
+  },
+  {
+    code: 'SETTINGS_READ',
+    description:
+      "Voir les pages Établissement, Années scolaires et Structure académique (lecture seule).",
+  },
+] as const;
+
+/**
  * Lot 15 (notes et bulletins, vague 2). `GRADE_ENTER` : créer des évaluations et saisir les notes (un enseignant :
  * uniquement ses affectations, la portée est appliquée par le serveur comme pour l'appel) ; `GRADE_READ` : lire toute
  * l'école (Direction, Administrateur ; RV12 : ni le surveillant ni l'auditeur) ; `GRADE_CORRECT` : corriger après
@@ -334,6 +355,8 @@ export const ROLES: Array<{
       'PARENT_ACCOUNT_MANAGE',
       'GRADE_READ',
       'TEXTBOOK_READ',
+      'GUARDIAN_DETAIL_READ',
+      'SETTINGS_READ',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -375,6 +398,8 @@ export const ROLES: Array<{
       'GRADE_CORRECT',
       'BULLETIN_VALIDATE',
       'TEXTBOOK_READ',
+      'GUARDIAN_DETAIL_READ',
+      'SETTINGS_READ',
     ],
   },
   {
@@ -390,13 +415,20 @@ export const ROLES: Array<{
       'CASH_CLOSE',
       'TIMETABLE_READ',
       'PARENT_ACCOUNT_MANAGE',
+      'GUARDIAN_DETAIL_READ',
     ],
   },
   {
     code: 'COMPTABLE',
     nom: 'Comptable',
     description: 'Sorties, rapports, rapprochements, export.',
-    permissions: ['STUDENT_READ', 'FINANCE_READ', 'EXPENSE_CREATE', 'CASH_CLOSE'],
+    permissions: [
+      'STUDENT_READ',
+      'FINANCE_READ',
+      'EXPENSE_CREATE',
+      'CASH_CLOSE',
+      'GUARDIAN_DETAIL_READ',
+    ],
   },
   {
     code: 'AUDITEUR',
@@ -409,6 +441,8 @@ export const ROLES: Array<{
       'TIMETABLE_READ',
       'ATTENDANCE_READ',
       'TEACHER_CHECKIN_READ',
+      'GUARDIAN_DETAIL_READ',
+      'SETTINGS_READ',
     ],
   },
   {
@@ -483,6 +517,7 @@ export async function seedReferenceData(
     ...LOT13_PERMISSIONS,
     ...LOT14_PERMISSIONS,
     ...HARDENING_PERMISSIONS,
+    ...AUDIT_ROLES_PERMISSIONS,
     ...LOT15_PERMISSIONS,
     ...LOT16_PERMISSIONS,
   ]) {
