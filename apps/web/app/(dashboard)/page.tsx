@@ -27,6 +27,7 @@ import { buildSection, type ExportSection } from "@/lib/export";
 import type { AcademicYear, DashboardStats, Student } from "@/lib/types";
 import { Badge, Button, Card, PageTitle, StatCard, type StatTone } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
+import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 
 function recoveryTone(rate: number | null): StatTone {
   if (rate === null) return "info";
@@ -44,6 +45,7 @@ export default function DashboardHomePage() {
   const [activeYear, setActiveYear] = useState<AcademicYear | null>(null);
   const [studentCount, setStudentCount] = useState<number | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const expand = useExpanded();
 
   useEffect(() => {
     void (async () => {
@@ -137,9 +139,24 @@ export default function DashboardHomePage() {
 
       {stats && (
         <>
-          <SectionTitle icon={<Users size={14} />} tone="info">
+          <div className="mt-6">
+            <ExpandAll
+              count={3}
+              onOpenAll={() => expand.openAll(["effectifs", "finances", "attente"])}
+              onCloseAll={expand.closeAll}
+            />
+          </div>
+          <SectionTitle
+            icon={<Users size={14} />}
+            tone="info"
+            open={expand.isOpen("effectifs")}
+            onToggle={() => expand.toggle("effectifs")}
+            summary={`${stats.effectifs.actifs} élève(s) actif(s) · ${stats.effectifs.parSexe.M} G · ${stats.effectifs.parSexe.F} F`}
+          >
             Effectifs
           </SectionTitle>
+          {expand.isOpen("effectifs") && (
+            <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Élèves actifs"
@@ -225,10 +242,20 @@ export default function DashboardHomePage() {
               </p>
             </Card>
           )}
+            </>
+          )}
 
-          <SectionTitle icon={<Wallet size={14} />} tone="success">
+          <SectionTitle
+            icon={<Wallet size={14} />}
+            tone="success"
+            open={expand.isOpen("finances")}
+            onToggle={() => expand.toggle("finances")}
+            summary={`Encaissé ${formatMontant(stats.financier.totalEncaisse)} · Restant dû ${formatMontant(stats.financier.totalRestantDu)}`}
+          >
             Finances (année active)
           </SectionTitle>
+          {expand.isOpen("finances") && (
+            <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Total facturé" value={formatMontant(stats.financier.totalFacture)} tone="info" icon={<Receipt size={18} />} />
             <StatCard
@@ -280,10 +307,20 @@ export default function DashboardHomePage() {
               </p>
             </Card>
           )}
+            </>
+          )}
 
-          <SectionTitle icon={<ArrowUpCircle size={14} />} tone="warning">
+          <SectionTitle
+            icon={<ArrowUpCircle size={14} />}
+            tone="warning"
+            open={expand.isOpen("attente")}
+            onToggle={() => expand.toggle("attente")}
+            summary={`${stats.remises.enAttente} remise(s) · ${stats.depenses.enAttenteCount} dépense(s) · ${stats.insolvables.count} insolvable(s)`}
+          >
             Opérations en attente
           </SectionTitle>
+          {expand.isOpen("attente") && (
+            <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Remises en attente"
@@ -316,6 +353,8 @@ export default function DashboardHomePage() {
               />
             </Link>
           </div>
+            </>
+          )}
         </>
       )}
 
@@ -368,11 +407,27 @@ const SECTION_TONE: Record<StatTone, string> = {
   info: "bg-info",
 };
 
-function SectionTitle({ children, icon, tone }: { children: React.ReactNode; icon: React.ReactNode; tone: StatTone }) {
+function SectionTitle({
+  children,
+  icon,
+  tone,
+  open,
+  onToggle,
+  summary,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  tone: StatTone;
+  open: boolean;
+  onToggle: () => void;
+  summary: string;
+}) {
   return (
-    <h2 className="mb-3 mt-8 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">
+    <div className="mb-3 mt-3 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-[var(--shadow-soft)]">
+      <ExpandButton open={open} onClick={onToggle} label={String(children)} />
       <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-white ${SECTION_TONE[tone]}`}>{icon}</span>
-      {children}
-    </h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">{children}</h2>
+      <span className="ml-auto text-xs font-medium text-ink">{summary}</span>
+    </div>
   );
 }
