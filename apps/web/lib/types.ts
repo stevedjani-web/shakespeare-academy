@@ -474,3 +474,73 @@ export interface PedagogySummary {
     enseignant: { id: string; nom: string; prenom: string } | null;
   };
 }
+
+// --- Lot 8 : emploi du temps ---------------------------------------------------
+
+export type TimetableStatus = "BROUILLON" | "PUBLIE" | "ARCHIVE";
+
+export interface Timetable {
+  id: string;
+  academicYearId: string;
+  numero: number;
+  statut: TimetableStatus;
+  dateEffet: string | null;
+  datePublication: string | null;
+  _count: { entries: number };
+}
+
+export interface TimetableEntry {
+  id: string;
+  timetableId: string;
+  classId: string;
+  subjectId: string;
+  teacherId: string;
+  roomId: string;
+  timeSlotId: string;
+  jourSemaine: number;
+  heureDebut: string;
+  heureFin: string;
+  class: { id: string; nom: string; levelId: string };
+  subject: { id: string; nom: string };
+  teacher: { id: string; nom: string; prenom: string };
+  room: { id: string; nom: string };
+}
+
+export type OccurrenceStatus = "NORMALE" | "ANNULEE" | "REMPLACEE" | "SALLE_MODIFIEE";
+
+export interface Occurrence {
+  entryId: string;
+  date: string;
+  jourSemaine: number;
+  heureDebut: string;
+  heureFin: string;
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  roomId: string;
+  roomName: string;
+  statut: OccurrenceStatus;
+  exception: { id: string; type: string; motif: string; enseignantInitial: string; salleInitiale: string } | null;
+}
+
+export interface TimetableDay {
+  date: string;
+  version: { id: string; numero: number } | null;
+  sansClasse: { type: string; libelle: string } | null;
+  seances: Occurrence[];
+}
+
+export interface TimetableWeek {
+  debut: string;
+  fin: string;
+  jours: TimetableDay[];
+}
+
+export interface TimetableCheck {
+  pret: boolean;
+  seances: number;
+  problemes: string[];
+}

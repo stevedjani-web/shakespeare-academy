@@ -116,6 +116,19 @@ export class ReferentialService {
     }
     const heureDebut = dto.heureDebut ?? before.heureDebut;
     const heureFin = dto.heureFin ?? before.heureFin;
+    if (
+      heureDebut !== before.heureDebut ||
+      heureFin !== before.heureFin ||
+      (dto.type !== undefined && dto.type !== before.type)
+    ) {
+      // Les séances copient les heures du créneau : les changer ici les désynchroniserait.
+      const used = await this.prisma.timetableEntry.count({ where: { timeSlotId: id } });
+      if (used > 0) {
+        throw new ConflictException(
+          'Ce créneau est utilisé dans un emploi du temps : ses heures et son type ne peuvent plus changer. Créez un nouveau créneau et déplacez les séances.',
+        );
+      }
+    }
     await this.assertNoOverlap(before.sectionId, heureDebut, heureFin, id);
 
     const slot = await this.prisma.timeSlot.update({
@@ -136,8 +149,9 @@ export class ReferentialService {
     if (!before) {
       throw new NotFoundException('Créneau introuvable.');
     }
-    // Aucune séance ne référence encore un créneau (emploi du temps : lot suivant) : suppression
-    // physique possible. Le lot 8 refusera la suppression d'un créneau utilisé.
+    if ((await this.prisma.timetableEntry.count({ where: { timeSlotId: id } })) > 0) {
+      throw new ConflictException('Ce créneau est utilisé dans un emploi du temps : il ne peut pas être supprimé.');
+    }
     await this.prisma.timeSlot.delete({ where: { id } });
     await this.log(userId, 'TIME_SLOT_DELETE', 'TimeSlot', id, before, null);
     return { id };
@@ -197,7 +211,12 @@ export class ReferentialService {
     if (!before) {
       throw new NotFoundException('Salle introuvable.');
     }
-    // Le lot 8 (séances) interdira la suppression d'une salle utilisée : désactiver suffira alors.
+    const used =
+      (await this.prisma.timetableEntry.count({ where: { roomId: id } })) +
+      (await this.prisma.timetableException.count({ where: { roomId: id } }));
+    if (used > 0) {
+      throw new ConflictException('Cette salle est utilisée dans un emploi du temps : désactivez-la plutôt que de la supprimer.');
+    }
     await this.prisma.room.delete({ where: { id } });
     await this.log(userId, 'ROOM_DELETE', 'Room', id, before, null);
     return { id };

@@ -51,7 +51,7 @@ Gestion de la paie elle-même, comptabilité générale, application mobile nati
 | Surveillant / vie scolaire (`SURVEILLANT`) | Saisie et correction des présences, validation des pointages, justificatifs |
 | Parent (`PARENT`) | Uniquement les données de ses enfants |
 
-Permissions envisagées (à confirmer au Lot 7) : `TIMETABLE_MANAGE`, `TIMETABLE_READ`, `ATTENDANCE_TAKE`, `ATTENDANCE_CORRECT`, `TEACHER_CHECKIN_VALIDATE`, `MESSAGE_SUPERVISE`, `ANNOUNCEMENT_PUBLISH`, `PARENT_ACCOUNT_MANAGE`. Chaque action reste gardée côté serveur, jamais seulement masquée dans l'interface.
+Permissions envisagées (à confirmer au Lot 7) : `TIMETABLE_MANAGE` (retenue en pratique : `PEDAGOGY_MANAGE` couvre la saisie de l'emploi du temps, pas de permission distincte au Lot 8), `TIMETABLE_READ` (créée au Lot 8), `ATTENDANCE_TAKE`, `ATTENDANCE_CORRECT`, `TEACHER_CHECKIN_VALIDATE`, `MESSAGE_SUPERVISE`, `ANNOUNCEMENT_PUBLISH`, `PARENT_ACCOUNT_MANAGE`. Chaque action reste gardée côté serveur, jamais seulement masquée dans l'interface.
 
 ## 5. Règles de gestion nouvelles (RV)
 

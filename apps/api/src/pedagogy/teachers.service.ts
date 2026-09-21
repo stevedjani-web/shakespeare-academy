@@ -251,7 +251,14 @@ export class TeachersService {
     if (!before) {
       throw new NotFoundException('Affectation introuvable.');
     }
-    // Aucune séance ne dépend encore d'une affectation (lot 8) : suppression physique possible.
+    const used = await this.prisma.timetableEntry.count({
+      where: { classId: before.classId, subjectId: before.subjectId },
+    });
+    if (used > 0) {
+      throw new ConflictException(
+        'Cette affectation sert dans un emploi du temps : retirez d’abord les séances de cette matière dans cette classe.',
+      );
+    }
     await this.prisma.teachingAssignment.delete({ where: { id } });
     await this.log(userId, 'ASSIGNMENT_DELETE', 'TeachingAssignment', id, before, null);
     return { id };

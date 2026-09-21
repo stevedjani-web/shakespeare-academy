@@ -83,6 +83,7 @@ model AcademicYear {
   feeSchedules   FeeSchedule[]
   terms          Term[]
   calendarEvents CalendarEvent[]
+  timetables     Timetable[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -159,8 +160,9 @@ model Class {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  enrollments Enrollment[]
-  assignments TeachingAssignment[]
+  enrollments      Enrollment[]
+  assignments      TeachingAssignment[]
+  timetableEntries TimetableEntry[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -231,14 +233,16 @@ model User {
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
-  refreshTokens      RefreshToken[]
-  auditLogs          AuditLog[]
-  discountsProposed  Discount[]     @relation("DiscountAuteur")
-  discountsDecided   Discount[]     @relation("DiscountApprobateur")
-  paymentsRecus      Payment[]
-  paymentsAnnules    Payment[]      @relation("PaymentAnnulePar")
-  expensesEffectuees Expense[]      @relation("ExpenseEffectuePar")
-  expensesApprouvees Expense[]      @relation("ExpenseApprobateur")
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  discountsProposed   Discount[]           @relation("DiscountAuteur")
+  discountsDecided    Discount[]           @relation("DiscountApprobateur")
+  paymentsRecus       Payment[]
+  paymentsAnnules     Payment[]            @relation("PaymentAnnulePar")
+  expensesEffectuees  Expense[]            @relation("ExpenseEffectuePar")
+  expensesApprouvees  Expense[]            @relation("ExpenseApprobateur")
+  timetablesPublished Timetable[]          @relation("TimetablePublishedBy")
+  timetableExceptions TimetableException[] @relation("ExceptionCreatedBy")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -677,18 +681,22 @@ model TimeSlot {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
+  timetableEntries TimetableEntry[]
+
   @@map("time_slots")
 }
 
 model Room {
-  id        String   @id @default(cuid())
-  schoolId  String
-  school    School   @relation(fields: [schoolId], references: [id])
-  nom       String
-  capacite  Int?
-  actif     Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String               @id @default(cuid())
+  schoolId         String
+  school           School               @relation(fields: [schoolId], references: [id])
+  nom              String
+  capacite         Int?
+  actif            Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  timetableEntries TimetableEntry[]
+  exceptions       TimetableException[] @relation("ExceptionRoom")
 
   @@unique([schoolId, nom])
   @@map("rooms")
@@ -704,9 +712,10 @@ model Subject {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  levels      SubjectLevel[]
-  teachers    TeacherSubject[]
-  assignments TeachingAssignment[]
+  levels           SubjectLevel[]
+  teachers         TeacherSubject[]
+  assignments      TeachingAssignment[]
+  timetableEntries TimetableEntry[]
 
   @@unique([schoolId, code])
   @@map("subjects")
@@ -749,6 +758,9 @@ model Teacher {
 
   subjects    TeacherSubject[]
   assignments TeachingAssignment[]
+
+  timetableEntries TimetableEntry[]
+  replacements     TimetableException[] @relation("ExceptionReplacementTeacher")
 
   @@map("teachers")
 }
@@ -817,4 +829,92 @@ model CalendarEvent {
   updatedAt      DateTime          @updatedAt
 
   @@map("calendar_events")
+}
+
+// --- Lot 8 : emploi du temps (addendum v1.1, RV01 à RV03) ---------------------------------------
+// Un emploi du temps est versionné par année scolaire : une version est un BROUILLON modifiable, puis
+// PUBLIÉE (immuable, avec une date d'effet), puis ARCHIVÉE quand une version plus récente la remplace.
+// Les changements ponctuels (annulation, remplacement, changement de salle) ne créent jamais de
+// version : ce sont des exceptions datées qui s'ajoutent à la version en vigueur ce jour-là.
+
+enum TimetableStatus {
+  BROUILLON
+  PUBLIE
+  ARCHIVE
+}
+
+model Timetable {
+  id              String          @id @default(cuid())
+  academicYearId  String
+  academicYear    AcademicYear    @relation(fields: [academicYearId], references: [id])
+  numero          Int
+  statut          TimetableStatus @default(BROUILLON)
+  // Renseignées à la publication : premier jour où cette version s'applique.
+  dateEffet       DateTime?       @db.Date
+  datePublication DateTime?
+  publieParId     String?
+  publiePar       User?           @relation("TimetablePublishedBy", fields: [publieParId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  entries TimetableEntry[]
+
+  @@unique([academicYearId, numero])
+  @@map("timetables")
+}
+
+// Séance hebdomadaire récurrente (RV01) : une classe, une matière, un enseignant, une salle. Les heures
+// sont copiées du créneau au moment de la saisie : modifier le créneau plus tard ne réécrit jamais
+// une version publiée (le service refuse d'ailleurs de modifier un créneau utilisé).
+model TimetableEntry {
+  id          String    @id @default(cuid())
+  timetableId String
+  timetable   Timetable @relation(fields: [timetableId], references: [id])
+  classId     String
+  class       Class     @relation(fields: [classId], references: [id])
+  subjectId   String
+  subject     Subject   @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     Teacher   @relation(fields: [teacherId], references: [id])
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id])
+  timeSlotId  String
+  timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id])
+  // 0 = dimanche ... 6 = samedi, comme School.joursClasse.
+  jourSemaine Int
+  heureDebut  String
+  heureFin    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  exceptions TimetableException[]
+
+  @@index([timetableId])
+  @@map("timetable_entries")
+}
+
+enum TimetableExceptionType {
+  ANNULEE
+  REMPLACEE
+  SALLE_MODIFIEE
+}
+
+// Changement ponctuel d'une séance à une date précise. Ne modifie jamais la version d'emploi du temps.
+model TimetableException {
+  id                   String                 @id @default(cuid())
+  entryId              String
+  entry                TimetableEntry         @relation(fields: [entryId], references: [id])
+  date                 DateTime               @db.Date
+  type                 TimetableExceptionType
+  replacementTeacherId String?
+  replacementTeacher   Teacher?               @relation("ExceptionReplacementTeacher", fields: [replacementTeacherId], references: [id])
+  roomId               String?
+  room                 Room?                  @relation("ExceptionRoom", fields: [roomId], references: [id])
+  motif                String
+  createdById          String
+  createdBy            User                   @relation("ExceptionCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime               @default(now())
+
+  @@unique([entryId, date])
+  @@map("timetable_exceptions")
 }

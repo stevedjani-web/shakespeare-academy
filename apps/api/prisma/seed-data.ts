@@ -81,6 +81,17 @@ export const LOT7_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 8 (emploi du temps). `TIMETABLE_READ` ouvre la consultation des emplois du temps publiés ; la
+ * saisie, la publication et les changements ponctuels restent sous `PEDAGOGY_MANAGE`.
+ */
+export const LOT8_PERMISSIONS = [
+  {
+    code: 'TIMETABLE_READ',
+    description: 'Consulter les emplois du temps publiés (par classe, enseignant ou salle) et leurs changements ponctuels.',
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -101,6 +112,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'CASH_CLOSE',
       'EXPENSE_CREATE',
       'PEDAGOGY_MANAGE',
+      'TIMETABLE_READ',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -120,6 +132,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'EXPENSE_APPROVE',
       'CASH_CLOSE',
       'PEDAGOGY_MANAGE',
+      'TIMETABLE_READ',
     ],
   },
   {
@@ -127,7 +140,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     nom: 'Secrétaire-caissier',
     description:
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
-    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE', 'CASH_CLOSE'],
+    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE', 'CASH_CLOSE', 'TIMETABLE_READ'],
   },
   {
     code: 'COMPTABLE',
@@ -139,7 +152,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     code: 'AUDITEUR',
     nom: 'Auditeur lecture seule',
     description: 'Consultation historique et exports.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'TIMETABLE_READ'],
   },
 ];
 
@@ -169,6 +182,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
     ...LOT7_PERMISSIONS,
+    ...LOT8_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

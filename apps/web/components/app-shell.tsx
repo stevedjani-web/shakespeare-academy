@@ -39,6 +39,7 @@ const LINKS: NavLink[] = [
   { href: "/eleves", label: "Élèves", icon: GraduationCap },
   { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
   { href: "/vie-scolaire", label: "Vie scolaire", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
+  { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
   { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
