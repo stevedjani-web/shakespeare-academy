@@ -19,7 +19,7 @@ import {
   Select,
   SuccessMessage,
 } from "@/components/ui";
-import { Coins, Layers, PlusCircle, Receipt } from "lucide-react";
+import { Coins, Layers, Minus, Plus, PlusCircle, Receipt } from "lucide-react";
 
 const APPLIES_TO_LABEL: Record<FeeApplicability, string> = {
   TOUS: "Inscription et réinscription",
@@ -36,6 +36,37 @@ interface TarifRow {
   montant: number | null;
 }
 
+/** Bouton + / - qui développe une ligne. */
+function ExpandButton({ open, onClick, label }: { open: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`${open ? "Réduire" : "Développer"} ${label}`}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-surface-muted"
+    >
+      {open ? <Minus size={15} /> : <Plus size={15} />}
+    </button>
+  );
+}
+
+/** Tout développer / Tout réduire, pour une liste dont on connaît les identifiants. */
+function ExpandAll({ ids, onChange }: { ids: string[]; onChange: (next: Set<string>) => void }) {
+  if (ids.length < 2) return null;
+  const cls = "rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted";
+  return (
+    <div className="mb-3 flex gap-2 text-sm">
+      <button type="button" onClick={() => onChange(new Set(ids))} className={cls}>
+        Tout développer
+      </button>
+      <button type="button" onClick={() => onChange(new Set())} className={cls}>
+        Tout réduire
+      </button>
+    </div>
+  );
+}
+
 type InstallmentDraft = { libelle: string; montant: string; dateLimite: string; delaiGraceJours: string };
 
 export default function TarifsPage() {
@@ -48,6 +79,16 @@ export default function TarifsPage() {
   const [schedules, setSchedules] = useState<FeeSchedule[]>([]);
   const [yearId, setYearId] = useState("");
   const [levelId, setLevelId] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function loadReference() {
     const [ft, y, cycles] = await Promise.all([
@@ -160,43 +201,61 @@ export default function TarifsPage() {
                 description="Aucun tarif n'est encore configuré pour ce niveau et cette année scolaire."
               />
             ) : (
-              <div className="space-y-3">
-                {schedulesForLevel.map((s) => (
-                  <div key={s.id} className="rounded-xl border border-border p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-ink">{s.feeType.nom}</p>
-                        <p className="text-xs text-ink-muted">
-                          {s.level.nom} · {s.academicYear.libelle}
-                        </p>
+              <div className="space-y-2">
+                <ExpandAll ids={schedulesForLevel.map((sc) => sc.id)} onChange={setOpen} />
+                {schedulesForLevel.map((s) => {
+                  const expanded = open.has(s.id);
+                  const total = s.feeType.avecTranches
+                    ? s.installments.reduce((sum, i) => sum + i.montant, 0)
+                    : (s.montant ?? 0);
+                  return (
+                    <div key={s.id} className="rounded-xl border border-border p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <ExpandButton open={expanded} onClick={() => toggle(s.id)} label={s.feeType.nom} />
+                          <div>
+                            <p className="font-medium text-ink">{s.feeType.nom}</p>
+                            <p className="text-xs text-ink-muted">
+                              {s.level.nom} · {s.academicYear.libelle}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-semibold text-ink">{formatMontant(total)}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {s.feeType.obligatoire ? (
-                          <Badge color="primary">Obligatoire</Badge>
-                        ) : (
-                          <Badge color="slate">Facultatif</Badge>
-                        )}
-                        {s.feeType.avecTranches ? <Badge color="accent">Tranches</Badge> : null}
-                      </div>
+                      {expanded && (
+                        <div className="mt-3 border-t border-border pt-3">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            {s.feeType.obligatoire ? (
+                              <Badge color="primary">Obligatoire</Badge>
+                            ) : (
+                              <Badge color="slate">Facultatif</Badge>
+                            )}
+                            {s.feeType.avecTranches ? <Badge color="accent">Tranches</Badge> : null}
+                          </div>
+                          {s.feeType.avecTranches ? (
+                            <ul className="space-y-1 text-sm text-ink-muted">
+                              {s.installments.map((i) => (
+                                <li key={i.id} className="flex justify-between gap-3">
+                                  <span>
+                                    {i.libelle}
+                                    <span className="ml-2 text-xs">({formatDate(i.dateLimite)})</span>
+                                  </span>
+                                  <span className="font-medium text-ink">{formatMontant(i.montant)}</span>
+                                </li>
+                              ))}
+                              <li className="flex justify-between border-t border-border pt-1 font-semibold text-ink">
+                                <span>Total</span>
+                                <span>{formatMontant(total)}</span>
+                              </li>
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-ink-muted">Montant unique : {formatMontant(total)}</p>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {s.feeType.avecTranches ? (
-                      <ul className="mt-3 space-y-1 text-sm text-ink-muted">
-                        {s.installments.map((i) => (
-                          <li key={i.id} className="flex justify-between">
-                            <span>{i.libelle}</span>
-                            <span className="font-medium text-ink">{formatMontant(i.montant)}</span>
-                          </li>
-                        ))}
-                        <li className="flex justify-between border-t border-border pt-1 font-semibold text-ink">
-                          <span>Total</span>
-                          <span>{formatMontant(s.installments.reduce((sum, i) => sum + i.montant, 0))}</span>
-                        </li>
-                      </ul>
-                    ) : (
-                      <p className="mt-3 text-lg font-semibold text-ink">{formatMontant(s.montant ?? 0)}</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -236,6 +295,16 @@ function FeeTypesPanel({
   }>({ code: "", nom: "", obligatoire: true, avecTranches: false, appliesTo: "TOUS" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -261,22 +330,31 @@ function FeeTypesPanel({
         <h2 className="font-display text-lg font-semibold text-ink">Types de frais</h2>
       </div>
 
+      <ExpandAll ids={feeTypes.map((ft) => ft.id)} onChange={setOpen} />
       <ul className="space-y-2">
-        {feeTypes.map((ft) => (
-          <li key={ft.id} className="flex items-center justify-between rounded-xl border border-border px-3.5 py-2.5">
-            <div>
-              <p className="text-sm font-medium text-ink">{ft.nom}</p>
-              <p className="text-xs text-ink-muted">
-                {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-end gap-1.5">
-              {ft.obligatoire && <Badge color="primary">Obligatoire</Badge>}
-              {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
-              {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
-            </div>
-          </li>
-        ))}
+        {feeTypes.map((ft) => {
+          const expanded = open.has(ft.id);
+          return (
+            <li key={ft.id} className="rounded-xl border border-border px-3.5 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <ExpandButton open={expanded} onClick={() => toggle(ft.id)} label={ft.nom} />
+                <p className="text-sm font-medium text-ink">{ft.nom}</p>
+              </div>
+              {expanded && (
+                <div className="mt-2.5 space-y-2 border-t border-border pt-2.5">
+                  <p className="text-xs text-ink-muted">
+                    {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ft.obligatoire ? <Badge color="primary">Obligatoire</Badge> : <Badge color="slate">Facultatif</Badge>}
+                    {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
+                    {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
         {feeTypes.length === 0 && <p className="py-4 text-center text-sm text-ink-muted">Aucun type de frais.</p>}
       </ul>
 
