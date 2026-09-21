@@ -270,7 +270,7 @@ describe('Notifications aux parents (e2e, Lot 12)', () => {
         code: body.code,
         motDePasse: 'MotDePasse123',
         consentement: true,
-        versionPolitique: '2026-09-v2',
+        versionPolitique: '2026-09-v3',
       })
       .expect(201);
     return res.body.accessToken as string;
@@ -410,6 +410,7 @@ describe('Notifications aux parents (e2e, Lot 12)', () => {
         'EMPLOI_DU_TEMPS_MODIFIE',
         'MESSAGE_RECU',
         'ANNONCE',
+        'BULLETIN_DISPONIBLE',
       ]);
     });
   });

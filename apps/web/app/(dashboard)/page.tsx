@@ -51,8 +51,11 @@ export default function DashboardHomePage() {
     void (async () => {
       const years = await api.get<AcademicYear[]>("/academic-years");
       setActiveYear(years.find((y) => y.statut === "ACTIVE") ?? null);
-      const students = await api.get<Student[]>("/students");
-      setStudentCount(students.length);
+      // Un enseignant n'a pas accès aux dossiers d'élèves : on ne les demande pas (le serveur refuserait).
+      if (hasPermission("STUDENT_READ")) {
+        const students = await api.get<Student[]>("/students");
+        setStudentCount(students.length);
+      }
     })();
     // Le tableau de bord mêle effectifs et finances : il n'est demandé qu'aux comptes qui peuvent lire les finances.
     if (hasPermission("FINANCE_READ")) {

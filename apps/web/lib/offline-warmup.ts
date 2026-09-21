@@ -14,6 +14,7 @@ const STATIC_PAGES = [
   "/eleves/inscription",
   "/eleves-par-classe",
   "/insolvables",
+  "/notes",
   "/depenses",
   "/cloture",
   "/appel",
@@ -93,6 +94,31 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
   // L'appel du jour se fait sans Internet : on garde les séances d'aujourd'hui et leurs feuilles d'appel
   // (celles de l'école entière pour la vie scolaire, les siennes seulement pour un enseignant : le serveur
   // applique la portée).
+  // Notes : l'enseignant saisit sans Internet. On garde ses évaluations et leurs feuilles (chemins exacts, l'écran lit
+  // le cache par chemin). Le serveur applique la portée : seules ses matières sont renvoyées.
+  const warmGrades = async (): Promise<void> => {
+    try {
+      const context = await api.get<{
+        trimestres: Array<{ id: string }>;
+        affectations: Array<{ classId: string; subjectId: string }>;
+      }>("/grades/context");
+      const paths = context.trimestres.flatMap((t) =>
+        context.affectations.map((a) => `/grades/evaluations?termId=${t.id}&classId=${a.classId}&subjectId=${a.subjectId}`),
+      );
+      setProgress({ ...progress, total: progress.total + paths.length });
+      const evaluations: string[] = [];
+      await inParallel(paths, async (path) => {
+        const rows = await api.get<Array<{ id: string; periode: string }>>(path);
+        for (const r of rows) if (r.periode === "OUVERT") evaluations.push(r.id);
+      });
+      await inParallel(evaluations, async (id) => {
+        await api.get(`/grades/evaluations/${id}/sheet`);
+      });
+    } catch {
+      // la saisie reste possible avec ce qui a déjà été copié
+    }
+  };
+
   const warmAttendance = async (): Promise<void> => {
     try {
       const day = await api.get<AttendanceDay>(`/attendance/day?date=${new Date().toISOString().slice(0, 10)}`);
@@ -117,6 +143,10 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
       if (can("ATTENDANCE_TAKE")) {
         await warmAttendance();
         precachePages(["/appel"]);
+      }
+      if (can("GRADE_ENTER")) {
+        await warmGrades();
+        precachePages(["/notes"]);
       }
       await dbPut("meta", "lastWarmup", Date.now());
       return;
@@ -168,6 +198,9 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
 
     if (can("ATTENDANCE_READ") || can("ATTENDANCE_TAKE")) {
       await warmAttendance();
+    }
+    if (can("GRADE_ENTER")) {
+      await warmGrades();
     }
 
     precachePages([...STATIC_PAGES, ...students.map((s) => `/eleves/${s.id}`), ...receiptIds.map((id) => `/recus/${id}`)]);

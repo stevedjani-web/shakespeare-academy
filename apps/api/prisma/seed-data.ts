@@ -252,6 +252,34 @@ export const HARDENING_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 15 (notes et bulletins, vague 2). `GRADE_ENTER` : créer des évaluations et saisir les notes (un enseignant :
+ * uniquement ses affectations, la portée est appliquée par le serveur comme pour l'appel) ; `GRADE_READ` : lire toute
+ * l'école (Direction, Administrateur ; RV12 : ni le surveillant ni l'auditeur) ; `GRADE_CORRECT` : corriger après
+ * verrouillage ; `BULLETIN_VALIDATE` : valider, rouvrir, publier. Les deux dernières sont réservées à la Direction.
+ */
+export const LOT15_PERMISSIONS = [
+  {
+    code: 'GRADE_ENTER',
+    description:
+      "Créer des évaluations et saisir les notes de ses classes et matières (un enseignant : uniquement ses affectations).",
+  },
+  {
+    code: 'GRADE_READ',
+    description:
+      "Consulter les évaluations, notes, résultats et bulletins de toute l'école.",
+  },
+  {
+    code: 'GRADE_CORRECT',
+    description: 'Corriger une note après le verrouillage du trimestre, avec un motif.',
+  },
+  {
+    code: 'BULLETIN_VALIDATE',
+    description:
+      "Valider, rouvrir et publier les bulletins d'un trimestre pour une classe.",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -286,6 +314,7 @@ export const ROLES: Array<{
       'TEACHER_CHECKIN_READ',
       'TEACHER_CHECKIN_VALIDATE',
       'PARENT_ACCOUNT_MANAGE',
+      'GRADE_READ',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -323,6 +352,9 @@ export const ROLES: Array<{
       'MESSAGE_DESK',
       'MESSAGE_SUPERVISE',
       'PILOTAGE_READ',
+      'GRADE_READ',
+      'GRADE_CORRECT',
+      'BULLETIN_VALIDATE',
     ],
   },
   {
@@ -388,6 +420,7 @@ export const ROLES: Array<{
       'TEACHER_CHECKIN_SELF',
       'MESSAGE_USE',
       'ATTENDANCE_TAKE',
+      'GRADE_ENTER',
     ],
   },
 ];
@@ -428,6 +461,7 @@ export async function seedReferenceData(
     ...LOT13_PERMISSIONS,
     ...LOT14_PERMISSIONS,
     ...HARDENING_PERMISSIONS,
+    ...LOT15_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

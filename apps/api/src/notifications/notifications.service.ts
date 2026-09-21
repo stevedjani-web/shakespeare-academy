@@ -13,6 +13,7 @@ import {
   notificationTitle,
   publishedBody,
   announcementBody,
+  bulletinBody,
   messageReceivedBody,
   pushBody,
   replacedBody,
@@ -27,6 +28,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'EMPLOI_DU_TEMPS_MODIFIE',
   'MESSAGE_RECU',
   'ANNONCE',
+  'BULLETIN_DISPONIBLE',
 ];
 
 /** Un fait à signaler pour un élève, avant de savoir à quels responsables il sera adressé. */
@@ -214,6 +216,35 @@ export class NotificationsService {
     } catch (err) {
       this.logger.error(
         `Notification d'annonce non envoyée : ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Un bulletin vient d'être publié pour ces élèves. Le texte ne dit jamais une note ni une moyenne (RV10) : le
+   * détail reste dans l'application authentifiée.
+   */
+  async notifyBulletinPublished(
+    students: Array<{ id: string; prenom: string }>,
+    trimestre: string,
+  ): Promise<void> {
+    try {
+      const school = await this.prisma.school.findFirstOrThrow({
+        select: { fuseauHoraire: true },
+      });
+      const jour = dayInTimezone(new Date(), school.fuseauHoraire);
+      await this.deliver(
+        students.map((s) => ({
+          studentId: s.id,
+          prenom: s.prenom,
+          type: 'BULLETIN_DISPONIBLE' as const,
+          jour,
+          corps: bulletinBody(s.prenom, trimestre),
+        })),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Notification de bulletin non envoyée : ${(err as Error).message}`,
       );
     }
   }

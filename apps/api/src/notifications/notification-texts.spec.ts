@@ -18,6 +18,7 @@ const TYPES: NotificationType[] = [
   'EMPLOI_DU_TEMPS_MODIFIE',
   'MESSAGE_RECU',
   'ANNONCE',
+  'BULLETIN_DISPONIBLE',
 ];
 
 describe('textes des notifications', () => {

@@ -8,6 +8,7 @@ import { StudentsModule } from '../students/students.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { MessagingModule } from '../messaging/messaging.module';
+import { GradesModule } from '../grades/grades.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
@@ -29,6 +30,7 @@ import { ParentMessagingController } from './parent-messaging.controller';
     PaymentsModule,
     NotificationsModule,
     MessagingModule,
+    GradesModule,
   ],
   controllers: [ParentAuthController, ParentPortalController, ParentNotificationsController, ParentMessagingController, ParentAccountsController],
   providers: [ParentAuthService, ParentAuthGuard, ParentPortalService, ParentAccountsService],

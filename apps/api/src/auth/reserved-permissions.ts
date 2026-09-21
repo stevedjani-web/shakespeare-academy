@@ -16,6 +16,9 @@ export const RESERVED_PERMISSIONS = [
   'PARENT_ACCESS_REVOKE',
   'MESSAGE_SUPERVISE',
   'PILOTAGE_READ',
+  // Lot 15 : corriger une note après verrouillage, valider et publier les bulletins.
+  'GRADE_CORRECT',
+  'BULLETIN_VALIDATE',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);

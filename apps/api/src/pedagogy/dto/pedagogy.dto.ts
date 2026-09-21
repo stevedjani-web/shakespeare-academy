@@ -187,6 +187,14 @@ export class SubjectLevelDto {
   @IsInt()
   @Min(1)
   minutesParSemaine?: number;
+
+  // Lot 15 : coefficient de la matière dans la moyenne générale du niveau. Absent = on garde celui déjà enregistré
+  // (1 pour un niveau nouvellement ajouté).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  coefficient?: number;
 }
 
 export class SetSubjectLevelsDto {

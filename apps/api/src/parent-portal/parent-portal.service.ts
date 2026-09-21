@@ -5,6 +5,7 @@ import { AttendanceService } from '../attendance/attendance.service';
 import { FinancialStatusService } from '../financial-status/financial-status.service';
 import { PaymentsService } from '../payments/payments.service';
 import { dayInTimezone } from '../attendance/attendance.util';
+import { BulletinsService } from '../grades/bulletins.service';
 
 /**
  * Ce que voit un responsable, en lecture seule (RV08). Chaque route passe par `assertChild` : l'élève doit
@@ -19,6 +20,7 @@ export class ParentPortalService {
     private readonly attendance: AttendanceService,
     private readonly financialStatus: FinancialStatusService,
     private readonly payments: PaymentsService,
+    private readonly bulletins: BulletinsService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -89,6 +91,17 @@ export class ParentPortalService {
         })),
       })),
     };
+  }
+
+  /** Bulletins publiés de l'enfant : jamais les notes en direct, uniquement l'instantané validé et publié. */
+  async bulletinsOf(guardianId: string, studentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.bulletins.publishedForStudent(studentId);
+  }
+
+  async bulletinOf(guardianId: string, studentId: string, bulletinId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.bulletins.publishedDetail(studentId, bulletinId);
   }
 
   async attendanceOf(guardianId: string, studentId: string) {

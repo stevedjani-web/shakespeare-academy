@@ -69,6 +69,13 @@ model School {
   // restent tant que la Direction n'a pas fixé un seuil.
   seuilAlerteAbsences Int?
 
+  // Lot 15 (notes et bulletins, valeurs provisoires modifiables, jamais des constantes). Barème par défaut d'une
+  // nouvelle évaluation ; moyenne de passage : `null` = aucune mention admis ou refusé (rien d'inventé).
+  baremeDefaut        Int      @default(20)
+  moyennePassage      Decimal? @db.Decimal(4, 2)
+  // Le parent voit-il le rang de son enfant et les statistiques de la classe sur le bulletin ? Non par défaut (à décider).
+  bulletinAfficheRang Boolean  @default(false)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -138,6 +145,10 @@ model Section {
   cycles    Cycle[]
   timeSlots TimeSlot[]
 
+  // Lot 15 : afficher les moyennes en lettres (A à F) sur les bulletins de cette section. Les tranches sont dans
+  // `GradeBand`, saisies par la Direction ; tant qu'elles sont vides, aucune lettre n'est affichée.
+  affichageLettres Boolean @default(false)
+
   @@unique([schoolId, code])
   @@map("sections")
 }
@@ -199,6 +210,8 @@ model Class {
   attendanceCalls  AttendanceCall[]
   sessionCheckins  TeacherSessionCheckin[]
   announcements    Announcement[]
+  evaluations      Evaluation[]
+  bulletinPeriods  BulletinPeriod[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -281,6 +294,9 @@ model User {
   timetableExceptions    TimetableException[]    @relation("ExceptionCreatedBy")
   attendanceCalls        AttendanceCall[]        @relation("CallTakenBy")
   attendanceCorrections  AttendanceCorrection[]
+  evaluationsCreees      Evaluation[]
+  gradesSaisies          Grade[]
+  gradeCorrections       GradeCorrection[]
   justificationsDeclared AbsenceJustification[]  @relation("JustificationDeclaredBy")
   justificationsDecided  AbsenceJustification[]  @relation("JustificationDecidedBy")
   teacher                Teacher?                @relation("TeacherUser")
@@ -366,6 +382,8 @@ model Student {
   messageThreads      MessageThread[]
   enrollments         Enrollment[]
   attendanceRecords   AttendanceRecord[]
+  grades              Grade[]
+  bulletins           Bulletin[]
 
   @@unique([schoolId, matricule])
   @@map("students")
@@ -780,6 +798,7 @@ model Subject {
   assignments      TeachingAssignment[]
   timetableEntries TimetableEntry[]
   attendanceCalls  AttendanceCall[]
+  evaluations      Evaluation[]
 
   @@unique([schoolId, code])
   @@map("subjects")
@@ -794,6 +813,8 @@ model SubjectLevel {
   level             Level   @relation(fields: [levelId], references: [id])
   // Volume hebdomadaire indicatif, facultatif (jamais imposé).
   minutesParSemaine Int?
+  // Lot 15 : coefficient de la matière dans la moyenne générale de ce niveau (défaut 1, modifiable par la Direction).
+  coefficient       Int     @default(1)
 
   @@unique([subjectId, levelId])
   @@map("subject_levels")
@@ -828,6 +849,7 @@ model Teacher {
 
   subjects    TeacherSubject[]
   assignments TeachingAssignment[]
+  evaluations Evaluation[]
 
   timetableEntries TimetableEntry[]
   replacements     TimetableException[] @relation("ExceptionReplacementTeacher")
@@ -879,6 +901,9 @@ model Term {
   ordre          Int
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  evaluations     Evaluation[]
+  bulletinPeriods BulletinPeriod[]
 
   @@unique([academicYearId, ordre])
   @@map("terms")
@@ -1292,6 +1317,8 @@ enum NotificationType {
   // Lot 13 : un message vient d'arriver (jamais son contenu, RV10) ; une annonce de classe est publiée.
   MESSAGE_RECU
   ANNONCE
+  // Lot 15 : un bulletin vient d'être publié (jamais une note, RV10).
+  BULLETIN_DISPONIBLE
 }
 
 enum PushDelivery {
@@ -1455,4 +1482,160 @@ model Announcement {
 
   @@index([classId, createdAt])
   @@map("announcements")
+}
+
+// --- Lot 15 : notes, évaluations et bulletins (vague 2, D51) -------------------------------------------------------
+
+enum GradeStatus {
+  NOTE
+  ABSENT
+  DISPENSE
+}
+
+enum BulletinPeriodStatus {
+  OUVERT
+  VALIDE
+  PUBLIE
+}
+
+// Évaluation d'une matière, dans une classe, pour un trimestre. L'enseignant est celui qui tient la matière dans la
+// classe au moment de la création (affectation, RV01) ; il ne crée que pour ses propres affectations.
+model Evaluation {
+  id          String   @id @default(cuid())
+  termId      String
+  term        Term     @relation(fields: [termId], references: [id])
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+  titre       String
+  date        DateTime @db.Date
+  // Barème (note maximale) : les notes sont ramenées sur 20 pour les moyennes. Coefficient de l'évaluation dans la
+  // moyenne de sa matière.
+  bareme      Int
+  coefficient Int      @default(1)
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  grades Grade[]
+
+  @@index([classId, subjectId, termId])
+  @@map("evaluations")
+}
+
+// Note d'un élève à une évaluation. Absent ou dispensé : pas de valeur, et l'élève est exclu de la moyenne (jamais 0).
+model Grade {
+  id           String      @id @default(cuid())
+  evaluationId String
+  evaluation   Evaluation  @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id])
+  statut       GradeStatus @default(NOTE)
+  valeur       Decimal?    @db.Decimal(6, 2)
+  saisiParId   String
+  saisiPar     User        @relation(fields: [saisiParId], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  corrections GradeCorrection[]
+
+  @@unique([evaluationId, studentId])
+  @@index([studentId])
+  @@map("grades")
+}
+
+// Historique d'une correction après verrouillage (jamais modifié, motif obligatoire, même patron que RV04).
+model GradeCorrection {
+  id             String      @id @default(cuid())
+  gradeId        String
+  grade          Grade       @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  // null = la note n'existait pas encore (création après verrouillage).
+  ancienStatut   GradeStatus?
+  ancienneValeur Decimal?    @db.Decimal(6, 2)
+  nouveauStatut  GradeStatus
+  nouvelleValeur Decimal?    @db.Decimal(6, 2)
+  motif          String
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  createdAt      DateTime    @default(now())
+
+  @@index([gradeId])
+  @@map("grade_corrections")
+}
+
+// Appréciation de l'enseignant sur un élève pour une matière et un trimestre.
+model SubjectAppreciation {
+  id         String   @id @default(cuid())
+  termId     String
+  classId    String
+  subjectId  String
+  studentId  String
+  texte      String
+  saisiParId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([termId, classId, subjectId, studentId])
+  @@map("subject_appreciations")
+}
+
+// État d'un trimestre pour une classe : OUVERT (saisie), VALIDE (figé par la Direction), PUBLIE (visible des parents).
+model BulletinPeriod {
+  id           String               @id @default(cuid())
+  termId       String
+  term         Term                 @relation(fields: [termId], references: [id])
+  classId      String
+  class        Class                @relation(fields: [classId], references: [id])
+  statut       BulletinPeriodStatus @default(OUVERT)
+  valideAt     DateTime?
+  valideParId  String?
+  publieAt     DateTime?
+  publieParId  String?
+  rouvertAt    DateTime?
+  rouvertParId String?
+  rouvertMotif String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  bulletins Bulletin[]
+
+  @@unique([termId, classId])
+  @@map("bulletin_periods")
+}
+
+// Instantané d'un bulletin, calculé à la validation : le parent voit ceci, jamais les notes en direct.
+model Bulletin {
+  id                   String         @id @default(cuid())
+  periodId             String
+  period               BulletinPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  studentId            String
+  student              Student        @relation(fields: [studentId], references: [id])
+  moyenneGenerale      Decimal?       @db.Decimal(5, 2)
+  rang                 Int?
+  effectif             Int
+  moyenneClasse        Decimal?       @db.Decimal(5, 2)
+  appreciationGenerale String?
+  // Contenu figé : { matieres: [nom, coefficient, moyenne de l'élève, de la classe, min, max, lettre, appréciation],
+  // general: { lettre, admis }, parametres: { affichageLettres, moyennePassage } }.
+  lignes               Json
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([periodId, studentId])
+  @@index([studentId])
+  @@map("bulletins")
+}
+
+// Tranches de lettres (A à F) saisies par la Direction : `minimum` = moyenne sur 20 à partir de laquelle la lettre
+// s'applique. Vide par défaut : aucune valeur inventée (D61).
+model GradeBand {
+  id      String  @id @default(cuid())
+  lettre  String  @unique
+  minimum Decimal @db.Decimal(5, 2)
+
+  @@map("grade_bands")
 }

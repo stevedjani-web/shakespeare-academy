@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, CalendarDays, GraduationCap, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
 import { WEEK_DAYS } from "@/components/vie-scolaire/shared";
 import { formatIso, shiftWeek } from "@/components/emploi-du-temps/shared";
 import { formatMontant } from "@/lib/format";
+import { ParentBulletinsTab } from "@/components/parents/bulletins-tab";
 
-type Tab = "emploi" | "absences" | "finances";
+type Tab = "emploi" | "absences" | "finances" | "bulletins";
 
 interface Timetable {
   classe: string | null;
@@ -131,6 +132,7 @@ export default function ChildPage() {
   const tabs = [
     { key: "emploi" as const, label: "Emploi du temps", icon: CalendarDays },
     { key: "absences" as const, label: "Absences", icon: UserX },
+    { key: "bulletins" as const, label: "Bulletins", icon: GraduationCap },
     { key: "finances" as const, label: "Finances", icon: Wallet },
   ];
 
@@ -156,6 +158,8 @@ export default function ChildPage() {
         ))}
       </div>
       <ErrorMessage>{error}</ErrorMessage>
+
+      {tab === "bulletins" && <ParentBulletinsTab studentId={id} />}
 
       {tab === "emploi" && (
         <div>

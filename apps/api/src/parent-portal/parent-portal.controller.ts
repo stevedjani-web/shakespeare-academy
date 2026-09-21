@@ -108,6 +108,16 @@ export class ParentPortalController {
     return this.portal.attendanceOf(req.parent.guardianId, studentId);
   }
 
+  @Get('children/:studentId/bulletins')
+  bulletins(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
+    return this.portal.bulletinsOf(req.parent.guardianId, studentId);
+  }
+
+  @Get('children/:studentId/bulletins/:bulletinId')
+  bulletin(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Param('bulletinId') bulletinId: string) {
+    return this.portal.bulletinOf(req.parent.guardianId, studentId, bulletinId);
+  }
+
   @Get('children/:studentId/finance')
   finance(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
     return this.portal.financeOf(req.parent.guardianId, studentId);

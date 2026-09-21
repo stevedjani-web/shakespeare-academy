@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Politique de confidentialité, espace parents | Shakespeare Academy" };
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-const VERSION = "2026-09-v2";
+const VERSION = "2026-09-v3";
 
 const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
@@ -23,7 +23,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
     titre: "Ce que vous pouvez voir",
     contenu: [
-      "Pour chacun de vos enfants uniquement : sa classe, l'emploi du temps de sa classe, ses absences et retards avec l'état des justificatifs, sa situation financière (montants facturés, payés et restants) et la liste de ses paiements avec leurs numéros de reçu.",
+      "Pour chacun de vos enfants uniquement : sa classe, l'emploi du temps de sa classe, ses absences et retards avec l'état des justificatifs, sa situation financière (montants facturés, payés et restants), la liste de ses paiements avec leurs numéros de reçu et ses bulletins de notes. Un bulletin n'apparaît qu'une fois validé puis publié par la Direction de l'école : vous ne voyez jamais les notes en cours de saisie.",
       "Vous ne voyez jamais les informations d'un élève dont vous n'êtes pas responsable. Si l'école doit retirer votre accès à un enfant, il disparaît de votre espace.",
     ],
   },
@@ -37,7 +37,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
     titre: "Notifications",
     contenu: [
-      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages et des annonces de classe. Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note ni de montant. Vous pouvez couper les alertes par type d'événement.",
+      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe et de la publication d'un bulletin. Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note ni de montant. Vous pouvez couper les alertes par type d'événement.",
     ],
   },
   {

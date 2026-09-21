@@ -225,6 +225,32 @@ Restent à fournir par la Direction, par saisie dans l'application : emploi du t
 | D77 | Durée de conservation des présences, messages et notifications. | Volume de données et obligations légales. | Année scolaire en cours plus une année, puis archivage ; **provisoire, à valider avec D76**. **Lots 12 et 13 : aucune purge automatique n'est encore en place** (messages, conversations, annonces et notifications comprises) (le projet n'a pas de tâche planifiée) : les notifications et leur suivi d'envoi sont conservés tant que rien ne les supprime ; à traiter avant d'annoncer une durée aux parents. |
 | D78 | Volumétrie et équipement réels : nombre d'enseignants, de classes, de parents ; type de téléphone, usage de WhatsApp, forfaits de données. | Dimensionnement et choix du canal (D65). Complète D35. | Enquête auprès d'une classe pilote avant le Lot 12 ; aucun choix de canal payant avant ses résultats. |
 
+## 18. Notes, évaluations et bulletins : vague 2, Lot 15 (proposition du 22 septembre 2026)
+
+Point de départ : D51 (hors vague 1, « chaque ajout passe par une décision explicite »). Deux choix ont été faits par le propriétaire du projet le 22 septembre 2026 : **échelle sur 20 avec affichage en lettres A à F pour la section anglophone**, et **bulletin visible des parents seulement après validation de la Direction**. Tout le reste ci-dessous est une **valeur provisoire proposée, paramétrable, à faire valider par la Direction** : rien n'est codé en dur, et tant qu'une valeur n'est pas saisie, la fonction correspondante ne montre rien (même principe que D61).
+
+### 18.1 Règles de calcul
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D79 | Échelle de notation et barème. | Détermine la saisie et tous les calculs. | **TRANCHÉ (22 septembre 2026, propriétaire du projet)** : moyennes sur 20. Chaque évaluation a son barème (note maximale), ramené sur 20 dans les moyennes. Barème par défaut d'une nouvelle évaluation : 20, paramètre `School.baremeDefaut`, **provisoire**. |
+| D80 | Lettres A à F : quelles moyennes correspondent à quelle lettre, et quelles sections les affichent. | Sans tranches, aucune lettre ne peut s'afficher. | **Affichage en lettres TRANCHÉ pour la section anglophone (22 septembre 2026)**. Les tranches (`GradeBand`) sont **saisies par la Direction et vides par défaut** : tant qu'elles sont vides, aucune lettre n'apparaît, aucune correspondance n'est inventée. Case par section (`Section.affichageLettres`). La lettre est figée dans le bulletin à sa validation. |
+| D81 | Calcul des moyennes : pondération, absents, matières sans note. | Détermine ce qui est imprimé sur le bulletin. | **PROVISOIRE** : moyenne d'une matière = moyenne des notes ramenées sur 20, pondérée par le coefficient de chaque évaluation ; moyenne générale = moyenne des matières pondérée par le coefficient de la matière pour le niveau (`SubjectLevel.coefficient`, 1 par défaut, saisi par la Direction). **Un absent ou un dispensé est exclu de la moyenne, jamais compté 0** ; sans aucune note, il n'y a pas de moyenne (jamais 0). Arrondi à 2 décimales à l'enregistrement. |
+| D82 | Rang et ex æquo ; le parent voit-il le rang et les statistiques de la classe ? | Sensibilité de l'information pour les familles. | **PROVISOIRE** : rang « à la compétition » (1, 2, 2, 4) calculé sur les moyennes arrondies ; un élève sans moyenne n'est pas classé. **Les parents ne voient ni le rang, ni l'effectif, ni la moyenne de la classe par défaut** (`School.bulletinAfficheRang`, modifiable). La Direction et l'Administrateur les voient. |
+| D83 | Moyenne de passage et mention admis ou refusé. | Une mention inventée serait un acte pédagogique. | `School.moyennePassage`, **vide par défaut : aucune mention**. Saisie par la Direction. |
+
+### 18.2 Cycle de vie, corrections, droits
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D84 | Quand le parent voit-il un bulletin ? | Erreur affichée aux familles. | **TRANCHÉ (22 septembre 2026, propriétaire du projet)** : seulement après validation puis publication par la Direction. Un trimestre d'une classe est `OUVERT` (les enseignants saisissent), `VALIDE` (la Direction fige un instantané : moyennes, rangs, lettres), `PUBLIE` (visible des parents). Le parent voit l'instantané, jamais les notes en direct. |
+| D85 | Correction d'une note après la validation. | Une note modifiée en silence après publication est une faute grave. | **PROVISOIRE** : après validation seule la Direction corrige (`GRADE_CORRECT`), avec un motif obligatoire ; chaque correction est historisée (`GradeCorrection`) et journalisée sans la valeur ; on corrige, on n'efface pas. Le bulletin figé ne change pas : la Direction doit valider de nouveau (elle en est avertie) avant de publier. Elle peut aussi **rouvrir** le trimestre avec un motif : le bulletin publié disparaît du portail jusqu'à une nouvelle publication. |
+| D86 | Qui saisit, qui lit, qui valide. | RV12 : données de mineurs, strict nécessaire. | **PROVISOIRE** : `GRADE_ENTER` pour l'enseignant, limité par le serveur aux couples classe-matière de ses affectations ; `GRADE_READ` pour la Direction et l'Administrateur (pas le surveillant ni l'auditeur) ; `GRADE_CORRECT` et `BULLETIN_VALIDATE` pour la Direction seule, **réservés** (l'Administrateur ne peut pas se les accorder). Un enseignant ne voit ni les autres classes, ni la moyenne générale, ni le rang. |
+| D87 | Notifications et consentement. | RV10. | Une alerte « Un bulletin est disponible pour {prénom} » à la publication, **jamais une note ni une moyenne**. La politique de confidentialité des parents mentionne les bulletins (version `2026-09-v3`) ; son texte reste à valider juridiquement (D76). |
+| D88 | Format du bulletin de la section anglophone, mentions (félicitations, avertissements), conseil de classe, appréciation par matière obligatoire ou non, bulletin annuel et moyenne annuelle. | Contenu du document remis aux familles. | **OUVERT**, non construit : la v1 produit un bulletin par trimestre avec appréciations facultatives, sans mention, sans conseil de classe, sans moyenne annuelle. |
+
+Règles associées : **RV13** aucune note ne sort de l'application authentifiée (ni notification, ni message, ni export non journalisé, RV10 étendu) ; **RV14** un absent ou un dispensé n'est jamais compté 0 ; **RV15** le parent ne voit que l'instantané publié.
+
 ---
 
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
@@ -241,4 +267,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 21 septembre 2026 : D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 22 septembre 2026 : D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

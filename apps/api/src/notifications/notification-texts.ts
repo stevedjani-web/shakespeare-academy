@@ -40,6 +40,9 @@ export function pushBody(type: NotificationType, names: string[]): string {
       return `Vous avez un nouveau message concernant ${who}. Ouvrez l'application pour le lire.`;
     case 'ANNONCE':
       return `Une annonce a été publiée pour la classe ${dePrenom(who)}. Ouvrez l'application pour la lire.`;
+    // Jamais une note ni une moyenne (RV10) : seulement qu'un bulletin est disponible.
+    case 'BULLETIN_DISPONIBLE':
+      return `Un bulletin est disponible pour ${who}. Ouvrez l'application pour le consulter.`;
   }
 }
 
@@ -57,6 +60,8 @@ export function notificationTitle(type: NotificationType): string {
       return 'Nouveau message';
     case 'ANNONCE':
       return 'Nouvelle annonce';
+    case 'BULLETIN_DISPONIBLE':
+      return 'Bulletin disponible';
   }
 }
 
@@ -122,11 +127,18 @@ export function mergedBody(
       return `${count} nouveaux messages concernant ${prenom} vous attendent dans la messagerie.`;
     case 'ANNONCE':
       return `${count} annonces ont été publiées pour la classe ${dePrenom(prenom)}. Consultez les annonces.`;
+    case 'BULLETIN_DISPONIBLE':
+      return `${count} bulletins sont disponibles pour ${prenom}. Consultez l'onglet Bulletins.`;
   }
 }
 
 export function messageReceivedBody(prenom: string, from: string): string {
   return `Vous avez reçu un message de ${from} à propos de ${prenom}.`;
+}
+
+/** Dans l'application (authentifiée) : le trimestre, jamais une note ni une moyenne. */
+export function bulletinBody(prenom: string, trimestre: string): string {
+  return `Le bulletin du ${trimestre} est disponible pour ${prenom}. Consultez l'onglet Bulletins.`;
 }
 
 export function announcementBody(prenom: string, titre: string): string {
