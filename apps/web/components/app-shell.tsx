@@ -18,9 +18,13 @@ import {
   ClipboardList,
   AlertOctagon,
   School,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
+import { InstallAppButton } from "@/components/install-app-button";
+import { OfflineStatus } from "@/components/offline-status";
+import { useOutbox } from "@/lib/outbox";
 
 interface NavLink {
   href: string;
@@ -41,6 +45,7 @@ const LINKS: NavLink[] = [
   { href: "/parametres/structure", label: "Structure académique", icon: Building2 },
   { href: "/parametres/utilisateurs", label: "Utilisateurs & rôles", icon: Users, requiredPermission: "USER_MANAGE" },
   { href: "/parametres/etablissement", label: "Établissement", icon: Building2 },
+  { href: "/hors-ligne", label: "Synchronisation", icon: RefreshCw },
   { href: "/audit", label: "Journal d'audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
 ];
 
@@ -59,6 +64,7 @@ function Brand() {
 }
 
 function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname: string; onNavigate?: () => void }) {
+  const { pending, failed } = useOutbox();
   return (
     <nav className="flex flex-1 flex-col gap-1">
       {links.map((link) => {
@@ -75,6 +81,11 @@ function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname:
           >
             <Icon size={18} className={active ? "text-accent" : ""} />
             {link.label}
+            {link.href === "/hors-ligne" && pending + failed > 0 && (
+              <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${failed > 0 ? "bg-danger" : "bg-info"}`}>
+                {pending + failed}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -86,6 +97,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout, hasPermission } = useAuth();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { pending, failed } = useOutbox();
+
+  function handleLogout() {
+    const waiting = pending + failed;
+    if (
+      waiting > 0 &&
+      !window.confirm(
+        `${waiting} saisie(s) n'ont pas encore été envoyées au serveur. Elles restent sur cet appareil et partiront à votre prochaine connexion. Se déconnecter quand même ?`,
+      )
+    ) {
+      return;
+    }
+    void logout();
+  }
 
   const visibleLinks = LINKS.filter((link) => !link.requiredPermission || hasPermission(link.requiredPermission));
 
@@ -95,13 +120,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-64 shrink-0 flex-col gap-6 bg-primary px-4 py-6 md:flex">
         <Brand />
         <NavItems links={visibleLinks} pathname={pathname} />
+        <InstallAppButton variant="dark" />
         <div className="rounded-xl bg-white/5 p-3">
           <p className="truncate text-sm font-medium text-white">
             {user?.prenom} {user?.nom}
           </p>
           <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
           <button
-            onClick={() => void logout()}
+            onClick={handleLogout}
             className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
           >
             <LogOut size={14} /> Déconnexion
@@ -138,12 +164,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <NavItems links={visibleLinks} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
+              <InstallAppButton variant="dark" />
               <div className="rounded-xl bg-white/5 p-3">
                 <p className="truncate text-sm font-medium text-white">
                   {user?.prenom} {user?.nom}
                 </p>
                 <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
-                <Button variant="secondary" className="mt-2 w-full bg-white/10 text-white border-white/10 hover:bg-white/20" onClick={() => void logout()}>
+                <Button variant="secondary" className="mt-2 w-full bg-white/10 text-white border-white/10 hover:bg-white/20" onClick={handleLogout}>
                   <LogOut size={14} /> Déconnexion
                 </Button>
               </div>
@@ -151,6 +178,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
+        <OfflineStatus />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
     </div>

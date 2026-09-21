@@ -509,6 +509,11 @@ model Payment {
   // et donc devinable) — sert de clé pour GET /payments/verify/:token, un endpoint public qui ne
   // doit jamais permettre d'énumérer tous les reçus de l'école en incrémentant un numéro.
   verificationToken String       @unique @default(cuid())
+  // Encaissement saisi sans Internet (D49) : numéro du reçu PROVISOIRE remis au parent (généré sur
+  // l'appareil, jamais un numéro officiel) et instant réel de la saisie. Le reçu officiel REC-xxxxxx
+  // n'est attribué qu'à la synchronisation, par le serveur (RG10 inchangée).
+  numeroProvisoire  String?
+  saisieHorsLigneAt DateTime?
   montant          Int
   modePaiement     PaymentMode   @default(ESPECES)
   // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais
@@ -525,6 +530,7 @@ model Payment {
   updatedAt        DateTime      @updatedAt
 
   @@unique([schoolId, numeroRecu])
+  @@unique([schoolId, numeroProvisoire])
   @@map("payments")
 }
 
@@ -561,6 +567,24 @@ model Discount {
 // --- Journal d'audit (append-only) ------------------------------------------
 // RG15 : toute action sensible est journalisée avec utilisateur, horodatage, ancienne et nouvelle valeur.
 // Aucune méthode de mise à jour/suppression n'est exposée par le service applicatif (voir AuditService).
+
+// Clé d'idempotence (en-tête Idempotency-Key) : rejouer une requête déjà traitée renvoie la réponse
+// d'origine au lieu de refaire l'opération — indispensable à la synchronisation hors ligne, où une
+// réponse perdue par le réseau fait renvoyer la même saisie. Sans clé étrangère (simple journal).
+model IdempotencyRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  key        String
+  method     String
+  path       String
+  statusCode Int
+  response   Json?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([createdAt])
+  @@map("idempotency_records")
+}
 
 model AuditLog {
   id             String   @id @default(cuid())

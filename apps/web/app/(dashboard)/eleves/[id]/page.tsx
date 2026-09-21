@@ -3,14 +3,21 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, isOfflineError } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
-import type { Class, Enrollment, StudentDossier } from "@/lib/types";
+import { submitOrQueue } from "@/lib/offline-actions";
+import { useOnOutboxChange } from "@/lib/outbox";
+import type { Class, Enrollment, Student, StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
 import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
+
+function describeError(err: unknown): string {
+  if (isOfflineError(err)) return "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
+  return isApiError(err) ? err.message : "Une erreur est survenue.";
+}
 const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | "gray" }> = {
   ACTIVE: { label: "Active", color: "green" },
   ANNULEE: { label: "Annulée", color: "gray" },
@@ -30,6 +37,7 @@ export default function StudentDossierPage() {
   const [studentForm, setStudentForm] = useState({ nom: "", prenom: "", sexe: "M", dateNaissance: "", nationalite: "" });
   const [studentError, setStudentError] = useState<string | null>(null);
   const [savingStudent, setSavingStudent] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function load() {
     const data = await api.get<StudentDossier>(`/students/${params.id}`);
@@ -37,7 +45,7 @@ export default function StudentDossierPage() {
   }
 
   useEffect(() => {
-    void load();
+    void load().catch((err) => setError(describeError(err)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -45,19 +53,31 @@ export default function StudentDossierPage() {
     e.preventDefault();
     setError(null);
     try {
-      await api.post(`/students/${params.id}/guardians`, guardianForm);
+      const res = await submitOrQueue({
+        kind: "guardian",
+        method: "POST",
+        path: `/students/${params.id}/guardians`,
+        body: guardianForm,
+        label: `${guardianForm.prenom} ${guardianForm.nom} (${guardianForm.lien}) pour ${student?.prenom ?? ""} ${student?.nom ?? ""}`.trim(),
+        studentId: params.id,
+      });
       setGuardianForm({ nom: "", prenom: "", telephone: "", lien: "" });
       setShowGuardianForm(false);
+      if (res.queued) setNotice("Responsable enregistré sur cet appareil : il sera ajouté au dossier au retour d'Internet.");
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     }
   }
 
   async function handleDetachGuardian(guardianId: string) {
     if (!confirm("Détacher ce responsable de l'élève ?")) return;
-    await api.delete(`/students/${params.id}/guardians/${guardianId}`);
-    await load();
+    try {
+      await api.delete(`/students/${params.id}/guardians/${guardianId}`);
+      await load();
+    } catch (err) {
+      alert(describeError(err));
+    }
   }
 
   function startEditStudent() {
@@ -78,11 +98,24 @@ export default function StudentDossierPage() {
     setStudentError(null);
     setSavingStudent(true);
     try {
-      await api.patch(`/students/${params.id}`, studentForm);
+      const res = await submitOrQueue({
+        kind: "student-update",
+        method: "PATCH",
+        path: `/students/${params.id}`,
+        body: studentForm,
+        label: `Correction de ${studentForm.prenom} ${studentForm.nom}`,
+        studentId: params.id,
+      });
       setEditingStudent(false);
-      await load();
+      if (res.queued) {
+        setNotice("Correction enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
+        // Affichage immédiat de ce qui a été saisi ; le serveur reste la référence à la synchronisation.
+        setStudent((s) => (s ? { ...s, ...studentForm, sexe: studentForm.sexe as Student["sexe"], nationalite: studentForm.nationalite || null } : s));
+      } else {
+        await load();
+      }
     } catch (err) {
-      setStudentError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setStudentError(describeError(err));
     } finally {
       setSavingStudent(false);
     }
@@ -95,11 +128,16 @@ export default function StudentDossierPage() {
       await api.post(`/enrollments/${enrollmentId}/cancel`, { motif });
       await load();
     } catch (err) {
-      alert(isApiError(err) ? err.message : "Une erreur est survenue.");
+      alert(describeError(err));
     }
   }
 
+  // Quand des saisies hors ligne partent au serveur, on relit le dossier réel.
+  useOnOutboxChange(() => void load().catch(() => {}));
+
   if (!student) return null;
+
+  const activeEnrollment = student.enrollments.find((e) => e.statut === "ACTIVE");
 
   return (
     <div>
@@ -119,6 +157,8 @@ export default function StudentDossierPage() {
           </Button>
         )}
       </div>
+
+      {notice && <p className="mb-4 rounded-xl bg-info-soft px-3 py-2 text-sm text-info">{notice}</p>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
@@ -278,7 +318,16 @@ export default function StudentDossierPage() {
         </Card>
 
         <div className="lg:col-span-3">
-          <FinancialStatusCard studentId={student.id} activeEnrollmentId={student.enrollments.find((e) => e.statut === "ACTIVE")?.id} />
+          <FinancialStatusCard
+            studentId={student.id}
+            activeEnrollmentId={activeEnrollment?.id}
+            student={{
+              nom: student.nom,
+              prenom: student.prenom,
+              matricule: student.matricule,
+              classe: activeEnrollment?.class.nom ?? "—",
+            }}
+          />
         </div>
 
         <Card className="lg:col-span-3">

@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, isOfflineError } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
+import { submitOrQueue } from "@/lib/offline-actions";
+import { enqueue, processOutbox, refOf } from "@/lib/outbox";
 import type { AcademicYear, Class, Cycle, Enrollment, Level, Section, Student } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select, Stepper, SuccessMessage } from "@/components/ui";
 
@@ -16,6 +18,18 @@ export default function EnrollmentWizardPage() {
 }
 
 type Step = "eleve" | "classe" | "confirmation";
+
+const REF_PREFIX = "$ref:";
+
+/** Élève créé sans Internet : son identifiant réel n'existe qu'après la synchronisation. */
+function isPendingStudent(s: Student): boolean {
+  return s.id.startsWith(REF_PREFIX);
+}
+
+function describeError(err: unknown): string {
+  if (isOfflineError(err)) return "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
+  return isApiError(err) ? err.message : "Une erreur est survenue.";
+}
 
 function EnrollmentWizard() {
   const router = useRouter();
@@ -39,6 +53,7 @@ function EnrollmentWizard() {
   const [className, setClassName] = useState("");
 
   const [result, setResult] = useState<Enrollment | null>(null);
+  const [queued, setQueued] = useState(false);
 
   return (
     <div className="max-w-2xl">
@@ -69,7 +84,7 @@ function EnrollmentWizard() {
         />
       )}
 
-      {step === "confirmation" && student && !result && (
+      {step === "confirmation" && student && !result && !queued && (
         <ConfirmationStep
           student={student}
           classId={classId}
@@ -77,7 +92,23 @@ function EnrollmentWizard() {
           academicYearId={academicYearId}
           onBack={() => setStep("classe")}
           onConfirmed={setResult}
+          onQueued={() => setQueued(true)}
         />
+      )}
+
+      {queued && student && (
+        <Card className="mt-4">
+          <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
+            Inscription de {student.prenom} {student.nom} enregistrée sur cet appareil. Elle sera envoyée au serveur au retour
+            d&apos;Internet ; le numéro d&apos;inscription et la facture seront alors créés.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button onClick={() => router.push("/hors-ligne")}>Voir la synchronisation</Button>
+            <Button variant="secondary" onClick={() => router.push("/eleves")}>
+              Retour à la liste
+            </Button>
+          </div>
+        </Card>
       )}
 
       {result && (
@@ -178,14 +209,34 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
     setError(null);
     setSubmitting(true);
     try {
-      const created = await api.post<Student>("/students", { ...form, forcerCreation });
-      onCreated(created);
+      const res = await submitOrQueue<Student>({
+        kind: "student",
+        method: "POST",
+        path: "/students",
+        body: { ...form, forcerCreation },
+        label: `${form.prenom} ${form.nom}`,
+      });
+      if (res.queued) {
+        // Élève provisoire : le matricule est attribué par le serveur à la synchronisation.
+        onCreated({
+          id: refOf(res.entry.id),
+          matricule: "Attribué à la synchronisation",
+          nom: form.nom,
+          prenom: form.prenom,
+          sexe: form.sexe as Student["sexe"],
+          dateNaissance: form.dateNaissance,
+          nationalite: form.nationalite || null,
+          statut: "ACTIF",
+        });
+      } else {
+        onCreated(res.result);
+      }
     } catch (err) {
       if (isApiError(err) && err.status === 409 && err.data && typeof err.data === "object" && "doublonPotentiel" in err.data) {
         setDuplicate((err.data as { doublonPotentiel: { id: string; nom: string; prenom: string } }).doublonPotentiel);
         setError(err.message);
       } else {
-        setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+        setError(describeError(err));
       }
     } finally {
       setSubmitting(false);
@@ -420,6 +471,7 @@ function ConfirmationStep({
   academicYearId,
   onBack,
   onConfirmed,
+  onQueued,
 }: {
   student: Student;
   classId: string;
@@ -427,6 +479,7 @@ function ConfirmationStep({
   academicYearId: string;
   onBack: () => void;
   onConfirmed: (e: Enrollment) => void;
+  onQueued: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -435,14 +488,34 @@ function ConfirmationStep({
     setError(null);
     setSubmitting(true);
     try {
-      const enrollment = await api.post<Enrollment>("/enrollments", {
-        studentId: student.id,
-        classId,
-        academicYearId,
-      });
-      onConfirmed(enrollment);
+      const body = { studentId: student.id, classId, academicYearId };
+      const label = `${student.prenom} ${student.nom} en ${className}`;
+      if (isPendingStudent(student)) {
+        // L'élève lui-même n'existe pas encore côté serveur : l'inscription attend sa création.
+        await enqueue({
+          kind: "enrollment",
+          method: "POST",
+          path: "/enrollments",
+          body,
+          label,
+          dependsOn: [student.id.slice(REF_PREFIX.length)],
+        });
+        void processOutbox();
+        onQueued();
+      } else {
+        const res = await submitOrQueue<Enrollment>({
+          kind: "enrollment",
+          method: "POST",
+          path: "/enrollments",
+          body,
+          label,
+          studentId: student.id,
+        });
+        if (res.queued) onQueued();
+        else onConfirmed(res.result);
+      }
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

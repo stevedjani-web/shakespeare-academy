@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
+import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,6 +26,15 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Shakespeare Academy",
   description: "Logiciel de gestion scolaire — Shakespeare Academy",
+  applicationName: "Shakespeare Academy",
+  appleWebApp: { capable: true, title: "Shakespeare", statusBarStyle: "default" },
+  icons: { icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }], apple: "/icons/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2f2b78",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -34,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-(--color-bg) text-(--color-ink)">
+        <PwaRegister />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

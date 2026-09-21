@@ -224,6 +224,7 @@ export interface Payment {
   id: string;
   numeroRecu: string;
   verificationToken: string;
+  numeroProvisoire?: string | null;
   montant: number;
   modePaiement: PaymentMode;
   referenceExterne: string | null;

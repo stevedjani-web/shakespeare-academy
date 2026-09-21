@@ -102,6 +102,9 @@ export default function ReceiptPage() {
           {school?.telephone && <p className="text-xs text-ink-muted">{school.telephone}</p>}
           <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">Reçu de paiement</p>
           <p className="font-mono text-sm text-ink">{payment.numeroRecu}</p>
+          {payment.numeroProvisoire && (
+            <p className="text-[11px] text-ink-muted">Remplace le reçu provisoire {payment.numeroProvisoire}</p>
+          )}
           <p className="text-xs text-ink-muted">{formatDate(payment.datePaiement)}</p>
         </div>
 

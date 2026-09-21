@@ -14,6 +14,10 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CancelPaymentDto } from './dto/cancel-payment.dto';
 
 const RECEIPT_NUMERO_DIGITS = 6;
+// Fenêtre acceptée pour l'instant réel d'une saisie hors ligne : ni dans le futur (tolérance d'horloge),
+// ni plus vieille que quelques semaines (une synchronisation qui traîne plus longtemps est suspecte).
+const OFFLINE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+const OFFLINE_CLOCK_SKEW_MS = 10 * 60 * 1000;
 
 const PAYMENT_INCLUDE = {
   invoiceLine: {
@@ -121,6 +125,35 @@ export class PaymentsService {
    */
   async create(dto: CreatePaymentDto, actingUserId: string) {
     const schoolId = await this.schoolService.getDefaultId();
+
+    let saisieHorsLigneAt: Date | undefined;
+    if (dto.dateSaisie && !dto.numeroProvisoire) {
+      throw new BadRequestException("dateSaisie n'est acceptée qu'avec un numeroProvisoire (saisie hors ligne).");
+    }
+    if (dto.numeroProvisoire) {
+      // Renvoi d'une saisie déjà synchronisée (réponse perdue, deuxième appareil...) : même reçu, jamais deux paiements.
+      const already = await this.prisma.payment.findFirst({
+        where: { schoolId, numeroProvisoire: dto.numeroProvisoire },
+        include: PAYMENT_INCLUDE,
+      });
+      if (already) {
+        if (already.invoiceLineId !== dto.invoiceLineId || already.montant !== dto.montant) {
+          throw new ConflictException('Ce numéro de reçu provisoire correspond déjà à un autre encaissement.');
+        }
+        return already;
+      }
+      if (dto.dateSaisie) {
+        saisieHorsLigneAt = new Date(dto.dateSaisie);
+        const now = Date.now();
+        if (saisieHorsLigneAt.getTime() > now + OFFLINE_CLOCK_SKEW_MS) {
+          throw new BadRequestException('La date de saisie est dans le futur.');
+        }
+        if (saisieHorsLigneAt.getTime() < now - OFFLINE_MAX_AGE_MS) {
+          throw new BadRequestException('La date de saisie est trop ancienne (plus de 45 jours).');
+        }
+      }
+    }
+
     const line = await this.prisma.invoiceLine.findFirst({
       where: { id: dto.invoiceLineId, invoice: { schoolId } },
       include: { invoice: true, discounts: true, payments: { where: { statut: 'VALIDE' } } },
@@ -154,6 +187,9 @@ export class PaymentsService {
         referenceExterne: dto.referenceExterne,
         numeroRecu,
         recuParUserId: actingUserId,
+        numeroProvisoire: dto.numeroProvisoire,
+        saisieHorsLigneAt,
+        ...(saisieHorsLigneAt ? { datePaiement: saisieHorsLigneAt } : {}),
       },
       include: PAYMENT_INCLUDE,
     });

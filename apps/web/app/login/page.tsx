@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
+import { InstallAppButton } from "@/components/install-app-button";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -98,6 +99,11 @@ export default function LoginPage() {
               {submitting ? "Connexion…" : "Se connecter"}
             </Button>
           </form>
+          <p className="mt-4 text-xs text-ink-muted">
+            Sans Internet, la connexion n&apos;est possible qu&apos;avec une session déjà ouverte sur cet appareil : ouvrez
+            l&apos;application installée, elle reprendra votre dernière session.
+          </p>
+          <InstallAppButton className="mt-4" />
         </div>
       </div>
     </div>

@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, isOfflineError } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
+import { submitOrQueue } from "@/lib/offline-actions";
+import { nextProvisionalNumber, useOnOutboxChange, useOutbox, type OutboxEntry } from "@/lib/outbox";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { FeeType, FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
@@ -20,6 +23,21 @@ import {
 } from "lucide-react";
 
 const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
+
+/** Élève concerné, pour le reçu provisoire imprimé quand l'encaissement se fait sans Internet. */
+export interface ReceiptStudent {
+  nom: string;
+  prenom: string;
+  matricule: string;
+  classe: string;
+}
+
+const NEEDS_ONLINE = "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
+
+function describeError(err: unknown): string {
+  if (isOfflineError(err)) return NEEDS_ONLINE;
+  return isApiError(err) ? err.message : "Une erreur est survenue.";
+}
 
 function computeSoldeRestant(line: InvoiceLine): number {
   const remise = line.discounts
@@ -40,9 +58,11 @@ const STATUS_META: Record<SolvencyStatus, { label: string; color: "green" | "blu
 export function FinancialStatusCard({
   studentId,
   activeEnrollmentId,
+  student,
 }: {
   studentId: string;
   activeEnrollmentId?: string;
+  student?: ReceiptStudent;
 }) {
   const { hasPermission } = useAuth();
   const canRequestDiscount = hasPermission("ENROLLMENT_MANAGE");
@@ -56,11 +76,35 @@ export function FinancialStatusCard({
   const [discountFormLineId, setDiscountFormLineId] = useState<string | null>(null);
   const [paymentFormLineId, setPaymentFormLineId] = useState<string | null>(null);
   const [showAddLine, setShowAddLine] = useState(false);
+  const [paymentsLoaded, setPaymentsLoaded] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const router = useRouter();
+  const { entries } = useOutbox();
+
+  // Encaissements saisis sur cet appareil et pas encore visibles dans l'historique du serveur.
+  const knownPaymentIds = new Set(payments.map((p) => p.id));
+  const pendingPayments: OutboxEntry[] = entries.filter(
+    (e) =>
+      e.kind === "payment" &&
+      e.studentId === studentId &&
+      (e.status === "pending" || (paymentsLoaded && e.status === "done" && !!e.resultId && !knownPaymentIds.has(e.resultId))),
+  );
+  const pendingByLine = new Map<string, number>();
+  for (const e of pendingPayments) {
+    if (e.invoiceLineId) pendingByLine.set(e.invoiceLineId, (pendingByLine.get(e.invoiceLineId) ?? 0) + (e.montant ?? 0));
+  }
+  const soldeApresAttente = (line: InvoiceLine) => Math.max(0, computeSoldeRestant(line) - (pendingByLine.get(line.id) ?? 0));
+  const failedPayments = entries.filter((e) => e.kind === "payment" && e.studentId === studentId && e.status === "failed");
 
   async function handleReprint(paymentId: string) {
-    await api.post(`/payments/${paymentId}/reprint`);
-    router.push(`/recus/${paymentId}`);
+    setActionError(null);
+    try {
+      await api.post(`/payments/${paymentId}/reprint`);
+      router.push(`/recus/${paymentId}`);
+    } catch (err) {
+      setActionError(describeError(err));
+    }
   }
 
   async function load() {
@@ -76,12 +120,16 @@ export function FinancialStatusCard({
     }
     const payHistory = await api.get<Payment[]>(`/payments?studentId=${studentId}`);
     setPayments(payHistory);
+    setPaymentsLoaded(true);
   }
 
   useEffect(() => {
-    void load();
+    void load().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, activeEnrollmentId]);
+
+  // Quand une saisie faite hors ligne est envoyée, on relit la situation réelle auprès du serveur.
+  useOnOutboxChange(() => void load().catch(() => {}));
 
   if (!status) return null;
   const meta = STATUS_META[status.statut];
@@ -108,6 +156,9 @@ export function FinancialStatusCard({
         <Metric label="Payé" value={formatMontant(status.montantPaye)} hint="Encaissements : Lot 4" />
         <Metric label="Restant dû" value={formatMontant(status.montantRestant)} />
       </div>
+
+      {notice && <p className="mt-3 rounded-xl bg-info-soft px-3 py-2 text-sm text-info">{notice}</p>}
+      <ErrorMessage>{actionError}</ErrorMessage>
 
       {status.prochaineEcheance && (
         <p className="mt-4 text-sm text-ink-muted">
@@ -162,13 +213,21 @@ export function FinancialStatusCard({
               </div>
 
               {(() => {
-                const soldeRestant = computeSoldeRestant(line);
+                const soldeRestant = soldeApresAttente(line);
+                const enAttente = pendingByLine.get(line.id) ?? 0;
                 if (soldeRestant <= 0) {
-                  return <p className="mt-2 text-xs font-medium text-success">Ligne soldée.</p>;
+                  return (
+                    <p className="mt-2 text-xs font-medium text-success">
+                      Ligne soldée{enAttente > 0 ? " (paiement en attente d'envoi au serveur)" : ""}.
+                    </p>
+                  );
                 }
                 return (
                   <div className="mt-2 flex items-center justify-between">
-                    <p className="text-xs text-ink-muted">Solde restant : {formatMontant(soldeRestant)}</p>
+                    <p className="text-xs text-ink-muted">
+                      Solde restant : {formatMontant(soldeRestant)}
+                      {enAttente > 0 && <> (dont {formatMontant(enAttente)} déjà encaissés hors ligne, en attente)</>}
+                    </p>
                     {canPay && (
                       <Button
                         variant="accent"
@@ -207,8 +266,9 @@ export function FinancialStatusCard({
               {discountFormLineId === line.id && (
                 <DiscountRequestForm
                   invoiceLineId={line.id}
-                  onDone={() => {
+                  onDone={(queued) => {
                     setDiscountFormLineId(null);
+                    if (queued) setNotice("Demande de remise enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
                     void load();
                   }}
                 />
@@ -217,13 +277,50 @@ export function FinancialStatusCard({
               {paymentFormLineId === line.id && (
                 <PaymentForm
                   invoiceLineId={line.id}
-                  soldeRestant={computeSoldeRestant(line)}
+                  invoiceLineLabel={line.libelle}
+                  studentId={studentId}
+                  student={student}
+                  soldeRestant={soldeApresAttente(line)}
                   onDone={() => {
                     setPaymentFormLineId(null);
                     void load();
                   }}
                 />
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(pendingPayments.length > 0 || failedPayments.length > 0) && (
+        <div className="mt-5 space-y-2 border-t border-border pt-4">
+          <p className="text-sm font-semibold text-ink">Encaissements saisis hors ligne</p>
+          {pendingPayments.map((e) => (
+            <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/40 bg-warning-soft/40 p-3 text-sm">
+              <div>
+                <p className="font-medium text-ink">
+                  {e.receipt?.numero} — {formatMontant(e.montant ?? 0)}
+                </p>
+                <p className="text-xs text-ink-muted">
+                  {e.status === "done" ? "Envoyé, mise à jour en cours" : "En attente d'envoi au serveur"} · {e.receipt?.motif}
+                </p>
+              </div>
+              <Link href={`/recus/provisoire/${e.id}`} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                <Printer size={13} /> Reçu provisoire
+              </Link>
+            </div>
+          ))}
+          {failedPayments.map((e) => (
+            <div key={e.id} className="rounded-xl border border-danger/30 bg-danger-soft/40 p-3 text-sm">
+              <p className="font-medium text-danger">
+                {e.receipt?.numero} — {formatMontant(e.montant ?? 0)} : refusé par le serveur
+              </p>
+              <p className="text-xs text-ink-muted">
+                {e.error}{" "}
+                <Link href="/hors-ligne" className="font-medium text-primary hover:underline">
+                  Voir « Synchronisation »
+                </Link>
+              </p>
             </div>
           ))}
         </div>
@@ -263,8 +360,13 @@ export function FinancialStatusCard({
                     onClick={async () => {
                       const motif = prompt("Motif de l'annulation :");
                       if (!motif) return;
-                      await api.post(`/payments/${p.id}/cancel`, { motif });
-                      await load();
+                      setActionError(null);
+                      try {
+                        await api.post(`/payments/${p.id}/cancel`, { motif });
+                        await load();
+                      } catch (err) {
+                        setActionError(describeError(err));
+                      }
                     }}
                     className="flex items-center gap-1 text-xs font-medium text-danger hover:underline"
                   >
@@ -290,7 +392,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
   );
 }
 
-function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string; onDone: () => void }) {
+function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string; onDone: (queued: boolean) => void }) {
   const [type, setType] = useState<"MONTANT_FIXE" | "POURCENTAGE">("MONTANT_FIXE");
   const [valeur, setValeur] = useState("");
   const [motif, setMotif] = useState("");
@@ -302,10 +404,17 @@ function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string;
     setError(null);
     setSubmitting(true);
     try {
-      await api.post("/discounts", { invoiceLineId, type, valeur: Number(valeur), motif });
-      onDone();
+      const res = await submitOrQueue({
+        kind: "discount",
+        method: "POST",
+        path: "/discounts",
+        body: { invoiceLineId, type, valeur: Number(valeur), motif },
+        label: `Remise ${type === "POURCENTAGE" ? `${valeur} %` : formatMontant(Number(valeur))} : ${motif}`,
+        invoiceLineId,
+      });
+      onDone(res.queued);
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -339,13 +448,20 @@ function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string;
 
 function PaymentForm({
   invoiceLineId,
+  invoiceLineLabel,
+  studentId,
+  student,
   soldeRestant,
   onDone,
 }: {
   invoiceLineId: string;
+  invoiceLineLabel: string;
+  studentId: string;
+  student?: ReceiptStudent;
   soldeRestant: number;
   onDone: () => void;
 }) {
+  const { user } = useAuth();
   const [montant, setMontant] = useState(String(soldeRestant));
   const [modePaiement, setModePaiement] = useState<"ESPECES" | "MOBILE_MONEY">("ESPECES");
   const [referenceExterne, setReferenceExterne] = useState("");
@@ -358,16 +474,45 @@ function PaymentForm({
     setError(null);
     setSubmitting(true);
     try {
-      const payment = await api.post<Payment>("/payments", {
-        invoiceLineId,
-        montant: Number(montant),
-        modePaiement,
-        referenceExterne: modePaiement === "MOBILE_MONEY" ? referenceExterne : undefined,
-      });
+      const amount = Number(montant);
+      const reference = modePaiement === "MOBILE_MONEY" ? referenceExterne : undefined;
+      const baseBody = { invoiceLineId, montant: amount, modePaiement, referenceExterne: reference };
+      const res = await submitOrQueue<Payment>(
+        {
+          kind: "payment",
+          method: "POST",
+          path: "/payments",
+          body: baseBody,
+          label: `${student ? `${student.prenom} ${student.nom}` : "Élève"} : ${invoiceLineLabel}`,
+          studentId,
+          invoiceLineId,
+          montant: amount,
+        },
+        // Sans Internet : numéro de reçu provisoire, date de saisie et instantané du reçu à imprimer.
+        () => {
+          const numero = nextProvisionalNumber();
+          const now = new Date().toISOString();
+          return {
+            body: { ...baseBody, numeroProvisoire: numero, dateSaisie: now },
+            receipt: {
+              numero,
+              eleve: student ? `${student.prenom} ${student.nom}` : "Élève",
+              matricule: student?.matricule ?? "—",
+              classe: student?.classe ?? "—",
+              motif: invoiceLineLabel,
+              montant: amount,
+              modePaiement,
+              referenceExterne: reference,
+              caissier: user ? `${user.prenom} ${user.nom}` : "—",
+              date: now,
+            },
+          };
+        },
+      );
       onDone();
-      router.push(`/recus/${payment.id}`);
+      router.push(res.queued ? `/recus/provisoire/${res.entry.id}` : `/recus/${res.result.id}`);
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -434,7 +579,7 @@ function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => v
       await api.post(`/invoices/${invoiceId}/lines`, { feeTypeId, montant: Number(montant) });
       onDone();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -473,14 +618,22 @@ function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => v
 
 function DiscountDecisionButtons({ discountId, onDecided }: { discountId: string; onDecided: () => void }) {
   async function approve() {
-    await api.post(`/discounts/${discountId}/approve`);
-    onDecided();
+    try {
+      await api.post(`/discounts/${discountId}/approve`);
+      onDecided();
+    } catch (err) {
+      alert(describeError(err));
+    }
   }
   async function reject() {
     const motifRejet = prompt("Motif du rejet :");
     if (!motifRejet) return;
-    await api.post(`/discounts/${discountId}/reject`, { motifRejet });
-    onDecided();
+    try {
+      await api.post(`/discounts/${discountId}/reject`, { motifRejet });
+      onDecided();
+    } catch (err) {
+      alert(describeError(err));
+    }
   }
   return (
     <span className="flex gap-1">

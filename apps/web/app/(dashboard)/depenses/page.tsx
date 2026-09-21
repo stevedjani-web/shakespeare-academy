@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, isOfflineError } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
+import { submitOrQueue } from "@/lib/offline-actions";
+import { useOnOutboxChange, useOutbox } from "@/lib/outbox";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, StatCard } from "@/components/ui";
@@ -24,6 +26,11 @@ const STATUS_META: Record<Expense["statut"], { label: string; color: "orange" | 
   REJETEE: { label: "Rejetée", color: "red", icon: <XCircle size={13} />, card: "border-l-danger bg-danger-soft/40 opacity-80" },
 };
 
+function describeError(err: unknown): string {
+  if (isOfflineError(err)) return "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
+  return isApiError(err) ? err.message : "Une erreur est survenue.";
+}
+
 export default function ExpensesPage() {
   const { hasPermission } = useAuth();
   const canCreate = hasPermission("EXPENSE_CREATE");
@@ -34,6 +41,8 @@ export default function ExpensesPage() {
   const [form, setForm] = useState({ categorie: "ACHAT_MATERIEL" as ExpenseCategory, montant: "", description: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const { entries } = useOutbox();
 
   async function load() {
     const data = await api.get<Expense[]>("/expenses");
@@ -42,7 +51,7 @@ export default function ExpensesPage() {
   }
 
   useEffect(() => {
-    void load();
+    void load().catch(() => setLoaded(true));
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
@@ -50,27 +59,48 @@ export default function ExpensesPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.post("/expenses", { ...form, montant: Number(form.montant) });
+      const montant = Number(form.montant);
+      const res = await submitOrQueue({
+        kind: "expense",
+        method: "POST",
+        path: "/expenses",
+        body: { ...form, montant },
+        label: `${CATEGORY_LABEL[form.categorie]} : ${form.description}`,
+        montant,
+      });
       setForm({ categorie: "ACHAT_MATERIEL", montant: "", description: "" });
+      if (res.queued) setNotice("Sortie enregistrée sur cet appareil : elle sera envoyée à la Direction au retour d'Internet.");
+      else setNotice(null);
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleApprove(id: string) {
-    await api.post(`/expenses/${id}/approve`);
-    await load();
+    try {
+      await api.post(`/expenses/${id}/approve`);
+      await load();
+    } catch (err) {
+      alert(describeError(err));
+    }
   }
 
   async function handleReject(id: string) {
     const motif = prompt("Motif du rejet :");
     if (!motif) return;
-    await api.post(`/expenses/${id}/reject`, { motif });
-    await load();
+    try {
+      await api.post(`/expenses/${id}/reject`, { motif });
+      await load();
+    } catch (err) {
+      alert(describeError(err));
+    }
   }
+
+  useOnOutboxChange(() => void load().catch(() => {}));
+  const pendingExpenses = entries.filter((e) => e.kind === "expense" && (e.status === "pending" || e.status === "failed"));
 
   const sum = (statut: Expense["statut"]) => expenses.filter((e) => e.statut === statut).reduce((n, e) => n + e.montant, 0);
   const count = (statut: Expense["statut"]) => expenses.filter((e) => e.statut === statut).length;
@@ -117,6 +147,26 @@ export default function ExpensesPage() {
           <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold text-ink">
             <Wallet size={18} className="text-primary" /> Historique des sorties
           </h2>
+          {notice && <p className="mb-3 rounded-xl bg-info-soft px-3 py-2 text-sm text-info">{notice}</p>}
+          {pendingExpenses.length > 0 && (
+            <div className="mb-3 space-y-2">
+              {pendingExpenses.map((e) => (
+                <div
+                  key={e.id}
+                  className={`rounded-xl border border-l-4 border-border p-3 text-sm ${
+                    e.status === "failed" ? "border-l-danger bg-danger-soft/40" : "border-l-warning bg-warning-soft/40"
+                  }`}
+                >
+                  <p className="font-medium text-ink">
+                    {e.label} · <span className="font-semibold text-danger">- {formatMontant(e.montant ?? 0)}</span>
+                  </p>
+                  <p className="text-xs text-ink-muted">
+                    {e.status === "failed" ? `Refusée à l'envoi : ${e.error ?? ""}` : "En attente d'envoi au serveur"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
           {!loaded ? null : expenses.length === 0 ? (
             <EmptyState icon={<Wallet />} title="Aucune sortie enregistrée." />
           ) : (

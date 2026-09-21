@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useOnOutboxChange, useOutbox } from "@/lib/outbox";
 import type { Student } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, Input, PageTitle, Spinner } from "@/components/ui";
 import { GraduationCap, Search } from "lucide-react";
@@ -22,23 +23,33 @@ export default function StudentsListPage() {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const { entries } = useOutbox();
+  // Élèves créés sur cet appareil sans Internet et pas encore enregistrés par le serveur.
+  const pendingStudents = entries.filter((e) => e.kind === "student" && (e.status === "pending" || e.status === "failed"));
+
   useEffect(() => {
-    void api.get<Student[]>("/students").then((data) => {
-      setStudents(data);
-      setLoaded(true);
-    });
+    void api
+      .get<Student[]>("/students")
+      .then((data) => setStudents(data))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
+
+  useOnOutboxChange(() => {
+    if (!query.trim()) void api.get<Student[]>("/students").then(setStudents).catch(() => {});
+  });
 
   useEffect(() => {
     const handle = setTimeout(() => {
       if (!query.trim()) {
-        void api.get<Student[]>("/students").then(setStudents);
+        void api.get<Student[]>("/students").then(setStudents).catch(() => {});
         return;
       }
       setSearching(true);
       void api
         .get<Student[]>(`/students/search?q=${encodeURIComponent(query)}`)
         .then(setStudents)
+        .catch(() => {})
         .finally(() => setSearching(false));
     }, 300);
     return () => clearTimeout(handle);
@@ -91,6 +102,33 @@ export default function StudentsListPage() {
         />
         {searching && <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />}
       </div>
+
+      {pendingStudents.length > 0 && !query.trim() && (
+        <Card className="mb-4 border-l-4 border-l-warning">
+          <p className="mb-2 text-sm font-semibold text-ink">En attente de synchronisation ({pendingStudents.length})</p>
+          <ul className="divide-y divide-border text-sm">
+            {pendingStudents.map((e) => {
+              const b = e.body as { nom?: string; prenom?: string };
+              return (
+                <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span className="font-medium text-ink">
+                    {b.prenom} {b.nom}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Badge color={e.status === "failed" ? "red" : "orange"}>
+                      {e.status === "failed" ? "Refusé" : "Créé hors ligne"}
+                    </Badge>
+                    <Link href="/hors-ligne" className="text-xs text-primary hover:underline">
+                      Détail
+                    </Link>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-2 text-xs text-ink-muted">Le matricule sera attribué par le serveur à l&apos;envoi.</p>
+        </Card>
+      )}
 
       {loaded && students.length === 0 ? (
         <EmptyState

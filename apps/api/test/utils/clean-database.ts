@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
  * Jamais exécuté contre autre chose que `shakespeare_academy_test` — voir test/setup-env.ts.
  */
 export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
+  await prisma.idempotencyRecord.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.payment.deleteMany();

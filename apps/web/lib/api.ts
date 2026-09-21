@@ -1,3 +1,6 @@
+import { setOnline } from "@/lib/connectivity";
+import { cachePut, cacheRead } from "@/lib/offline-cache";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 // Le jeton d'accès ne vit qu'en mémoire (jamais localStorage/cookie non httpOnly) — cohérent avec
@@ -62,6 +65,31 @@ async function refreshAccessToken(): Promise<string | null> {
 // message serveur "Identifiant ou mot de passe incorrect").
 const AUTH_ENTRY_POINTS = ["/auth/login", "/auth/refresh"];
 
+// Réseau de mauvaise qualité (cas courant) : sans limite de temps, un appel qui ne répond jamais
+// laisserait l'écran figé. Passé ce délai, l'appel est traité comme une absence de connexion.
+const READ_TIMEOUT_MS = 15000;
+const WRITE_TIMEOUT_MS = 30000;
+
+/** Erreur "pas de réseau" (statut 0) : distincte d'une réponse d'erreur du serveur. */
+export function isOfflineError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 0;
+}
+
+async function timedFetch(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    setOnline(true);
+    return res;
+  } catch {
+    setOnline(false);
+    throw new ApiError("Pas de connexion Internet.", 0);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}, allowRetry = true): Promise<T> {
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData)) {
@@ -71,10 +99,30 @@ async function request<T>(path: string, options: RequestInit = {}, allowRetry = 
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers, credentials: "include" });
+  const isRead = !options.method || options.method === "GET";
+  let res: Response;
+  try {
+    res = await timedFetch(
+      `${API_URL}${path}`,
+      { ...options, headers, credentials: "include" },
+      isRead ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS,
+    );
+  } catch (err) {
+    if (isRead && isOfflineError(err)) {
+      const cached = await cacheRead<T>(path);
+      if (cached) return cached.data;
+    }
+    throw err;
+  }
 
   if (res.status === 401 && allowRetry && !AUTH_ENTRY_POINTS.includes(path)) {
-    const newToken = await refreshAccessToken();
+    let newToken: string | null = null;
+    try {
+      newToken = await refreshAccessToken();
+    } catch {
+      // Pas de réseau au moment de rafraîchir : ce n'est pas une session expirée.
+      throw new ApiError("Pas de connexion Internet.", 0);
+    }
     if (newToken) {
       return request<T>(path, options, false);
     }
@@ -91,7 +139,21 @@ async function request<T>(path: string, options: RequestInit = {}, allowRetry = 
   if (res.status === 204) {
     return undefined as T;
   }
-  return (await res.json()) as T;
+  const data = (await res.json()) as T;
+  if (isRead) void cachePut(path, data);
+  return data;
+}
+
+/**
+ * Requête d'écriture rejouable : l'en-tête `Idempotency-Key` fait que le serveur renvoie la première
+ * réponse si la même saisie lui parvient deux fois (réponse perdue, resynchronisation).
+ */
+export function sendWithKey<T>(method: "POST" | "PATCH", path: string, body: unknown, key: string): Promise<T> {
+  return request<T>(path, {
+    method,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: { "Idempotency-Key": key },
+  });
 }
 
 export const api = {
