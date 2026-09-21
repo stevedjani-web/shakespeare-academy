@@ -17,6 +17,7 @@ const STATIC_PAGES = [
   "/depenses",
   "/cloture",
   "/appel",
+  "/pointage",
   "/emploi-du-temps",
   "/tarifs",
   "/hors-ligne",
@@ -91,6 +92,16 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
 
   setProgress({ running: true, done: 0, total: 1 });
   try {
+    // Un compte d'enseignant n'a accès qu'à son pointage : rien de la liste des élèves ni des finances.
+    if (can("TEACHER_CHECKIN_SELF")) {
+      await api.get("/teacher-checkins/me").catch(() => {});
+      precachePages(["/pointage", "/login", "/"]);
+    }
+    if (!can("STUDENT_READ")) {
+      await dbPut("meta", "lastWarmup", Date.now());
+      return;
+    }
+
     const [years, students] = await Promise.all([
       api.get<AcademicYear[]>("/academic-years"),
       api.get<Student[]>("/students"),

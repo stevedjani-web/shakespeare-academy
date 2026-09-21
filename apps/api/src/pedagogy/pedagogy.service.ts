@@ -19,7 +19,14 @@ export class PedagogyService {
 
   async getSettings() {
     const school = await this.prisma.school.findFirstOrThrow({
-      select: { joursClasse: true, retardMaxMinutes: true, delaiJustificatifJours: true },
+      select: {
+        joursClasse: true,
+        retardMaxMinutes: true,
+        delaiJustificatifJours: true,
+        pointageFenetreMinutes: true,
+        pointageToleranceMinutes: true,
+        pointageEcartMinMinutes: true,
+      },
     });
     return school;
   }
@@ -32,8 +39,19 @@ export class PedagogyService {
         joursClasse: dto.joursClasse ? [...dto.joursClasse].sort((a, b) => a - b) : undefined,
         retardMaxMinutes: dto.retardMaxMinutes,
         delaiJustificatifJours: dto.delaiJustificatifJours,
+        pointageFenetreMinutes: dto.pointageFenetreMinutes,
+        pointageToleranceMinutes: dto.pointageToleranceMinutes,
+        pointageEcartMinMinutes: dto.pointageEcartMinMinutes,
       },
-      select: { id: true, joursClasse: true, retardMaxMinutes: true, delaiJustificatifJours: true },
+      select: {
+        id: true,
+        joursClasse: true,
+        retardMaxMinutes: true,
+        delaiJustificatifJours: true,
+        pointageFenetreMinutes: true,
+        pointageToleranceMinutes: true,
+        pointageEcartMinMinutes: true,
+      },
     });
     await this.audit.log({
       schoolId: school.id,
@@ -46,12 +64,18 @@ export class PedagogyService {
         joursClasse: school.joursClasse,
         retardMaxMinutes: school.retardMaxMinutes,
         delaiJustificatifJours: school.delaiJustificatifJours,
+        pointageFenetreMinutes: school.pointageFenetreMinutes,
+        pointageToleranceMinutes: school.pointageToleranceMinutes,
+        pointageEcartMinMinutes: school.pointageEcartMinMinutes,
       },
     });
     return {
       joursClasse: school.joursClasse,
       retardMaxMinutes: school.retardMaxMinutes,
       delaiJustificatifJours: school.delaiJustificatifJours,
+      pointageFenetreMinutes: school.pointageFenetreMinutes,
+      pointageToleranceMinutes: school.pointageToleranceMinutes,
+      pointageEcartMinMinutes: school.pointageEcartMinMinutes,
     };
   }
 

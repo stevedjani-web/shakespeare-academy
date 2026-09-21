@@ -107,6 +107,14 @@ export class TeachersService {
     if (dto.nom || dto.prenom) {
       await this.assertNameFree(nom, prenom, id);
     }
+    if (dto.userId) {
+      const account = await this.prisma.user.findUnique({ where: { id: dto.userId }, include: { teacher: true } });
+      if (!account) throw new NotFoundException('Compte utilisateur introuvable.');
+      if (account.statut !== 'ACTIF') throw new ConflictException('Ce compte est désactivé.');
+      if (account.teacher && account.teacher.id !== id) {
+        throw new ConflictException(`Ce compte est déjà relié à ${account.teacher.prenom} ${account.teacher.nom}.`);
+      }
+    }
     const teacher = await this.prisma.teacher.update({
       where: { id },
       data: {
@@ -115,10 +123,29 @@ export class TeachersService {
         telephone: dto.telephone === undefined ? undefined : dto.telephone.trim() || null,
         email: dto.email === undefined ? undefined : dto.email.trim() || null,
         statut: dto.statut,
+        modePointage: dto.modePointage,
+        userId: dto.userId,
       },
     });
     await this.log(userId, 'TEACHER_UPDATE', 'Teacher', id, before, teacher);
     return teacher;
+  }
+
+  /** Comptes qui peuvent être reliés à une fiche enseignant (un compte, une fiche). */
+  async linkableUsers() {
+    const users = await this.prisma.user.findMany({
+      where: { statut: 'ACTIF' },
+      orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
+      include: { role: { select: { code: true, nom: true } }, teacher: { select: { id: true } } },
+    });
+    return users.map((u) => ({
+      id: u.id,
+      nom: u.nom,
+      prenom: u.prenom,
+      email: u.email,
+      role: u.role.nom,
+      teacherId: u.teacher?.id ?? null,
+    }));
   }
 
   /** Matières que l'enseignant peut enseigner (indicatif, non bloquant pour les affectations). */

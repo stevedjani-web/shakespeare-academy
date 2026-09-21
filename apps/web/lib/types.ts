@@ -426,6 +426,8 @@ export interface Teacher {
   email: string | null;
   statut: "ACTIF" | "INACTIF";
   volontairePilote: boolean;
+  userId: string | null;
+  modePointage: "SEANCE" | "JOURNEE";
   subjects: Array<{ subjectId: string; subject: { id: string; code: string; nom: string } }>;
   _count: { assignments: number };
 }
@@ -625,4 +627,120 @@ export interface StudentAttendanceHistory {
   eleve: { id: string; nom: string; prenom: string; matricule: string };
   compteurs: { seancesAppelees: number; absences: number; retards: number; excusees: number; nonJustifiees: number };
   lignes: AbsenceRow[];
+}
+
+// --- Lot 10 : pointage des enseignants -------------------------------------------
+
+export type PointageMode = "SEANCE" | "JOURNEE";
+export type CheckinStatus = "EN_ATTENTE" | "VALIDE" | "REJETE";
+
+export interface SessionCheckin {
+  id: string;
+  statut: CheckinStatus;
+  source: "SCAN" | "MANUEL";
+  debut: string | null;
+  fin: string | null;
+  retardMinutes: number | null;
+  retardSignale: boolean;
+  ecartSalle: boolean;
+  horsLigne: boolean;
+  motif: string | null;
+}
+
+export interface DayCheckin {
+  id: string;
+  statut: CheckinStatus;
+  source: "SCAN" | "MANUEL";
+  arrivee: string | null;
+  depart: string | null;
+  heurePrevue: string | null;
+  retardMinutes: number | null;
+  retardSignale: boolean;
+  horsLigne: boolean;
+  motif: string | null;
+}
+
+export interface ScanResult {
+  mode: PointageMode;
+  type: "DEBUT" | "FIN" | "ARRIVEE" | "DEPART";
+  pointageId: string;
+  heure: string | null;
+  seance?: { className: string; subjectName: string; heureDebut: string; heureFin: string; roomName: string };
+  heurePrevue?: string | null;
+  retardMinutes: number;
+  retardSignale: boolean;
+  ecartSalle?: boolean;
+  statut: CheckinStatus;
+  horsLigne: boolean;
+}
+
+export interface MyCheckins {
+  teacher: { id: string; nom: string; prenom: string; modePointage: PointageMode };
+  date: string;
+  sansClasse?: { type: string; libelle: string } | null;
+  seances: Array<{
+    entryId: string;
+    className: string;
+    subjectName: string;
+    heureDebut: string;
+    heureFin: string;
+    roomName: string;
+    pointage: SessionCheckin | null;
+  }>;
+  journee: DayCheckin | null;
+}
+
+export interface CheckinDay {
+  date: string;
+  aujourdhui: string;
+  sansClasse: { type: string; libelle: string } | null;
+  seances: Array<Occurrence & { pointage: SessionCheckin | null }>;
+  orphelins: Array<SessionCheckin & { teacherId: string; teacherName: string; heureDebut: string; heureFin: string }>;
+  journees: Array<{ teacherId: string; teacherName: string; prevue: boolean; pointage: DayCheckin | null }>;
+}
+
+export interface CheckinSummaryRow {
+  teacherId: string;
+  enseignant: string;
+  mode: PointageMode;
+  statutFiche: "ACTIF" | "INACTIF";
+  confieesARemplacant: number;
+  minutesEffectuees: number;
+  retards: number;
+  minutesRetard: number;
+  seancesPrevues?: number;
+  seancesTenues?: number;
+  seancesEnAttente?: number;
+  seancesRejetees?: number;
+  seancesIncompletes?: number;
+  seancesNonPointees?: number;
+  joursPrevus?: number;
+  joursPresents?: number;
+  joursEnAttente?: number;
+  joursRejetes?: number;
+  joursIncomplets?: number;
+  joursNonPointes?: number;
+}
+
+export interface CheckinSummary {
+  mois: string;
+  jusquau: string | null;
+  toleranceRetardMinutes: number;
+  enseignants: CheckinSummaryRow[];
+}
+
+export interface PointageCodeRow {
+  type: "ENTREE" | "SALLE";
+  roomId: string | null;
+  nom: string;
+  token: string | null;
+}
+
+export interface LinkableUser {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  role: string;
+  teacherId: string | null;
 }

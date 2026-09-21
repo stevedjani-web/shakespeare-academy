@@ -22,7 +22,10 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const { doitChangerMotDePasse } = await login(email, motDePasse);
-      router.push(doitChangerMotDePasse ? "/changer-mot-de-passe" : "/");
+      // Retour à la page demandée avant la connexion, si c'est une adresse interne.
+      const next = new URLSearchParams(window.location.search).get("next");
+      const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+      router.push(doitChangerMotDePasse ? "/changer-mot-de-passe" : target);
     } catch (err) {
       setError(isApiError(err) ? err.message : "Une erreur est survenue.");
     } finally {

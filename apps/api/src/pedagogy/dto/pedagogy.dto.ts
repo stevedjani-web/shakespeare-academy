@@ -22,6 +22,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const TIME_SLOT_TYPES = ['COURS', 'PAUSE'] as const;
 export const CALENDAR_EVENT_TYPES = ['VACANCES', 'FERIE', 'AUTRE'] as const;
 export const TEACHER_STATUSES = ['ACTIF', 'INACTIF'] as const;
+export const POINTAGE_MODES = ['SEANCE', 'JOURNEE'] as const;
 
 // --- Paramètres (jours de classe, D52) ---------------------------------------------------------
 
@@ -49,6 +50,27 @@ export class UpdatePedagogySettingsDto {
   @Min(1)
   @Max(60)
   delaiJustificatifJours?: number;
+
+  // Lot 10 (D62, D63) : on peut pointer le début d'une séance jusqu'à N minutes avant son heure.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  pointageFenetreMinutes?: number;
+
+  // Un début pointé plus de N minutes après l'heure prévue est signalé comme retard.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  pointageToleranceMinutes?: number;
+
+  // Espacement minimal entre deux pointages d'un même enseignant (double scan).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  pointageEcartMinMinutes?: number;
 }
 
 // --- Créneaux horaires (D52, D53) --------------------------------------------------------------
@@ -209,6 +231,16 @@ export class UpdateTeacherDto {
   @IsOptional()
   @IsEnum(TEACHER_STATUSES)
   statut?: (typeof TEACHER_STATUSES)[number];
+
+  // Compte utilisateur avec lequel l'enseignant pointe ; null pour retirer le lien.
+  @IsOptional()
+  @IsString()
+  userId?: string | null;
+
+  // SEANCE : QR de la salle à chaque cours ; JOURNEE : QR de l'entrée à l'arrivée et au départ.
+  @IsOptional()
+  @IsEnum(POINTAGE_MODES)
+  modePointage?: (typeof POINTAGE_MODES)[number];
 }
 
 export class SetTeacherSubjectsDto {

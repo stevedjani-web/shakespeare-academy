@@ -106,6 +106,20 @@ export const LOT9_PERMISSIONS = [
   { code: 'ATTENDANCE_READ', description: "Consulter les appels, les absences et l'historique d'assiduité d'un élève." },
 ] as const;
 
+/**
+ * Lot 10 (pointage des enseignants). `TEACHER_CHECKIN_SELF` : scanner son propre pointage (compte relié à
+ * une fiche enseignant) ; `TEACHER_CHECKIN_READ` : consulter les pointages et les heures effectuées ;
+ * `TEACHER_CHECKIN_VALIDATE` : valider, rejeter, corriger (jamais son propre pointage, RV06).
+ */
+export const LOT10_PERMISSIONS = [
+  { code: 'TEACHER_CHECKIN_SELF', description: 'Pointer sa propre présence en scannant un QR code (début et fin de séance, arrivée et départ).' },
+  { code: 'TEACHER_CHECKIN_READ', description: "Consulter les pointages des enseignants et le récapitulatif mensuel des heures effectuées." },
+  {
+    code: 'TEACHER_CHECKIN_VALIDATE',
+    description: "Valider ou rejeter un pointage d'enseignant, saisir ou corriger un pointage avec un motif (jamais le sien).",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -130,6 +144,8 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ATTENDANCE_TAKE',
       'ATTENDANCE_CORRECT',
       'ATTENDANCE_READ',
+      'TEACHER_CHECKIN_READ',
+      'TEACHER_CHECKIN_VALIDATE',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -153,6 +169,8 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ATTENDANCE_TAKE',
       'ATTENDANCE_CORRECT',
       'ATTENDANCE_READ',
+      'TEACHER_CHECKIN_READ',
+      'TEACHER_CHECKIN_VALIDATE',
     ],
   },
   {
@@ -172,13 +190,27 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     code: 'AUDITEUR',
     nom: 'Auditeur lecture seule',
     description: 'Consultation historique et exports.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'TIMETABLE_READ', 'ATTENDANCE_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'TIMETABLE_READ', 'ATTENDANCE_READ', 'TEACHER_CHECKIN_READ'],
   },
   {
     code: 'SURVEILLANT',
     nom: 'Surveillant / vie scolaire',
     description: "Appel des élèves, correction des présences, justificatifs d'absence (Lot 9).",
-    permissions: ['STUDENT_READ', 'TIMETABLE_READ', 'ATTENDANCE_TAKE', 'ATTENDANCE_CORRECT', 'ATTENDANCE_READ'],
+    permissions: [
+      'STUDENT_READ',
+      'TIMETABLE_READ',
+      'ATTENDANCE_TAKE',
+      'ATTENDANCE_CORRECT',
+      'ATTENDANCE_READ',
+      'TEACHER_CHECKIN_READ',
+      'TEACHER_CHECKIN_VALIDATE',
+    ],
+  },
+  {
+    code: 'ENSEIGNANT',
+    nom: 'Enseignant',
+    description: 'Son emploi du temps et son pointage par QR code (Lot 10). Compte relié à une fiche enseignant.',
+    permissions: ['TIMETABLE_READ', 'TEACHER_CHECKIN_SELF'],
   },
 ];
 
@@ -210,6 +242,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,
+    ...LOT10_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

@@ -12,7 +12,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login");
+      // On garde l'adresse demandée (par exemple un QR de pointage scanné) pour y revenir après la connexion.
+      const here = `${window.location.pathname}${window.location.search}`;
+      router.replace(here && here !== "/" ? `/login?next=${encodeURIComponent(here)}` : "/login");
     }
   }, [loading, user, router]);
 

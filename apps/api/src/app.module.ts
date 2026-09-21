@@ -26,6 +26,7 @@ import { ReportsModule } from './reports/reports.module';
 import { PedagogyModule } from './pedagogy/pedagogy.module';
 import { TimetableModule } from './timetable/timetable.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { TeacherCheckinsModule } from './teacher-checkins/teacher-checkins.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AttendanceModule } from './attendance/attendance.module';
     PedagogyModule,
     TimetableModule,
     AttendanceModule,
+    TeacherCheckinsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

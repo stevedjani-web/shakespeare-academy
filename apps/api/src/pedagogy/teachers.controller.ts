@@ -33,6 +33,12 @@ export class TeachersController {
     return this.teachers.listTeachers();
   }
 
+  // Déclarée avant ':id' pour ne jamais être prise pour un identifiant.
+  @Get('linkable-users')
+  linkableUsers() {
+    return this.teachers.linkableUsers();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.teachers.findTeacher(id);

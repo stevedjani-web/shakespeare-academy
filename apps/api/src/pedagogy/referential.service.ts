@@ -217,6 +217,8 @@ export class ReferentialService {
     if (used > 0) {
       throw new ConflictException('Cette salle est utilisée dans un emploi du temps : désactivez-la plutôt que de la supprimer.');
     }
+    // Son QR de pointage n'a plus d'objet une fois la salle supprimée.
+    await this.prisma.pointageCode.deleteMany({ where: { roomId: id } });
     await this.prisma.room.delete({ where: { id } });
     await this.log(userId, 'ROOM_DELETE', 'Room', id, before, null);
     return { id };

@@ -21,6 +21,7 @@ const KIND_LABEL: Record<OutboxKind, string> = {
   guardian: "Responsable",
   enrollment: "Inscription",
   attendance: "Appel",
+  checkin: "Pointage",
 };
 
 function when(ts: number | string | null): string {

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { Subject, Teacher } from "@/lib/types";
-import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input } from "@/components/ui";
+import type { LinkableUser, Subject, Teacher } from "@/lib/types";
+import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { Users } from "lucide-react";
 import { describeError, TAB_HINT } from "./shared";
@@ -12,6 +12,7 @@ import { describeError, TAB_HINT } from "./shared";
 export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [users, setUsers] = useState<LinkableUser[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState({ nom: "", prenom: "", telephone: "", email: "" });
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,12 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
   const expand = useExpanded();
 
   async function load() {
-    const [t, s] = await Promise.all([api.get<Teacher[]>("/teachers"), api.get<Subject[]>("/subjects")]);
+    const [t, s, u] = await Promise.all([
+      api.get<Teacher[]>("/teachers"),
+      api.get<Subject[]>("/subjects"),
+      api.get<LinkableUser[]>("/teachers/linkable-users").catch(() => [] as LinkableUser[]),
+    ]);
+    setUsers(u);
     setTeachers(t);
     setSubjects(s.filter((x) => x.actif));
     setLoaded(true);
@@ -72,6 +78,16 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
       await api.patch(`/teachers/${t.id}`, { statut: t.statut === "ACTIF" ? "INACTIF" : "ACTIF" });
       await load();
       onChanged();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  async function savePointage(t: Teacher, data: { userId?: string | null; modePointage?: "SEANCE" | "JOURNEE" }) {
+    setError(null);
+    try {
+      await api.patch(`/teachers/${t.id}`, data);
+      await load();
     } catch (err) {
       setError(describeError(err));
     }
@@ -159,6 +175,31 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
                           </div>
                         </div>
                       )}
+
+                      <div className="rounded-xl bg-surface-muted p-3">
+                        <p className="mb-2 text-sm font-medium text-ink">Pointage par QR code</p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Field label="Comment pointe-t-il ?">
+                            <Select value={t.modePointage} onChange={(e) => void savePointage(t, { modePointage: e.target.value as "SEANCE" | "JOURNEE" })}>
+                              <option value="SEANCE">À chaque cours (QR de la salle) : collège, lycée</option>
+                              <option value="JOURNEE">Arrivée et départ (QR de l&apos;entrée) : maternelle, primaire</option>
+                            </Select>
+                          </Field>
+                          <Field label="Compte utilisateur relié">
+                            <Select value={t.userId ?? ""} onChange={(e) => void savePointage(t, { userId: e.target.value || null })}>
+                              <option value="">Aucun compte : pas de pointage par téléphone</option>
+                              {users
+                                .filter((u) => u.teacherId === null || u.teacherId === t.id)
+                                .map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.prenom} {u.nom} ({u.role})
+                                  </option>
+                                ))}
+                            </Select>
+                          </Field>
+                        </div>
+                        <p className={`mt-2 ${TAB_HINT}`}>Créez d&apos;abord son compte avec le rôle Enseignant dans « Utilisateurs & rôles », puis reliez-le ici.</p>
+                      </div>
 
                       <div>
                         <p className="mb-2 text-sm font-medium text-ink">Matières enseignées</p>

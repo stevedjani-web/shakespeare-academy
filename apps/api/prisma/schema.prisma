@@ -42,6 +42,14 @@ model School {
   // Délai (en jours de classe) pour justifier une absence.
   delaiJustificatifJours Int @default(3)
 
+  // Lot 10 (D62, D63 : valeurs provisoires modifiables par la Direction, jamais codées ailleurs).
+  // On peut pointer le début d'une séance jusqu'à ce nombre de minutes avant son heure.
+  pointageFenetreMinutes   Int @default(15)
+  // Un début pointé plus de N minutes après l'heure prévue est signalé comme retard.
+  pointageToleranceMinutes Int @default(10)
+  // Deux pointages du même enseignant doivent être espacés d'au moins N minutes (double scan).
+  pointageEcartMinMinutes  Int @default(5)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -170,6 +178,7 @@ model Class {
   assignments      TeachingAssignment[]
   timetableEntries TimetableEntry[]
   attendanceCalls  AttendanceCall[]
+  sessionCheckins  TeacherSessionCheckin[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -242,18 +251,21 @@ model User {
 
   refreshTokens          RefreshToken[]
   auditLogs              AuditLog[]
-  discountsProposed      Discount[]             @relation("DiscountAuteur")
-  discountsDecided       Discount[]             @relation("DiscountApprobateur")
+  discountsProposed      Discount[]              @relation("DiscountAuteur")
+  discountsDecided       Discount[]              @relation("DiscountApprobateur")
   paymentsRecus          Payment[]
-  paymentsAnnules        Payment[]              @relation("PaymentAnnulePar")
-  expensesEffectuees     Expense[]              @relation("ExpenseEffectuePar")
-  expensesApprouvees     Expense[]              @relation("ExpenseApprobateur")
-  timetablesPublished    Timetable[]            @relation("TimetablePublishedBy")
-  timetableExceptions    TimetableException[]   @relation("ExceptionCreatedBy")
-  attendanceCalls        AttendanceCall[]       @relation("CallTakenBy")
+  paymentsAnnules        Payment[]               @relation("PaymentAnnulePar")
+  expensesEffectuees     Expense[]               @relation("ExpenseEffectuePar")
+  expensesApprouvees     Expense[]               @relation("ExpenseApprobateur")
+  timetablesPublished    Timetable[]             @relation("TimetablePublishedBy")
+  timetableExceptions    TimetableException[]    @relation("ExceptionCreatedBy")
+  attendanceCalls        AttendanceCall[]        @relation("CallTakenBy")
   attendanceCorrections  AttendanceCorrection[]
-  justificationsDeclared AbsenceJustification[] @relation("JustificationDeclaredBy")
-  justificationsDecided  AbsenceJustification[] @relation("JustificationDecidedBy")
+  justificationsDeclared AbsenceJustification[]  @relation("JustificationDeclaredBy")
+  justificationsDecided  AbsenceJustification[]  @relation("JustificationDecidedBy")
+  teacher                Teacher?                @relation("TeacherUser")
+  checkinsDecided        TeacherSessionCheckin[] @relation("SessionCheckinDecidedBy")
+  dayCheckinsDecided     TeacherDayCheckin[]     @relation("DayCheckinDecidedBy")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -709,6 +721,7 @@ model Room {
   updatedAt        DateTime             @updatedAt
   timetableEntries TimetableEntry[]
   exceptions       TimetableException[] @relation("ExceptionRoom")
+  pointageCode     PointageCode?
 
   @@unique([schoolId, nom])
   @@map("rooms")
@@ -766,6 +779,12 @@ model Teacher {
   statut           TeacherStatus @default(ACTIF)
   // Enseignant volontaire pour la classe pilote (D-liste "à fournir").
   volontairePilote Boolean       @default(false)
+  // Compte utilisateur avec lequel l'enseignant pointe (un compte, une fiche).
+  userId           String?       @unique
+  user             User?         @relation("TeacherUser", fields: [userId], references: [id])
+  // SEANCE : il scanne le QR de la salle au début et à la fin de chaque cours (collège, lycée).
+  // JOURNEE : il scanne le QR de l'entrée à l'arrivée et au départ (maternelle, primaire).
+  modePointage     PointageMode  @default(SEANCE)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -776,6 +795,9 @@ model Teacher {
   replacements     TimetableException[] @relation("ExceptionReplacementTeacher")
 
   attendanceCalls AttendanceCall[]
+
+  sessionCheckins TeacherSessionCheckin[]
+  dayCheckins     TeacherDayCheckin[]
 
   @@map("teachers")
 }
@@ -904,6 +926,7 @@ model TimetableEntry {
 
   exceptions      TimetableException[]
   attendanceCalls AttendanceCall[]
+  sessionCheckins TeacherSessionCheckin[]
 
   @@index([timetableId])
   @@map("timetable_entries")
@@ -1051,4 +1074,97 @@ model AbsenceJustification {
   decisionCommentaire String?
 
   @@map("absence_justifications")
+}
+
+// --- Lot 10 : pointage des enseignants par QR code (addendum v1.1, RV06, RV07) ------------------
+// Un enseignant scanne avec son compte : le pointage naît « en attente » et un tiers le valide (RV06,
+// jamais lui-même). Les heures effectuées se calculent d'après les pointages validés (RV07).
+
+enum PointageMode {
+  SEANCE
+  JOURNEE
+}
+
+enum CheckinStatus {
+  EN_ATTENTE
+  VALIDE
+  REJETE
+}
+
+enum CheckinSource {
+  SCAN
+  MANUEL
+}
+
+// Code imprimé en QR. roomId renseigné : le QR d'une salle ; sinon : le QR de l'entrée de l'école (un
+// seul). Le jeton ne sort jamais des routes réservées à la gestion : le lire à distance annulerait la
+// preuve de présence. Le régénérer invalide l'ancien QR affiché.
+model PointageCode {
+  id        String   @id @default(cuid())
+  roomId    String?  @unique
+  room      Room?    @relation(fields: [roomId], references: [id])
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("pointage_codes")
+}
+
+// Pointage d'une séance (mode SEANCE). Les heures prévues sont un instantané ; les heures pointées sont
+// celles du scan (heure de l'appareil quand le scan a été fait sans Internet, heure de réception à part).
+model TeacherSessionCheckin {
+  id            String         @id @default(cuid())
+  teacherId     String
+  teacher       Teacher        @relation(fields: [teacherId], references: [id])
+  entryId       String
+  entry         TimetableEntry @relation(fields: [entryId], references: [id])
+  date          DateTime       @db.Date
+  classId       String
+  class         Class          @relation(fields: [classId], references: [id])
+  heureDebut    String
+  heureFin      String
+  debutAt       DateTime?
+  finAt         DateTime?
+  debutRecuAt   DateTime?
+  finRecuAt     DateTime?
+  retardMinutes Int?
+  // Le QR scanné n'était pas celui de la salle prévue ce jour-là : à vérifier par le validateur.
+  ecartSalle    Boolean        @default(false)
+  source        CheckinSource  @default(SCAN)
+  statut        CheckinStatus  @default(EN_ATTENTE)
+  decidedById   String?
+  decidedBy     User?          @relation("SessionCheckinDecidedBy", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  motif         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([entryId, date])
+  @@index([teacherId, date])
+  @@map("teacher_session_checkins")
+}
+
+// Pointage d'une journée (mode JOURNEE) : arrivée et départ, sans lien avec les séances.
+model TeacherDayCheckin {
+  id            String        @id @default(cuid())
+  teacherId     String
+  teacher       Teacher       @relation(fields: [teacherId], references: [id])
+  date          DateTime      @db.Date
+  arriveeAt     DateTime?
+  departAt      DateTime?
+  arriveeRecuAt DateTime?
+  departRecuAt  DateTime?
+  // Heure de la première séance du jour, si l'emploi du temps en prévoit une (sinon pas de retard calculable).
+  heurePrevue   String?
+  retardMinutes Int?
+  source        CheckinSource @default(SCAN)
+  statut        CheckinStatus @default(EN_ATTENTE)
+  decidedById   String?
+  decidedBy     User?         @relation("DayCheckinDecidedBy", fields: [decidedById], references: [id])
+  decidedAt     DateTime?
+  motif         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([teacherId, date])
+  @@map("teacher_day_checkins")
 }

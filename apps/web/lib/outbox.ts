@@ -18,7 +18,8 @@ export type OutboxKind =
   | "student-update"
   | "guardian"
   | "enrollment"
-  | "attendance";
+  | "attendance"
+  | "checkin";
 export type OutboxStatus = "pending" | "done" | "failed";
 
 /** Reçu provisoire remis au parent (encaissement hors ligne) : tout ce qui s'imprime dessus. */
