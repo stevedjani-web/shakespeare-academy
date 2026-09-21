@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
+import { ExpandButton, useExpanded } from "@/components/expand";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [motDePasse, setMotDePasse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const help = useExpanded();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,11 +101,21 @@ export default function LoginPage() {
               {submitting ? "Connexion…" : "Se connecter"}
             </Button>
           </form>
-          <p className="mt-4 text-xs text-ink-muted">
-            Sans Internet, la connexion n&apos;est possible qu&apos;avec une session déjà ouverte sur cet appareil : ouvrez
-            l&apos;application installée, elle reprendra votre dernière session.
-          </p>
-          <InstallAppButton className="mt-4" />
+          <div className="mt-5 rounded-2xl border border-border bg-surface p-3">
+            <div className="flex items-center gap-2.5">
+              <ExpandButton open={help.isOpen("aide")} onClick={() => help.toggle("aide")} label="l'aide et l'installation" />
+              <span className="text-sm font-medium text-ink">Installer l&apos;application et travailler sans Internet</span>
+            </div>
+            {help.isOpen("aide") && (
+              <div className="mt-3 space-y-3 border-t border-border pt-3">
+                <p className="text-xs text-ink-muted">
+                  Sans Internet, la connexion n&apos;est possible qu&apos;avec une session déjà ouverte sur cet appareil : ouvrez
+                  l&apos;application installée, elle reprendra votre dernière session.
+                </p>
+                <InstallAppButton />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
