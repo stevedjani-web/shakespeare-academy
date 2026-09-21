@@ -7,6 +7,7 @@ import { api, isOfflineError } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { nextProvisionalNumber, useOnOutboxChange, useOutbox, type OutboxEntry } from "@/lib/outbox";
+import { ExpandButton } from "@/components/expand";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { FeeType, FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
@@ -59,10 +60,15 @@ export function FinancialStatusCard({
   studentId,
   activeEnrollmentId,
   student,
+  open = true,
+  onToggle,
 }: {
   studentId: string;
   activeEnrollmentId?: string;
   student?: ReceiptStudent;
+  /** Corps développé ou non ; sans `onToggle`, la carte reste toujours développée. */
+  open?: boolean;
+  onToggle?: () => void;
 }) {
   const { hasPermission } = useAuth();
   const canRequestDiscount = hasPermission("ENROLLMENT_MANAGE");
@@ -136,11 +142,13 @@ export function FinancialStatusCard({
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 shadow-[var(--shadow-soft)]">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className={`flex flex-wrap items-center gap-3 ${open ? "mb-4" : ""}`}>
+        {onToggle && <ExpandButton open={open} onClick={onToggle} label="la situation financière" />}
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
           <Receipt size={18} />
         </div>
         <h2 className="font-display text-lg font-semibold text-ink">Situation financière</h2>
+        {!open && <span className="text-xs font-medium text-ink-muted">Restant dû {formatMontant(status.montantRestant)}</span>}
         <span className="ml-auto">
           <Badge color={meta.color}>
             <span className="flex items-center gap-1">
@@ -150,6 +158,8 @@ export function FinancialStatusCard({
         </span>
       </div>
 
+      {open && (
+        <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric label="Facturé" value={formatMontant(status.montantFacture)} />
         <Metric label="Remises" value={formatMontant(status.montantRemise)} />
@@ -377,6 +387,8 @@ export function FinancialStatusCard({
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { api, isOfflineError } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { useOnOutboxChange } from "@/lib/outbox";
+import { ExpandButton, useExpanded } from "@/components/expand";
 import type { Class, Enrollment, Student, StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
@@ -38,6 +39,8 @@ export default function StudentDossierPage() {
   const [studentError, setStudentError] = useState<string | null>(null);
   const [savingStudent, setSavingStudent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Situation financière ouverte au départ : c'est là que se fait l'encaissement.
+  const expand = useExpanded(["finance"]);
 
   async function load() {
     const data = await api.get<StudentDossier>(`/students/${params.id}`);
@@ -91,6 +94,7 @@ export default function StudentDossierPage() {
     });
     setStudentError(null);
     setEditingStudent(true);
+    if (!expand.isOpen("identite")) expand.toggle("identite");
   }
 
   async function handleSaveStudent(e: React.FormEvent) {
@@ -162,9 +166,15 @@ export default function StudentDossierPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
-          <div className="mb-3 flex items-center justify-between">
+          <div className={`flex flex-wrap items-center justify-between gap-2 ${expand.isOpen("identite") ? "mb-3" : ""}`}>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <ExpandButton open={expand.isOpen("identite")} onClick={() => expand.toggle("identite")} label="l'identité" />
               <IdCard size={16} className="text-primary" /> Identité
+              {!expand.isOpen("identite") && (
+                <span className="font-normal text-ink-muted">
+                  {SEXE_LABEL[student.sexe]}, né(e) le {new Date(student.dateNaissance).toLocaleDateString("fr-FR")}
+                </span>
+              )}
             </h2>
             {canManage && !editingStudent && (
               <Button variant="ghost" onClick={startEditStudent}>
@@ -172,7 +182,7 @@ export default function StudentDossierPage() {
               </Button>
             )}
           </div>
-          {editingStudent ? (
+          {(expand.isOpen("identite") || editingStudent) && (editingStudent ? (
             <form onSubmit={handleSaveStudent} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom">
@@ -235,21 +245,32 @@ export default function StudentDossierPage() {
                 value={<Badge color={student.statut === "ACTIF" ? "green" : "gray"}>{student.statut}</Badge>}
               />
             </dl>
-          )}
+          ))}
         </Card>
 
         <Card className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
+          <div className={`flex flex-wrap items-center justify-between gap-2 ${expand.isOpen("resp") || showGuardianForm ? "mb-3" : ""}`}>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <ExpandButton open={expand.isOpen("resp")} onClick={() => expand.toggle("resp")} label="les responsables" />
               <Users size={16} className="text-primary" /> Responsables
+              {!expand.isOpen("resp") && (
+                <span className="font-normal text-ink-muted">{student.studentGuardians.length} responsable(s)</span>
+              )}
             </h2>
             {canManage && (
-              <Button variant="secondary" onClick={() => setShowGuardianForm((v) => !v)}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (!showGuardianForm && !expand.isOpen("resp")) expand.toggle("resp");
+                  setShowGuardianForm((v) => !v);
+                }}
+              >
                 <UserPlus size={15} />
                 {showGuardianForm ? "Annuler" : "Ajouter"}
               </Button>
             )}
           </div>
+          {(expand.isOpen("resp") || showGuardianForm) && (
           <ul className="divide-y divide-border">
             {student.studentGuardians.map((sg) => (
               <li key={sg.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
@@ -277,6 +298,7 @@ export default function StudentDossierPage() {
               <li className="py-4 text-sm text-ink-muted">Aucun responsable rattaché.</li>
             )}
           </ul>
+          )}
           {showGuardianForm && (
             <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-border pt-4">
               <div className="grid grid-cols-2 gap-3">
@@ -319,6 +341,8 @@ export default function StudentDossierPage() {
 
         <div className="lg:col-span-3">
           <FinancialStatusCard
+            open={expand.isOpen("finance")}
+            onToggle={() => expand.toggle("finance")}
             studentId={student.id}
             activeEnrollmentId={activeEnrollment?.id}
             student={{
@@ -331,9 +355,14 @@ export default function StudentDossierPage() {
         </div>
 
         <Card className="lg:col-span-3">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+          <h2 className={`flex items-center gap-2 text-sm font-semibold text-ink ${expand.isOpen("parcours") ? "mb-3" : ""}`}>
+            <ExpandButton open={expand.isOpen("parcours")} onClick={() => expand.toggle("parcours")} label="le parcours annuel" />
             <CalendarDays size={16} className="text-primary" /> Parcours annuel
+            {!expand.isOpen("parcours") && (
+              <span className="font-normal text-ink-muted">{student.enrollments.length} inscription(s)</span>
+            )}
           </h2>
+          {expand.isOpen("parcours") && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -383,6 +412,7 @@ export default function StudentDossierPage() {
               </tbody>
             </table>
           </div>
+          )}
         </Card>
       </div>
 

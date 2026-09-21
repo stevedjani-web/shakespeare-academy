@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 
 /** Ensemble d'identifiants développés, avec les gestes usuels (basculer, tout ouvrir, tout fermer). */
-export function useExpanded() {
-  const [open, setOpen] = useState<Set<string>>(new Set());
+export function useExpanded(initial: string[] = []) {
+  const [open, setOpen] = useState<Set<string>>(new Set(initial));
   return {
     open,
     isOpen: (id: string) => open.has(id),
