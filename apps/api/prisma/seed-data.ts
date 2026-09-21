@@ -280,6 +280,24 @@ export const LOT15_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 16 (cahier de textes et devoirs, vague 2). `TEXTBOOK_WRITE` : renseigner le cahier de ses classes et matières (un
+ * enseignant : uniquement ses affectations, la portée est appliquée par le serveur comme pour les notes) ;
+ * `TEXTBOOK_READ` : consulter le cahier de toute l'école (Direction, Administrateur, vie scolaire). Un enseignant lit en
+ * plus le cahier de toutes les matières des classes où il enseigne, sans ce droit.
+ */
+export const LOT16_PERMISSIONS = [
+  {
+    code: 'TEXTBOOK_WRITE',
+    description:
+      'Renseigner le cahier de textes de ses classes et matières (contenu des séances et devoirs) ; un enseignant : uniquement ses affectations.',
+  },
+  {
+    code: 'TEXTBOOK_READ',
+    description: "Consulter le cahier de textes et les devoirs de toute l'école.",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -315,6 +333,7 @@ export const ROLES: Array<{
       'TEACHER_CHECKIN_VALIDATE',
       'PARENT_ACCOUNT_MANAGE',
       'GRADE_READ',
+      'TEXTBOOK_READ',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -355,6 +374,7 @@ export const ROLES: Array<{
       'GRADE_READ',
       'GRADE_CORRECT',
       'BULLETIN_VALIDATE',
+      'TEXTBOOK_READ',
     ],
   },
   {
@@ -406,6 +426,7 @@ export const ROLES: Array<{
       'TEACHER_CHECKIN_VALIDATE',
       'MESSAGE_USE',
       'MESSAGE_DESK',
+      'TEXTBOOK_READ',
     ],
   },
   {
@@ -421,6 +442,7 @@ export const ROLES: Array<{
       'MESSAGE_USE',
       'ATTENDANCE_TAKE',
       'GRADE_ENTER',
+      'TEXTBOOK_WRITE',
     ],
   },
 ];
@@ -462,6 +484,7 @@ export async function seedReferenceData(
     ...LOT14_PERMISSIONS,
     ...HARDENING_PERMISSIONS,
     ...LOT15_PERMISSIONS,
+    ...LOT16_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

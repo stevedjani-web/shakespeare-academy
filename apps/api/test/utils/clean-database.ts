@@ -24,6 +24,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.teacherSessionCheckin.deleteMany();
   await prisma.teacherDayCheckin.deleteMany();
   await prisma.pointageCode.deleteMany();
+  await prisma.textbookEntry.deleteMany();
   // Lot 15 : notes et bulletins (enfants avant parents, avant matières, classes, trimestres et élèves).
   await prisma.gradeCorrection.deleteMany();
   await prisma.grade.deleteMany();

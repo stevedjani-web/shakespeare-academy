@@ -10,7 +10,7 @@ import { ParentPushOptIn } from "@/components/parent-push-opt-in";
 
 interface Notification {
   id: string;
-  type: "ABSENCE" | "RETARD" | "ENSEIGNANT_ABSENT" | "EMPLOI_DU_TEMPS_MODIFIE" | "MESSAGE_RECU" | "ANNONCE" | "BULLETIN_DISPONIBLE";
+  type: "ABSENCE" | "RETARD" | "ENSEIGNANT_ABSENT" | "EMPLOI_DU_TEMPS_MODIFIE" | "MESSAGE_RECU" | "ANNONCE" | "BULLETIN_DISPONIBLE" | "DEVOIR_DONNE";
   titre: string;
   corps: string;
   occurrences: number;
@@ -33,6 +33,7 @@ const TYPE_HELP: Record<Notification["type"], string> = {
   MESSAGE_RECU: "Quand vous recevez un message d'un enseignant ou de l'école",
   ANNONCE: "Quand une annonce est publiée pour la classe de votre enfant (regroupé)",
   BULLETIN_DISPONIBLE: "Quand un bulletin de votre enfant est publié (jamais la note dans l'alerte)",
+  DEVOIR_DONNE: "Quand un devoir est donné à la classe de votre enfant (regroupé)",
 };
 
 const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "primary" | "green"> = {
@@ -43,6 +44,7 @@ const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "prim
   MESSAGE_RECU: "green",
   ANNONCE: "blue",
   BULLETIN_DISPONIBLE: "green",
+  DEVOIR_DONNE: "orange",
 };
 
 function formatWhen(value: string): string {

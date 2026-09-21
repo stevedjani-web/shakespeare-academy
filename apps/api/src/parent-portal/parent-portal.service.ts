@@ -6,6 +6,7 @@ import { FinancialStatusService } from '../financial-status/financial-status.ser
 import { PaymentsService } from '../payments/payments.service';
 import { dayInTimezone } from '../attendance/attendance.util';
 import { BulletinsService } from '../grades/bulletins.service';
+import { TextbookService } from '../textbook/textbook.service';
 
 /**
  * Ce que voit un responsable, en lecture seule (RV08). Chaque route passe par `assertChild` : l'élève doit
@@ -21,6 +22,7 @@ export class ParentPortalService {
     private readonly financialStatus: FinancialStatusService,
     private readonly payments: PaymentsService,
     private readonly bulletins: BulletinsService,
+    private readonly textbook: TextbookService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -91,6 +93,12 @@ export class ParentPortalService {
         })),
       })),
     };
+  }
+
+  /** Cahier de textes de la classe de l'enfant : devoirs à rendre d'abord, puis les 14 derniers jours (lecture seule). */
+  async textbookOf(guardianId: string, studentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.textbook.forStudent(studentId);
   }
 
   /** Bulletins publiés de l'enfant : jamais les notes en direct, uniquement l'instantané validé et publié. */

@@ -31,6 +31,7 @@ import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { PilotageModule } from './pilotage/pilotage.module';
 import { GradesModule } from './grades/grades.module';
+import { TextbookModule } from './textbook/textbook.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { GradesModule } from './grades/grades.module';
     MessagingModule,
     PilotageModule,
     GradesModule,
+    TextbookModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

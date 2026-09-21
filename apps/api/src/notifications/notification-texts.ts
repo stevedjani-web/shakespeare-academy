@@ -43,6 +43,9 @@ export function pushBody(type: NotificationType, names: string[]): string {
     // Jamais une note ni une moyenne (RV10) : seulement qu'un bulletin est disponible.
     case 'BULLETIN_DISPONIBLE':
       return `Un bulletin est disponible pour ${who}. Ouvrez l'application pour le consulter.`;
+    // Ni la matière ni le contenu du devoir dans l'alerte externe (RV10) : seulement qu'un devoir a été donné.
+    case 'DEVOIR_DONNE':
+      return `Un devoir a été donné pour la classe ${dePrenom(who)}. Ouvrez l'application pour le consulter.`;
   }
 }
 
@@ -62,6 +65,8 @@ export function notificationTitle(type: NotificationType): string {
       return 'Nouvelle annonce';
     case 'BULLETIN_DISPONIBLE':
       return 'Bulletin disponible';
+    case 'DEVOIR_DONNE':
+      return 'Nouveau devoir';
   }
 }
 
@@ -129,11 +134,23 @@ export function mergedBody(
       return `${count} annonces ont été publiées pour la classe ${dePrenom(prenom)}. Consultez les annonces.`;
     case 'BULLETIN_DISPONIBLE':
       return `${count} bulletins sont disponibles pour ${prenom}. Consultez l'onglet Bulletins.`;
+    case 'DEVOIR_DONNE':
+      return `${count} devoirs ont été donnés pour la classe ${dePrenom(prenom)}. Consultez l'onglet Devoirs.`;
   }
 }
 
 export function messageReceivedBody(prenom: string, from: string): string {
   return `Vous avez reçu un message de ${from} à propos de ${prenom}.`;
+}
+
+/** Dans l'application (authentifiée) : la matière et l'échéance, jamais le texte du devoir. */
+export function homeworkBody(
+  prenom: string,
+  matiere: string,
+  echeance: string | null,
+): string {
+  const due = echeance ? `, à rendre pour le ${frenchDate(echeance)}` : '';
+  return `Nouveau devoir de ${matiere} pour la classe ${dePrenom(prenom)}${due}. Consultez l'onglet Devoirs.`;
 }
 
 /** Dans l'application (authentifiée) : le trimestre, jamais une note ni une moyenne. */
@@ -152,7 +169,9 @@ export function announcementBody(prenom: string, titre: string): string {
  */
 export function coalescePolicy(type: NotificationType): 'JOUR' | 'FENETRE' {
   // Les annonces et les changements d'emploi du temps sont regroupés par fenêtre de temps ; le reste, tout de suite.
-  return type === 'EMPLOI_DU_TEMPS_MODIFIE' || type === 'ANNONCE'
+  return type === 'EMPLOI_DU_TEMPS_MODIFIE' ||
+    type === 'ANNONCE' ||
+    type === 'DEVOIR_DONNE'
     ? 'FENETRE'
     : 'JOUR';
 }

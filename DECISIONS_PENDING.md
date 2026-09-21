@@ -251,6 +251,20 @@ Point de départ : D51 (hors vague 1, « chaque ajout passe par une décision ex
 
 Règles associées : **RV13** aucune note ne sort de l'application authentifiée (ni notification, ni message, ni export non journalisé, RV10 étendu) ; **RV14** un absent ou un dispensé n'est jamais compté 0 ; **RV15** le parent ne voit que l'instantané publié.
 
+## 19. Cahier de textes et devoirs : vague 2, Lot 16 (proposition du 22 septembre 2026)
+
+Trois choix ont été faits par le propriétaire du projet le 22 septembre 2026 : **visible des parents dès l'enregistrement**, **alerte générique regroupée**, **texte seulement**. Le reste est une **valeur provisoire proposée, paramétrable, à faire valider par la Direction**.
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D89 | Que contient une entrée du cahier de textes ? | Détermine la saisie et l'affichage aux parents. | **PROVISOIRE** : une classe, une matière, une date (jour de la séance), un **contenu** (ce qui a été fait) et/ou des **devoirs** avec une **échéance** facultative. Au moins un des deux textes. Texte seul, 2000 caractères au plus par texte. |
+| D90 | Quand un parent voit-il une entrée ? | Un devoir n'est pas une donnée sensible. | **TRANCHÉ (22 septembre 2026, propriétaire du projet)** : dès que l'enseignant l'enregistre, pour la classe actuelle de l'enfant (les devoirs à rendre d'abord, puis les 14 derniers jours). Aucune validation de la Direction. |
+| D91 | Faut-il prévenir les parents d'un devoir ? | Volume d'alertes, RV10. | **TRANCHÉ (22 septembre 2026)** : alerte générique regroupée par fenêtre de temps (celle des annonces), « Un devoir a été donné pour la classe de {prénom} », jamais la matière ni le contenu dans l'alerte externe. Seulement à la **création** d'une entrée qui contient un devoir encore à rendre : rien pour un simple contenu de séance, un devoir dont l'échéance est passée, ni à la modification. Le parent peut la couper par type. |
+| D92 | Pièces jointes (photo, fichier) ? | Stockage de fichiers d'enfants, D77. | **TRANCHÉ (22 septembre 2026)** : texte seulement, comme la messagerie. |
+| D93 | Qui écrit, qui lit. | RV12. | **PROVISOIRE** : `TEXTBOOK_WRITE` pour l'enseignant, limité par le serveur à ses couples classe-matière ; `TEXTBOOK_READ` pour la Direction, l'Administrateur et le surveillant (lecture de toute l'école, aucune modification) ; un enseignant lit **toutes les matières des classes où il enseigne** (charge de travail des élèves) ; ni l'auditeur, ni le secrétariat, ni le comptable. |
+| D94 | Règles d'écriture. | Cohérence du cahier. | **PROVISOIRE** : date de séance dans l'année active et **jamais dans le futur** (pas de cahier prévisionnel), échéance jamais avant la séance, seul l'auteur modifie ou supprime son entrée, année clôturée en lecture seule. Chaque création, modification et suppression est journalisée **sans le texte**. |
+| D95 | Accusé de lecture, rendu du devoir par l'élève, signature du parent, devoirs récurrents, cahier prévisionnel, lien avec la séance de l'emploi du temps, conservation. | Périmètre. | **OUVERT**, non construit. Conservation : année en cours plus une (D77), sans purge automatique. |
+
 ---
 
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
@@ -267,4 +281,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 22 septembre 2026 : D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 22 septembre 2026 : D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

@@ -15,6 +15,7 @@ const STATIC_PAGES = [
   "/eleves-par-classe",
   "/insolvables",
   "/notes",
+  "/cahier-de-textes",
   "/depenses",
   "/cloture",
   "/appel",

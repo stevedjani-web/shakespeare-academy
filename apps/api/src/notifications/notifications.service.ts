@@ -14,6 +14,7 @@ import {
   publishedBody,
   announcementBody,
   bulletinBody,
+  homeworkBody,
   messageReceivedBody,
   pushBody,
   replacedBody,
@@ -29,6 +30,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'MESSAGE_RECU',
   'ANNONCE',
   'BULLETIN_DISPONIBLE',
+  'DEVOIR_DONNE',
 ];
 
 /** Un fait à signaler pour un élève, avant de savoir à quels responsables il sera adressé. */
@@ -216,6 +218,37 @@ export class NotificationsService {
     } catch (err) {
       this.logger.error(
         `Notification d'annonce non envoyée : ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Un devoir vient d'être donné à une classe. Alerte générique (le prénom et un renvoi vers l'application, RV10) ;
+   * dans l'application, la matière et l'échéance. Regroupée par fenêtre de temps comme les annonces.
+   */
+  async notifyHomework(
+    classId: string,
+    matiere: string,
+    echeance: string | null,
+  ): Promise<void> {
+    try {
+      const school = await this.prisma.school.findFirstOrThrow({
+        select: { fuseauHoraire: true },
+      });
+      const jour = dayInTimezone(new Date(), school.fuseauHoraire);
+      const students = await this.studentsOfClass(classId);
+      await this.deliver(
+        students.map((s) => ({
+          studentId: s.id,
+          prenom: s.prenom,
+          type: 'DEVOIR_DONNE' as const,
+          jour,
+          corps: homeworkBody(s.prenom, matiere, echeance),
+        })),
+      );
+    } catch (err) {
+      this.logger.error(
+        `Notification de devoir non envoyée : ${(err as Error).message}`,
       );
     }
   }

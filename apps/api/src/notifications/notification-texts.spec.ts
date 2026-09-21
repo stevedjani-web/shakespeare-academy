@@ -19,6 +19,7 @@ const TYPES: NotificationType[] = [
   'MESSAGE_RECU',
   'ANNONCE',
   'BULLETIN_DISPONIBLE',
+  'DEVOIR_DONNE',
 ];
 
 describe('textes des notifications', () => {

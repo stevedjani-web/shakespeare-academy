@@ -1242,7 +1242,7 @@ describe('Notes, évaluations et bulletins (e2e, Lot 15)', () => {
           code: body.code,
           motDePasse: 'MotDePasse123',
           consentement: true,
-          versionPolitique: '2026-09-v3',
+          versionPolitique: '2026-09-v4',
         })
         .expect(201);
       return res.body.accessToken as string;

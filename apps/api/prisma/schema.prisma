@@ -212,6 +212,7 @@ model Class {
   announcements    Announcement[]
   evaluations      Evaluation[]
   bulletinPeriods  BulletinPeriod[]
+  textbookEntries  TextbookEntry[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -297,6 +298,7 @@ model User {
   evaluationsCreees      Evaluation[]
   gradesSaisies          Grade[]
   gradeCorrections       GradeCorrection[]
+  textbookEntries        TextbookEntry[]
   justificationsDeclared AbsenceJustification[]  @relation("JustificationDeclaredBy")
   justificationsDecided  AbsenceJustification[]  @relation("JustificationDecidedBy")
   teacher                Teacher?                @relation("TeacherUser")
@@ -799,6 +801,7 @@ model Subject {
   timetableEntries TimetableEntry[]
   attendanceCalls  AttendanceCall[]
   evaluations      Evaluation[]
+  textbookEntries  TextbookEntry[]
 
   @@unique([schoolId, code])
   @@map("subjects")
@@ -847,9 +850,10 @@ model Teacher {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  subjects    TeacherSubject[]
-  assignments TeachingAssignment[]
-  evaluations Evaluation[]
+  subjects        TeacherSubject[]
+  assignments     TeachingAssignment[]
+  evaluations     Evaluation[]
+  textbookEntries TextbookEntry[]
 
   timetableEntries TimetableEntry[]
   replacements     TimetableException[] @relation("ExceptionReplacementTeacher")
@@ -1319,6 +1323,8 @@ enum NotificationType {
   ANNONCE
   // Lot 15 : un bulletin vient d'être publié (jamais une note, RV10).
   BULLETIN_DISPONIBLE
+  // Lot 16 : un devoir vient d'être donné (jamais son contenu dans l'alerte, RV10).
+  DEVOIR_DONNE
 }
 
 enum PushDelivery {
@@ -1550,18 +1556,18 @@ model Grade {
 
 // Historique d'une correction après verrouillage (jamais modifié, motif obligatoire, même patron que RV04).
 model GradeCorrection {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   gradeId        String
-  grade          Grade       @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  grade          Grade        @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   // null = la note n'existait pas encore (création après verrouillage).
   ancienStatut   GradeStatus?
-  ancienneValeur Decimal?    @db.Decimal(6, 2)
+  ancienneValeur Decimal?     @db.Decimal(6, 2)
   nouveauStatut  GradeStatus
-  nouvelleValeur Decimal?    @db.Decimal(6, 2)
+  nouvelleValeur Decimal?     @db.Decimal(6, 2)
   motif          String
   userId         String
-  user           User        @relation(fields: [userId], references: [id])
-  createdAt      DateTime    @default(now())
+  user           User         @relation(fields: [userId], references: [id])
+  createdAt      DateTime     @default(now())
 
   @@index([gradeId])
   @@map("grade_corrections")
@@ -1638,4 +1644,32 @@ model GradeBand {
   minimum Decimal @db.Decimal(5, 2)
 
   @@map("grade_bands")
+}
+
+// --- Lot 16 : cahier de textes et devoirs (vague 2, D51) -------------------------------------------------------------
+
+// Une entrée du cahier de textes : ce qui a été fait en cours et/ou le travail à faire, pour une classe, une matière et un
+// jour. Texte seul (aucune pièce jointe). `teacherId` est le titulaire de la matière dans la classe au moment de la
+// création (affectation, RV01). Aucune clé vers l'emploi du temps : une version brouillon peut être supprimée.
+model TextbookEntry {
+  id           String    @id @default(cuid())
+  classId      String
+  class        Class     @relation(fields: [classId], references: [id])
+  subjectId    String
+  subject      Subject   @relation(fields: [subjectId], references: [id])
+  teacherId    String
+  teacher      Teacher   @relation(fields: [teacherId], references: [id])
+  // Jour de la séance.
+  date         DateTime  @db.Date
+  contenu      String?
+  devoirs      String?
+  // Pour quand le devoir est à rendre ; jamais avant la date de la séance.
+  dateEcheance DateTime? @db.Date
+  createdById  String
+  createdBy    User      @relation(fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([classId, date])
+  @@map("textbook_entries")
 }
