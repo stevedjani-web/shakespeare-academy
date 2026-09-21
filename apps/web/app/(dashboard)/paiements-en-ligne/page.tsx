@@ -105,7 +105,7 @@ export default function OnlinePaymentsPage() {
       {toTreat > 0 && (
         <p className="mb-4 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
           {toTreat} paiement{toTreat > 1 ? "s" : ""} reçu{toTreat > 1 ? "s" : ""} sans solde à imputer : le parent a payé une tranche déjà réglée. Rembourser
-          le parent (hors de l&apos;application) puis clôturer avec un motif.
+          le parent (hors de l&apos;application) puis faire clôturer par la Direction, avec un motif.
         </p>
       )}
 
@@ -120,7 +120,13 @@ export default function OnlinePaymentsPage() {
             ))}
           </Select>
         </div>
-        <Button variant="secondary" onClick={() => void load()}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setNotice(null);
+            void load();
+          }}
+        >
           <RefreshCw size={16} /> Actualiser
         </Button>
       </div>

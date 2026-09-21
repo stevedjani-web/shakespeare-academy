@@ -34,7 +34,17 @@ function frDate(iso: string): string {
 }
 
 /** Suivi d'un paiement lancé : attend la confirmation sur le téléphone, puis affiche le résultat. */
-function PaymentTracker({ studentId, paymentId, onDone }: { studentId: string; paymentId: string; onDone: () => void }) {
+function PaymentTracker({
+  studentId,
+  paymentId,
+  onDone,
+  onRetry,
+}: {
+  studentId: string;
+  paymentId: string;
+  onDone: () => void;
+  onRetry: () => void;
+}) {
   const [state, setState] = useState<OnlinePaymentState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gaveUp, setGaveUp] = useState(false);
@@ -124,6 +134,9 @@ function PaymentTracker({ studentId, paymentId, onDone }: { studentId: string; p
           <div>
             <p className="font-semibold">Le paiement n&apos;a pas abouti</p>
             <p>{state.motifEchec ?? "Réessayez ou contactez le secrétariat."}</p>
+            <Button type="button" variant="secondary" className="mt-2" onClick={onRetry}>
+              Réessayer
+            </Button>
           </div>
         </div>
       )}
@@ -231,6 +244,20 @@ export function PayTranches({
                     onDone={() => {
                       setFinished((prev) => ({ ...prev, [t.trancheId]: t }));
                       onChanged();
+                    }}
+                    onRetry={() => {
+                      // Une tentative échouée libère la tranche : on retire le suivi et on rouvre le formulaire.
+                      setTracked((prev) => {
+                        const next = { ...prev };
+                        delete next[t.trancheId];
+                        return next;
+                      });
+                      setFinished((prev) => {
+                        const next = { ...prev };
+                        delete next[t.trancheId];
+                        return next;
+                      });
+                      open(t);
                     }}
                   />
                 </div>
