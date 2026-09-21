@@ -35,6 +35,8 @@ Avant d'ajouter une fonctionnalité, se demander : *est-elle nécessaire pour s�
 5. **Sorties financières, clôture de journée (rapport). FAIT partiellement, voir état actuel ci-dessous — rapports/exports plus larges (comptables, rapprochements) non construits.**
 6. Import initial, formation, pilote, sauvegarde, mise en production.
 
+**Extension de périmètre « vie scolaire 360° » (21 septembre 2026, décidée par le propriétaire du projet, décision D50 tranchée).** Lots 7 à 14 **proposés** : 7 référentiel pédagogique et personnel, 8 emploi du temps, 9 assiduité des élèves, 10 pointage des enseignants, 11 comptes parents et portail, 12 notifications, 13 messagerie sécurisée et annonces, 14 pilotage 360°. Détail, règles RV01 à RV12 et critères d'acceptation : `docs/Addendum_Cadrage_v1.1_Vie_Scolaire_360.md` ; décisions D50 à D78 : `DECISIONS_PENDING.md` §17. **Tant que ces décisions ne sont pas validées par la Direction, ne coder que ce qui repose sur une valeur paramétrable, jamais une valeur codée en dur** (horaires, seuils de retard, délais, rétention). Le critère de la doctrine ci-dessus (sécuriser l'inscription, la facturation, l'encaissement) reste celui des Lots 1 à 6 ; les Lots 7 et suivants suivent l'addendum, qui ne modifie aucune règle financière (RG08, RG09, RG10, RG16, RG18).
+
 ## Stack
 
 Next.js (apps/web, scaffoldé — aucune page métier encore construite, le Lot 1 est backend uniquement, comme l'a été le socle multi-tenant d'Elyon) · NestJS 11 (apps/api) · PostgreSQL 16 / Prisma 6.19.3 (apps/api/prisma/schema.prisma) · Docker Compose (Postgres dev + test uniquement pour l'instant).

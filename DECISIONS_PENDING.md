@@ -148,6 +148,79 @@ Statut possible : `OUVERT` · `TRANCHÉ` (avec date et décideur) · `PROVISOIRE
 
 **Limites connues, à communiquer** : les pages dynamiques (`/eleves/<id>`, `/recus/<id>`) ne sont disponibles hors ligne que si elles ont été copiées (bouton « Préparer le mode hors ligne » avec Internet, refait toutes les 6 h) ; icône de l'application générique (« S », le vrai logo n'étant pas disponible en fichier) ; le service worker n'est actif qu'en production.
 
+## 17. Vie scolaire 360° : emploi du temps, assiduité, pointage, portail parent, communication (proposition du 21 septembre 2026)
+
+Source : `docs/Addendum_Cadrage_v1.1_Vie_Scolaire_360.md`. Ces décisions préparent les Lots 7 à 14. **Toutes les valeurs ci-dessous sont des propositions provisoires** : elles ne sont pas validées par la Direction, restent **OUVERT** sauf mention contraire, et doivent être des **paramètres modifiables**, jamais des constantes codées en dur. Aucune donnée réelle (horaires, matières, seuils) n'est préchargée.
+
+### 17.1 Périmètre
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D50 | Élargir l'application à une vision 360° (le cahier v1.0 §1.2 classe emploi du temps et portail parent hors périmètre) et dans quel ordre. | Sans décision explicite, ces fonctionnalités contredisent le cadrage. | **TRANCHÉ (21 septembre 2026, propriétaire du projet)** : périmètre élargi et ordre des Lots 7 à 14 validés tel que proposé (référentiel, emploi du temps, assiduité, pointage, portail parent, notifications, messagerie, pilotage). Variante non retenue à ce stade : un portail parent minimal avant le Lot 8, pour tester l'adoption du canal. |
+| D51 | Notes, bulletins, cahier de textes, discipline, santé, cantine, transport, paie, paiement Mobile Money parent, portail élève : dans la vague 1 ? | Détermine l'ampleur du projet et les dates. | Hors vague 1, à cadrer séparément. Chaque ajout passe par une décision explicite. |
+
+### 17.2 Référentiel et emploi du temps
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D52 | Jours de classe et horaires réels (samedi travaillé ? durée des cours ? récréations ?). | Détermine la grille des créneaux. | Lundi à vendredi ; samedi activable par paramètre ; **aucun créneau préchargé** : la Direction définit la grille dans l'écran. Fournir un emploi du temps réel actuel. |
+| D53 | Une grille horaire commune ou une grille par section (anglophone, francophone) ? | Le modèle de créneau dépend ou non de la section. | Une grille par section possible, commune par défaut. |
+| D54 | Source de la liste des matières par niveau et section. | Impossible de créer des affectations réalistes. | Aucune matière préchargée ; saisie ou import Excel fourni par l'école (même approche que D01). |
+| D55 | Trimestres et calendrier scolaire (dates, vacances, jours fériés). | Détermine les périodes de statistiques et les jours sans classe. | Trois trimestres par année scolaire ; dates saisies par la Direction, jamais codées ; jours fériés saisis à la main, sans calendrier national préchargé. |
+| D56 | Profil enseignant : compte utilisateur avec rôle ENSEIGNANT et fiche complémentaire (spécialités, quotité) ? Un enseignant peut-il intervenir dans plusieurs sections ? La paie est-elle gérée ? | Détermine le modèle `Teacher` et les permissions. | Compte utilisateur plus fiche ; plusieurs classes et sections possibles ; **aucune donnée de paie ni de contrat** (export d'heures uniquement). |
+
+### 17.3 Assiduité des élèves
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D57 | À partir de quand un élève en retard devient-il absent de la séance ? | Détermine le calcul des statuts. | Retard jusqu'à 15 minutes après le début de la séance, absent au-delà. **Paramètre modifiable, valeur provisoire.** |
+| D58 | Motifs d'absence, justificatifs, qui valide et sous quel délai. | Détermine le circuit de justification. | Liste de motifs paramétrable ; le parent déclare via le portail, la vie scolaire valide ; délai de 3 jours ouvrés. **Valeurs provisoires paramétrables.** |
+| D59 | Jusqu'à quand l'auteur peut-il corriger un appel ? | Détermine le verrouillage (RV04). | Modifiable par son auteur jusqu'à la fin de la journée ; ensuite correction par la vie scolaire ou la Direction, avec motif et audit. |
+| D60 | Qui fait l'appel et à quelle granularité (par séance ou par demi-journée) ? | Détermine l'écran d'appel et le volume de données. | L'enseignant de la séance, en classe ; le surveillant peut saisir et corriger ; par séance, avec option par demi-journée. Tous présents par défaut pour limiter le nombre de gestes. |
+| D61 | Seuils d'alerte d'assiduité (nombre d'absences non justifiées avant alerte). | Détermine les alertes à la Direction et aux parents. | **Aucun seuil inventé : alertes désactivées** tant que la Direction n'en fixe pas. |
+
+### 17.4 Pointage des enseignants
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D62 | Comment pointe-t-on un enseignant et qui valide ? | Détermine l'écran, l'anti-fraude et la confiance dans les heures. | Le surveillant pointe la présence sur la liste des séances du jour ; l'enseignant peut confirmer ; un enseignant ne valide jamais son propre pointage (RV06). Pas de géolocalisation ni de QR dans la vague 1. |
+| D63 | Tolérance de retard d'un enseignant et règle de comptage des heures. | Détermine les heures effectuées et les retards signalés. | Tolérance de 10 minutes, **paramètre provisoire** ; heures effectuées = durée des séances tenues, calculées (RV07). |
+| D64 | Remplacements : qui saisit, qui est crédité des heures ? | Détermine le récapitulatif mensuel. | La vie scolaire saisit le remplacement ; le remplaçant est crédité, l'absent est marqué absent. |
+
+### 17.5 Portail parent
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D65 | Canal d'alerte vers les parents : notification push (gratuite, demande l'installation de l'application, limitée sur iPhone), SMS ou WhatsApp (payants, dépendance à un fournisseur) ? | Détermine le coût récurrent et la portée réelle. | Notification push et message dans l'application ; **SMS et WhatsApp non activés** avant enquête sur l'équipement réel des parents (D78) et chiffrage. |
+| D66 | Comment un parent obtient-il son compte ? | Un compte créé librement permet l'usurpation d'identité. | Activation par un code remis par le secrétariat, lié au responsable enregistré (`Guardian`), puis mot de passe choisi ; pas de création libre. |
+| D67 | Tous les responsables d'un élève ont-ils accès ? Cas d'un responsable à qui l'accès doit être refusé (décision de justice, par exemple). | Détermine les droits par lien élève-responsable. | Tous les responsables rattachés ont accès ; la Direction peut retirer l'accès d'un responsable, avec audit. |
+| D68 | Langues du portail. | Détermine la traduction des écrans et des alertes. | Français en vague 1, structure prête pour l'anglais (section anglophone) ; à confirmer. |
+
+### 17.6 Notifications
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D69 | Contenu d'une alerte sur un canal externe. | Un SMS ou une notification peut être lu par un tiers (RV10). | Alerte générique avec le prénom de l'enfant et un lien vers l'application ; **jamais** de motif d'absence, de note ni de montant. |
+| D70 | Notifications financières (échéance, impayé) via le canal parent. | Sensibilité et risque de contentieux. | Désactivées en vague 1 ; consultation de la situation financière dans le portail uniquement, sauf décision de la Direction. |
+| D71 | Quels événements notifier et à quel rythme. | Détermine le volume et l'agacement des parents. | Immédiat pour absence, retard et enseignant absent ; regroupé pour les annonces et changements d'emploi du temps ; préférences par parent. |
+
+### 17.7 Messagerie et annonces
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D72 | Qui peut écrire à qui. | Détermine le périmètre de risque (RV09). | Enseignants affectés à la classe de l'enfant ↔ responsables de cet enfant ; Direction et vie scolaire ↔ tous ; jamais de parent à parent ; aucun numéro personnel affiché. |
+| D73 | La Direction peut-elle consulter les échanges ? | Détermine la supervision et la transparence. | Oui, avec journalisation de chaque consultation, et information des utilisateurs dans les conditions d'usage. |
+| D74 | Délais et plages horaires de réponse. | Attentes des parents et pression sur les enseignants. | Aucune restriction technique en vague 1 ; délai de réponse indicatif de 2 jours ouvrés affiché. **Provisoire.** |
+| D75 | Pièces jointes et modération. | Risque de contenus inappropriés et de fuite de données. | Texte seul en vague 1 ; possibilité de signaler un message à la Direction ; pas de suppression, retrait modéré avec trace. |
+
+### 17.8 Données personnelles et exploitation
+
+| # | Question | Impact si non tranchée | Valeur par défaut proposée |
+|---|---|---|---|
+| D76 | Consentement et cadre légal pour les données de mineurs et les communications. | Risque juridique et de réputation. | Consentement du responsable enregistré à l'activation du compte, politique de confidentialité affichée, minimisation des données ; **conformité légale locale à faire valider par l'école ou un conseil juridique**. |
+| D77 | Durée de conservation des présences, messages et notifications. | Volume de données et obligations légales. | Année scolaire en cours plus une année, puis archivage ; **provisoire, à valider avec D76**. |
+| D78 | Volumétrie et équipement réels : nombre d'enseignants, de classes, de parents ; type de téléphone, usage de WhatsApp, forfaits de données. | Dimensionnement et choix du canal (D65). Complète D35. | Enquête auprès d'une classe pilote avant le Lot 12 ; aucun choix de canal payant avant ses résultats. |
+
 ---
 
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
@@ -159,9 +232,9 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 - Numéros de reçu uniques, séquentiels, générés côté serveur (RG10).
 - Le Secrétaire-caissier ne valide jamais ses propres annulations, remises exceptionnelles ou écarts de caisse — la Direction seule approuve.
 - Une seule année scolaire active pour les opérations courantes ; les années antérieures restent consultables, jamais modifiables.
-- Mode hors ligne explicitement exclu du MVP.
+- Mode hors ligne explicitement exclu du MVP (**levé le 21 septembre 2026, voir D49**).
 - « Mobile money » comme mode de paiement = enregistrement manuel d'un encaissement avec référence externe, **pas** une intégration API de paiement automatisé (hors périmètre initial, §1.2).
 
 ---
 
-*Dernière mise à jour : 21 septembre 2026 — ajout de D49 (mode hors ligne). Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 21 septembre 2026 : ajout de D49 (mode hors ligne) puis de D50 à D78 (vie scolaire 360°, proposition en attente de validation). Création initiale le 16 septembre 2026.*
