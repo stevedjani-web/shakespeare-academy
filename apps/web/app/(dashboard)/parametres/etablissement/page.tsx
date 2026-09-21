@@ -15,7 +15,7 @@ import {
   SuccessMessage,
 } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
-import { Building2, ImageUp, Phone, Smartphone } from "lucide-react";
+import { Building2, ImageUp, KeyRound, Phone, Smartphone } from "lucide-react";
 
 export default function SchoolSettingsPage() {
   const { hasPermission } = useAuth();
@@ -34,6 +34,9 @@ export default function SchoolSettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
   const [payBusy, setPayBusy] = useState(false);
+  const [validite, setValidite] = useState("");
+  const [validiteMsg, setValiditeMsg] = useState<string | null>(null);
+  const [validiteError, setValiditeError] = useState<string | null>(null);
   const expand = useExpanded();
 
   useEffect(() => {
@@ -93,6 +96,24 @@ export default function SchoolSettingsPage() {
       setPayError(isApiError(err) ? err.message : "Une erreur est survenue.");
     } finally {
       setPayBusy(false);
+    }
+  }
+
+  async function saveValidite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!school) return;
+    const jours = Number(validite);
+    setValiditeMsg(null);
+    setValiditeError(null);
+    if (!Number.isInteger(jours) || jours < 1 || jours > 90) {
+      setValiditeError("Saisissez un nombre entier de jours entre 1 et 90.");
+      return;
+    }
+    try {
+      setSchool(await api.patch<School>("/school", { parentCodeValiditeJours: jours }));
+      setValiditeMsg("Durée enregistrée.");
+    } catch (err) {
+      setValiditeError(isApiError(err) ? err.message : "Une erreur est survenue.");
     }
   }
 
@@ -185,6 +206,34 @@ export default function SchoolSettingsPage() {
           <Button className="mt-3" variant={school.paiementEnLigneActif ? "secondary" : "primary"} disabled={payBusy} onClick={() => void togglePayments()}>
             {payBusy ? "Enregistrement…" : school.paiementEnLigneActif ? "Désactiver le paiement en ligne" : "Activer le paiement en ligne"}
           </Button>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card className="mb-4 max-w-xl">
+          <div className="flex items-center gap-2.5">
+            <KeyRound size={16} className="text-primary" />
+            <h2 className="text-sm font-semibold text-ink">Codes d&apos;activation des parents</h2>
+            <span className="ml-auto text-xs text-ink-muted">{school.parentCodeValiditeJours} jours</span>
+          </div>
+          <p className="mt-3 text-xs text-ink-muted">
+            Durée pendant laquelle un code d&apos;activation reste valable après sa génération. Une lettre distribuée par les élèves peut arriver
+            plusieurs jours plus tard : 30 jours conviennent en général. Cette durée peut aussi être choisie à chaque génération en lot.
+          </p>
+          <form onSubmit={(e) => void saveValidite(e)} className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="w-32">
+              <Field label="Jours (1 à 90)">
+                <Input
+                  inputMode="numeric"
+                  value={validite === "" ? String(school.parentCodeValiditeJours) : validite}
+                  onChange={(e) => setValidite(e.target.value.replace(/\D/g, ""))}
+                />
+              </Field>
+            </div>
+            <Button type="submit">Enregistrer</Button>
+          </form>
+          <ErrorMessage>{validiteError}</ErrorMessage>
+          <SuccessMessage>{validiteMsg}</SuccessMessage>
         </Card>
       )}
 

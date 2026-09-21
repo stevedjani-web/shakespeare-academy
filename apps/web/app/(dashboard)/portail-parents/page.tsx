@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Copy, KeyRound, Search, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
-import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Spinner, SuccessMessage } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, Spinner, SuccessMessage } from "@/components/ui";
+import { OnboardingPanel } from "@/components/parents/onboarding-panel";
+import type { OnboardingSummary } from "@/lib/parent-activation";
+import type { School } from "@/lib/types";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { formatDate } from "@/lib/format";
@@ -34,6 +37,10 @@ export default function PortailParentsPage() {
   const canRevoke = hasPermission("PARENT_ACCESS_REVOKE");
   const expand = useExpanded();
   const [search, setSearch] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [etatFilter, setEtatFilter] = useState("");
+  const [summary, setSummary] = useState<OnboardingSummary | null>(null);
+  const [school, setSchool] = useState<School | null>(null);
   const [rows, setRows] = useState<GuardianRow[] | null>(null);
   const [issued, setIssued] = useState<IssuedCode | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,12 +49,31 @@ export default function PortailParentsPage() {
 
   const load = useCallback(async () => {
     try {
-      setRows(await api.get<GuardianRow[]>(`/parent-accounts${search.trim() ? `?search=${encodeURIComponent(search.trim())}` : ""}`));
+      const q = new URLSearchParams();
+      if (search.trim()) q.set("search", search.trim());
+      if (classFilter) q.set("classId", classFilter);
+      if (etatFilter) q.set("etat", etatFilter);
+      setRows(await api.get<GuardianRow[]>(`/parent-accounts${q.size > 0 ? `?${q.toString()}` : ""}`));
       setError(null);
     } catch (err) {
       setError(describeError(err));
     }
-  }, [search]);
+  }, [search, classFilter, etatFilter]);
+
+  // Chiffres d'ensemble et réglages de l'école (durée des codes, en-tête des lettres).
+  const loadSummary = useCallback(async () => {
+    try {
+      const [s, sch] = await Promise.all([api.get<OnboardingSummary>("/parent-accounts/summary"), api.get<School>("/school")]);
+      setSummary(s);
+      setSchool(sch);
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canManage) void loadSummary();
+  }, [canManage, loadSummary]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -61,7 +87,7 @@ export default function PortailParentsPage() {
     try {
       await action();
       if (success) setNotice(success);
-      await load();
+      await Promise.all([load(), loadSummary()]);
     } catch (err) {
       setError(describeError(err));
     }
@@ -73,7 +99,7 @@ export default function PortailParentsPage() {
     try {
       const res = await api.post<{ code: string; expireLe: string; telephone: string }>(`/parent-accounts/guardians/${g.id}/activation-code`, {});
       setIssued({ guardianId: g.id, ...res });
-      await load();
+      await Promise.all([load(), loadSummary()]);
     } catch (err) {
       setError(describeError(err));
     }
@@ -99,6 +125,17 @@ export default function PortailParentsPage() {
       <ErrorMessage>{error}</ErrorMessage>
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
 
+      {summary && school && (
+        <OnboardingPanel
+          summary={summary}
+          school={school}
+          onChanged={() => {
+            void load();
+            void loadSummary();
+          }}
+        />
+      )}
+
       {issued && (
         <Card className="mb-4 border-primary/40">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -122,12 +159,32 @@ export default function PortailParentsPage() {
       )}
 
       <Card className="mb-4">
-        <Field label="Rechercher un responsable ou un élève">
-          <div className="relative">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-            <Input className="pl-9" placeholder="Nom, téléphone, matricule…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </Field>
+        <div className="grid gap-3 sm:grid-cols-[1fr_12rem_12rem]">
+          <Field label="Rechercher un responsable ou un élève">
+            <div className="relative">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+              <Input className="pl-9" placeholder="Nom, téléphone, matricule…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </Field>
+          <Field label="Classe">
+            <Select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+              <option value="">Toutes</option>
+              {summary?.classes.map((c) => (
+                <option key={c.classId} value={c.classId}>
+                  {c.classe}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="État">
+            <Select value={etatFilter} onChange={(e) => setEtatFilter(e.target.value)}>
+              <option value="">Tous</option>
+              <option value="SANS_COMPTE">Sans compte</option>
+              <option value="CODE_EN_ATTENTE">Code en attente</option>
+              <option value="ACTIF">Compte actif</option>
+            </Select>
+          </Field>
+        </div>
       </Card>
 
       {!rows && !error && (

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -59,4 +59,38 @@ export class WeekQueryDto {
   @IsOptional()
   @Matches(DATE, { message: 'date doit être au format AAAA-MM-JJ.' })
   date?: string;
+}
+
+/** Génération de codes d'activation en lot (Lot 18). */
+export class BulkCodesDto {
+  // Vide = toute l'école (plafonnée).
+  @IsOptional()
+  @IsString()
+  classId?: string;
+
+  // Inclure aussi les responsables qui ont déjà un code valable (leur ancien code est alors annulé).
+  @IsOptional()
+  @IsBoolean()
+  regenerer?: boolean;
+
+  // Durée de validité en jours ; à défaut, le réglage de l'école.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(90)
+  validiteJours?: number;
+}
+
+export class ListParentAccountsQueryDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  classId?: string;
+
+  @IsOptional()
+  @IsIn(['SANS_COMPTE', 'CODE_EN_ATTENTE', 'ACTIF'])
+  etat?: 'SANS_COMPTE' | 'CODE_EN_ATTENTE' | 'ACTIF';
 }

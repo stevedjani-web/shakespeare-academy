@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Button, Card, ErrorMessage, Field, Input, PageTitle, Spinner } from "@/components/ui";
+import { parseActivationHash } from "@/lib/parent-activation";
 
 // Activation du compte d'un responsable (D66) : avec le code remis par le secrétariat, jamais librement.
 export default function ParentActivationPage() {
@@ -16,6 +17,15 @@ export default function ParentActivationPage() {
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Lien de la lettre ou du message : le téléphone et le code sont dans le fragment de l'adresse (jamais envoyé à un serveur).
+  // On les recopie dans le formulaire puis on les retire de l'adresse, pour qu'ils ne restent pas dans l'historique.
+  useEffect(() => {
+    const { telephone, code } = parseActivationHash(window.location.hash);
+    if (!telephone && !code) return;
+    setForm((f) => ({ ...f, ...(telephone ? { telephone } : {}), ...(code ? { code } : {}) }));
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     void portalApi

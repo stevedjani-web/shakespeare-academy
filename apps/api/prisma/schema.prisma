@@ -51,7 +51,7 @@ model School {
   pointageEcartMinMinutes  Int @default(5)
 
   // Lot 11 (D66 : valeur provisoire modifiable) : durée de validité d'un code d'activation de compte parent.
-  parentCodeValiditeJours Int @default(7)
+  parentCodeValiditeJours Int @default(30)
 
   // Lot 12 (D71 : valeur provisoire modifiable) : les changements d'emploi du temps sont regroupés :
   // tant qu'une notification du même type n'est pas lue et a moins de N minutes, elle est complétée

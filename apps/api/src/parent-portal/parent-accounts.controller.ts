@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ParentAccountsService } from './parent-accounts.service';
-import { SetLinkAccessDto } from './dto/parent.dto';
+import { BulkCodesDto, ListParentAccountsQueryDto, SetLinkAccessDto } from './dto/parent.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
@@ -14,8 +14,22 @@ export class ParentAccountsController {
 
   @Get()
   @RequirePermission('PARENT_ACCOUNT_MANAGE')
-  list(@Query('search') search?: string) {
-    return this.accounts.list(search);
+  list(@Query() query: ListParentAccountsQueryDto) {
+    return this.accounts.list(query.search, query.classId, query.etat);
+  }
+
+  // Chiffres de la mise en service (familles concernées, activées, à relancer), au total et par classe.
+  @Get('summary')
+  @RequirePermission('PARENT_ACCOUNT_MANAGE')
+  summary() {
+    return this.accounts.summary();
+  }
+
+  // Codes d'activation d'une classe (ou de l'école) en une fois : les codes ne sont renvoyés qu'ici.
+  @Post('bulk-codes')
+  @RequirePermission('PARENT_ACCOUNT_MANAGE')
+  bulkCodes(@Body() dto: BulkCodesDto, @CurrentUser() user: CurrentUserData) {
+    return this.accounts.bulkCodes(dto, user.id);
   }
 
   @Post('guardians/:guardianId/activation-code')

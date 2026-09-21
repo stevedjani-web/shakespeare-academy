@@ -32,6 +32,8 @@ export interface School {
   fuseauHoraire: string;
   // Paiement des frais par les parents (Mobile Money), activé par l'Administrateur.
   paiementEnLigneActif: boolean;
+  // Durée de validité d'un code d'activation de compte parent, en jours.
+  parentCodeValiditeJours: number;
 }
 
 export type AcademicYearStatus = "BROUILLON" | "ACTIVE" | "CLOTUREE";
