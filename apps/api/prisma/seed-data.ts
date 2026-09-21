@@ -120,6 +120,20 @@ export const LOT10_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 11 (portail parent). Les responsables n'ont PAS de rôle ni de permission : leur compte est à part
+ * (voir `ParentAccount`). Ces deux permissions sont celles du personnel qui les gère :
+ * `PARENT_ACCOUNT_MANAGE` remet les codes d'activation et désactive un compte ; `PARENT_ACCESS_REVOKE`
+ * retire ou rétablit l'accès d'un responsable pour un élève (D67 : Direction).
+ */
+export const LOT11_PERMISSIONS = [
+  { code: 'PARENT_ACCOUNT_MANAGE', description: "Remettre les codes d'activation des comptes parents, désactiver ou réactiver un compte." },
+  {
+    code: 'PARENT_ACCESS_REVOKE',
+    description: "Retirer ou rétablir, avec motif, l'accès au portail d'un responsable pour un élève donné.",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -146,6 +160,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ATTENDANCE_READ',
       'TEACHER_CHECKIN_READ',
       'TEACHER_CHECKIN_VALIDATE',
+      'PARENT_ACCOUNT_MANAGE',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -171,6 +186,8 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'ATTENDANCE_READ',
       'TEACHER_CHECKIN_READ',
       'TEACHER_CHECKIN_VALIDATE',
+      'PARENT_ACCOUNT_MANAGE',
+      'PARENT_ACCESS_REVOKE',
     ],
   },
   {
@@ -178,7 +195,7 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     nom: 'Secrétaire-caissier',
     description:
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
-    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE', 'CASH_CLOSE', 'TIMETABLE_READ'],
+    permissions: ['STUDENT_READ', 'ENROLLMENT_MANAGE', 'PAYMENT_CREATE', 'CASH_CLOSE', 'TIMETABLE_READ', 'PARENT_ACCOUNT_MANAGE'],
   },
   {
     code: 'COMPTABLE',
@@ -243,6 +260,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,
     ...LOT10_PERMISSIONS,
+    ...LOT11_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

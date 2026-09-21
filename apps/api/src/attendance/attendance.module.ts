@@ -11,5 +11,6 @@ import { AbsenceReasonsController, AttendanceController } from './attendance.con
   imports: [AuditModule, SchoolModule, TimetableModule],
   controllers: [AttendanceController, AbsenceReasonsController],
   providers: [AttendanceService, JustificationsService],
+  exports: [AttendanceService],
 })
 export class AttendanceModule {}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth, isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
@@ -104,6 +105,12 @@ export default function LoginPage() {
               {submitting ? "Connexion…" : "Se connecter"}
             </Button>
           </form>
+          <p className="mt-4 text-center text-sm text-ink-muted">
+            Vous êtes parent d&apos;élève ?{" "}
+            <Link href="/parents/connexion" className="font-medium text-primary underline">
+              Accéder à l&apos;espace parents
+            </Link>
+          </p>
           <div className="mt-5 rounded-2xl border border-border bg-surface p-3">
             <div className="flex items-center gap-2.5">
               <ExpandButton open={help.isOpen("aide")} onClick={() => help.toggle("aide")} label="l'aide et l'installation" />

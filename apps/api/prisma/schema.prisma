@@ -50,6 +50,9 @@ model School {
   // Deux pointages du même enseignant doivent être espacés d'au moins N minutes (double scan).
   pointageEcartMinMinutes  Int @default(5)
 
+  // Lot 11 (D66 : valeur provisoire modifiable) : durée de validité d'un code d'activation de compte parent.
+  parentCodeValiditeJours Int @default(7)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -266,6 +269,7 @@ model User {
   teacher                Teacher?                @relation("TeacherUser")
   checkinsDecided        TeacherSessionCheckin[] @relation("SessionCheckinDecidedBy")
   dayCheckinsDecided     TeacherDayCheckin[]     @relation("DayCheckinDecidedBy")
+  activationCodesCreated ParentActivationCode[]
 
   @@unique([schoolId, email])
   @@map("users")
@@ -355,6 +359,8 @@ model Guardian {
   updatedAt  DateTime @updatedAt
 
   studentGuardians StudentGuardian[]
+  parentAccount    ParentAccount?
+  activationCodes  ParentActivationCode[]
 
   // R9-like (cf. Elyon) : un même numéro identifie le même responsable au sein d'un établissement,
   // jamais par téléphone seul à travers plusieurs écoles (non pertinent ici, mono-établissement,
@@ -364,14 +370,19 @@ model Guardian {
 }
 
 model StudentGuardian {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id])
-  guardianId  String
-  guardian    Guardian @relation(fields: [guardianId], references: [id])
-  lien        String
-  prioritaire Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id             String    @id @default(cuid())
+  studentId      String
+  student        Student   @relation(fields: [studentId], references: [id])
+  guardianId     String
+  guardian       Guardian  @relation(fields: [guardianId], references: [id])
+  lien           String
+  prioritaire    Boolean   @default(false)
+  // Lot 11 (D67) : la Direction peut retirer l'accès au portail d'un responsable pour cet élève précis
+  // (décision de justice, par exemple), avec motif et audit. Le lien familial, lui, ne change pas.
+  accesPortail   Boolean   @default(true)
+  accesModifieAt DateTime?
+  accesMotif     String?
+  createdAt      DateTime  @default(now())
 
   @@unique([studentId, guardianId])
   @@map("student_guardians")
@@ -1167,4 +1178,73 @@ model TeacherDayCheckin {
 
   @@unique([teacherId, date])
   @@map("teacher_day_checkins")
+}
+
+// --- Lot 11 : comptes parents et portail en lecture (addendum v1.1, RV08, RV10) ------------------
+// Un compte parent n'est PAS un User : il a sa propre table, son propre jeton (clé distincte, marqueur
+// « parent ») et sa propre garde. Un jeton de parent n'ouvre donc aucune route du personnel, y compris
+// celles qui n'exigent qu'un utilisateur connecté, et inversement. Il est relié à un responsable
+// (Guardian) déjà enregistré : pas de création libre (D66).
+
+model ParentAccount {
+  id                        String     @id @default(cuid())
+  guardianId                String     @unique
+  guardian                  Guardian   @relation(fields: [guardianId], references: [id])
+  motDePasseHash            String
+  statut                    UserStatus @default(ACTIF)
+  tentativesEchecsConnexion Int        @default(0)
+  verrouilleJusqua          DateTime?
+  dernierLoginAt            DateTime?
+  activatedAt               DateTime   @default(now())
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+
+  refreshTokens ParentRefreshToken[]
+  consents      ParentConsent[]
+
+  @@map("parent_accounts")
+}
+
+model ParentRefreshToken {
+  id        String        @id @default(cuid())
+  accountId String
+  account   ParentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tokenHash String        @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([accountId])
+  @@map("parent_refresh_tokens")
+}
+
+// Consentement du responsable (D76) : une ligne par acceptation, avec la version de la politique
+// affichée à ce moment-là. Jamais modifiée.
+model ParentConsent {
+  id         String        @id @default(cuid())
+  accountId  String
+  account    ParentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  version    String
+  acceptedAt DateTime      @default(now())
+
+  @@index([accountId])
+  @@map("parent_consents")
+}
+
+// Code remis en main propre par le secrétariat. Seule son empreinte est conservée ; il est à usage
+// unique, expire, et se brûle après quelques essais faux.
+model ParentActivationCode {
+  id          String    @id @default(cuid())
+  guardianId  String
+  guardian    Guardian  @relation(fields: [guardianId], references: [id])
+  codeHash    String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  tentatives  Int       @default(0)
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([guardianId])
+  @@map("parent_activation_codes")
 }
