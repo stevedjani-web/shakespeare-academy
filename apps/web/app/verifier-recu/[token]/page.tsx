@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
 import { Spinner } from "@/components/ui";
+import { ExpandButton, useExpanded } from "@/components/expand";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 
 interface VerifiedReceipt {
@@ -24,6 +25,7 @@ export default function VerifyReceiptPage() {
   const params = useParams<{ token: string }>();
   const [receipt, setReceipt] = useState<VerifiedReceipt | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const details = useExpanded();
 
   useEffect(() => {
     fetch(`${API_URL}/payments/verify/${params.token}`)
@@ -71,16 +73,26 @@ export default function VerifyReceiptPage() {
         <p className="mt-1 text-center font-mono text-sm text-ink">{receipt.numeroRecu}</p>
 
         <dl className="mt-4 space-y-2 border-t border-dashed border-border pt-4 text-sm">
-          <Row label="Élève" value={`${receipt.eleve.prenom} ${receipt.eleve.nom}`} />
-          <Row label="Motif" value={receipt.motif} />
-          <Row label="Date" value={formatDate(receipt.datePaiement)} />
           <Row label="Montant" value={formatMontant(receipt.montant)} />
         </dl>
-      </div>
 
-      <p className="max-w-xs text-center text-xs text-ink-muted">
-        Ces informations proviennent directement du serveur de l&apos;établissement — elles confirment que ce reçu correspond à un paiement réellement enregistré.
-      </p>
+        <div className="mt-4 flex items-center gap-2.5 border-t border-dashed border-border pt-4">
+          <ExpandButton open={details.isOpen("details")} onClick={() => details.toggle("details")} label="les détails du reçu" />
+          <span className="text-sm font-medium text-ink">Détails du reçu</span>
+        </div>
+        {details.isOpen("details") && (
+          <div className="mt-3 space-y-3">
+            <dl className="space-y-2 text-sm">
+              <Row label="Élève" value={`${receipt.eleve.prenom} ${receipt.eleve.nom}`} />
+              <Row label="Motif" value={receipt.motif} />
+              <Row label="Date" value={formatDate(receipt.datePaiement)} />
+            </dl>
+            <p className="text-xs text-ink-muted">
+              Ces informations proviennent directement du serveur de l&apos;établissement : elles confirment que ce reçu correspond à un paiement réellement enregistré.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
