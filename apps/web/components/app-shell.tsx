@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Top bar mobile */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-primary px-4 py-3 md:hidden">
           <Brand />
           <button
@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <OfflineStatus />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
     </div>
   );

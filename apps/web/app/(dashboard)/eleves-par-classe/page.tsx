@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { School, Users } from "lucide-react";
+import { Minus, Plus, School, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { buildSection, type ExportColumn } from "@/lib/export";
@@ -44,6 +44,17 @@ export default function StudentsByClassPage() {
   const [loaded, setLoaded] = useState(false);
   const [classFilter, setClassFilter] = useState("");
   const [query, setQuery] = useState("");
+  // Classes développées : tout est replié au départ pour que la page reste compacte.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggle(key: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     void api.get<StudentByClassRow[]>("/reports/students-by-class").then((data) => {
@@ -102,7 +113,7 @@ export default function StudentsByClassPage() {
         <StatCard label="Filles" value={girls} tone="accent" icon={<Users size={18} />} />
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-3">
+      <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="w-full max-w-xs">
           <Select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
             <option value="">Toutes les classes</option>
@@ -116,6 +127,24 @@ export default function StudentsByClassPage() {
         <div className="w-full max-w-xs">
           <Input placeholder="Rechercher un élève…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
+        {visibleGroups.length > 1 && (
+          <div className="flex gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setOpen(new Set(visibleGroups.map((g) => g.key)))}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+            >
+              Tout développer
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(new Set())}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+            >
+              Tout réduire
+            </button>
+          </div>
+        )}
       </div>
 
       {!loaded ? (
@@ -125,10 +154,12 @@ export default function StudentsByClassPage() {
       ) : visibleGroups.length === 0 ? (
         <EmptyState icon={<School />} title="Aucun élève à afficher." description="Modifiez la recherche ou inscrivez un élève." />
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {visibleGroups.map((group) => {
             const gBoys = group.rows.filter((r) => r.sexe === "M").length;
             const noClass = group.classe === NO_CLASS;
+            // Une recherche ou une seule classe choisie développe automatiquement ce qui est trouvé.
+            const expanded = open.has(group.key) || !!query.trim() || visibleGroups.length === 1;
             return (
               <div
                 key={group.key}
@@ -136,15 +167,28 @@ export default function StudentsByClassPage() {
                   noClass ? "border-l-warning" : group.section.toLowerCase().startsWith("angl") ? "border-l-info" : "border-l-primary"
                 }`}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-muted/60 px-4 py-3 sm:px-5">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div
+                  className={`flex flex-wrap items-center justify-between gap-3 bg-surface-muted/60 px-4 py-2.5 sm:px-5 ${
+                    expanded ? "border-b border-border" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggle(group.key)}
+                    aria-expanded={expanded}
+                    aria-label={`${expanded ? "Réduire" : "Développer"} la classe ${group.classe}`}
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left"
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary">
+                      {expanded ? <Minus size={15} /> : <Plus size={15} />}
+                    </span>
                     <h2 className="font-display text-lg font-semibold text-ink">{group.classe}</h2>
                     {group.section && <Badge color="primary">{group.section}</Badge>}
                     {group.cycle && <Badge color="slate">{group.cycle}</Badge>}
                     <Badge color="green">{group.rows.length} élève(s)</Badge>
                     <Badge color="blue">{gBoys} G</Badge>
                     <Badge color="accent">{group.rows.length - gBoys} F</Badge>
-                  </div>
+                  </button>
                   <ExportButtons
                     fileName={`classe-${group.classe}`}
                     title={`Classe ${group.classe}`}
@@ -152,6 +196,7 @@ export default function StudentsByClassPage() {
                     subtitle={[group.section, group.cycle].filter(Boolean).join(" - ")}
                   />
                 </div>
+                {expanded && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -193,6 +238,7 @@ export default function StudentsByClassPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             );
           })}
