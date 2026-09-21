@@ -10,6 +10,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { MessagingModule } from '../messaging/messaging.module';
 import { GradesModule } from '../grades/grades.module';
 import { TextbookModule } from '../textbook/textbook.module';
+import { OnlinePaymentsModule } from '../online-payments/online-payments.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
@@ -33,6 +34,7 @@ import { ParentMessagingController } from './parent-messaging.controller';
     MessagingModule,
     GradesModule,
     TextbookModule,
+    OnlinePaymentsModule,
   ],
   controllers: [ParentAuthController, ParentPortalController, ParentNotificationsController, ParentMessagingController, ParentAccountsController],
   providers: [ParentAuthService, ParentAuthGuard, ParentPortalService, ParentAccountsService],

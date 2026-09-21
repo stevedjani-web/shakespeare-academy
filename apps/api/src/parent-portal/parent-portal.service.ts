@@ -7,6 +7,8 @@ import { PaymentsService } from '../payments/payments.service';
 import { dayInTimezone } from '../attendance/attendance.util';
 import { BulletinsService } from '../grades/bulletins.service';
 import { TextbookService } from '../textbook/textbook.service';
+import { OnlinePaymentsService } from '../online-payments/online-payments.service';
+import type { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
 
 /**
  * Ce que voit un responsable, en lecture seule (RV08). Chaque route passe par `assertChild` : l'élève doit
@@ -23,6 +25,7 @@ export class ParentPortalService {
     private readonly payments: PaymentsService,
     private readonly bulletins: BulletinsService,
     private readonly textbook: TextbookService,
+    private readonly onlinePayments: OnlinePaymentsService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -134,11 +137,15 @@ export class ParentPortalService {
 
   async financeOf(guardianId: string, studentId: string) {
     await this.assertChild(guardianId, studentId);
-    const [status, payments] = await Promise.all([
+    const [status, payments, online] = await Promise.all([
       this.financialStatus.getForStudent(studentId),
       this.payments.findAllForStudent(studentId),
+      this.onlinePayments.overview(studentId),
     ]);
     return {
+      // Lot 17 : le parent peut payer une tranche si l'école a activé le paiement en ligne.
+      paiementEnLigne: online.paiementEnLigne,
+      tranches: online.tranches,
       situation: {
         statut: status.statut,
         montantFacture: status.montantFacture,
@@ -160,5 +167,22 @@ export class ParentPortalService {
         libelle: p.invoiceLine.libelle,
       })),
     };
+  }
+
+  /** Lance le paiement d'une tranche de l'enfant (Mobile Money). */
+  async payTranche(guardianId: string, studentId: string, dto: InitiateOnlinePaymentDto) {
+    await this.assertChild(guardianId, studentId);
+    return this.onlinePayments.initiate(guardianId, studentId, dto);
+  }
+
+  /** État d'un paiement lancé par ce responsable (sondé par l'écran). */
+  onlinePaymentStatus(guardianId: string, id: string) {
+    return this.onlinePayments.getForGuardian(guardianId, id);
+  }
+
+  /** Reçu d'un paiement de l'enfant. */
+  async receiptOf(guardianId: string, studentId: string, paymentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.onlinePayments.receiptForStudent(studentId, paymentId);
   }
 }

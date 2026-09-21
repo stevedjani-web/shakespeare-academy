@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Politique de confidentialité, espace parents | Shakespeare Academy" };
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-const VERSION = "2026-09-v4";
+const VERSION = "2026-09-v5";
 
 const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
@@ -38,6 +38,13 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
     titre: "Notifications",
     contenu: [
       "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe et de la publication d'un bulletin et des devoirs donnés. Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note ni de montant. Vous pouvez couper les alertes par type d'événement.",
+    ],
+  },
+  {
+    titre: "Paiement des frais en ligne",
+    contenu: [
+      "Si l'école a activé le paiement en ligne, vous pouvez payer une tranche de scolarité par Mobile Money depuis cet espace. Pour cela, le numéro de téléphone que vous saisissez est transmis à notre prestataire de paiement (PawaPay) et à votre opérateur, avec le montant, uniquement pour effectuer le paiement. Votre code secret Mobile Money reste sur votre téléphone : l'école ne le voit jamais et ne conserve aucun numéro de carte.",
+      "L'école conserve la trace de chaque tentative (montant, numéro débité, résultat) et le reçu de chaque paiement réussi, comme pour un paiement fait au secrétariat. Les frais du prestataire sont à la charge de l'école : vous payez exactement le montant de la tranche.",
     ],
   },
   {

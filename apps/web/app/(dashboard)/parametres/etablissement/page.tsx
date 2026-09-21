@@ -15,7 +15,7 @@ import {
   SuccessMessage,
 } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
-import { Building2, ImageUp, Phone } from "lucide-react";
+import { Building2, ImageUp, Phone, Smartphone } from "lucide-react";
 
 export default function SchoolSettingsPage() {
   const { hasPermission } = useAuth();
@@ -32,6 +32,8 @@ export default function SchoolSettingsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [payBusy, setPayBusy] = useState(false);
   const expand = useExpanded();
 
   useEffect(() => {
@@ -78,6 +80,19 @@ export default function SchoolSettingsPage() {
       setLogoError(isApiError(err) ? err.message : "Une erreur est survenue.");
     } finally {
       setUploadingLogo(false);
+    }
+  }
+
+  async function togglePayments() {
+    if (!school) return;
+    setPayError(null);
+    setPayBusy(true);
+    try {
+      setSchool(await api.patch<School>("/school", { paiementEnLigneActif: !school.paiementEnLigneActif }));
+    } catch (err) {
+      setPayError(isApiError(err) ? err.message : "Une erreur est survenue.");
+    } finally {
+      setPayBusy(false);
     }
   }
 
@@ -152,6 +167,24 @@ export default function SchoolSettingsPage() {
               <ErrorMessage>{logoError}</ErrorMessage>
             </div>
           )}
+        </Card>
+      )}
+
+      {canManage && (
+        <Card className="mb-4 max-w-xl">
+          <div className="flex items-center gap-2.5">
+            <Smartphone size={16} className="text-primary" />
+            <h2 className="text-sm font-semibold text-ink">Paiement des frais par les parents</h2>
+            <span className="ml-auto text-xs text-ink-muted">{school.paiementEnLigneActif ? "Activé" : "Désactivé"}</span>
+          </div>
+          <p className="mt-3 text-xs text-ink-muted">
+            Quand il est activé, un parent peut payer une tranche de scolarité par Mobile Money depuis son espace. Les frais du prestataire de paiement
+            sont à la charge de l&apos;école. L&apos;option ne s&apos;affiche aux parents que si les clés du prestataire (PawaPay) sont aussi configurées sur le serveur.
+          </p>
+          <ErrorMessage>{payError}</ErrorMessage>
+          <Button className="mt-3" variant={school.paiementEnLigneActif ? "secondary" : "primary"} disabled={payBusy} onClick={() => void togglePayments()}>
+            {payBusy ? "Enregistrement…" : school.paiementEnLigneActif ? "Désactiver le paiement en ligne" : "Activer le paiement en ligne"}
+          </Button>
         </Card>
       )}
 

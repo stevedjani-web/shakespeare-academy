@@ -26,7 +26,9 @@ export function configureApp(app: NestExpressApplication) {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   configureApp(app);
   await app.listen(process.env.PORT ?? 3001);
 }

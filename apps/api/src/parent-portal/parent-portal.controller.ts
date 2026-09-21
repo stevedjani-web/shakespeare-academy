@@ -16,6 +16,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { ParentAuthService, type ParentSession } from './parent-auth.service';
 import { ParentPortalService } from './parent-portal.service';
 import { ParentAuthGuard, type ParentIdentity } from './parent-auth.guard';
+import { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
 import { ActivateDto, ParentChangePasswordDto, ParentLoginDto, WeekQueryDto } from './dto/parent.dto';
 
 const REFRESH_COOKIE = 'parent_refresh_token';
@@ -126,5 +127,20 @@ export class ParentPortalController {
   @Get('children/:studentId/finance')
   finance(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
     return this.portal.financeOf(req.parent.guardianId, studentId);
+  }
+
+  @Post('children/:studentId/payments')
+  payTranche(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Body() dto: InitiateOnlinePaymentDto) {
+    return this.portal.payTranche(req.parent.guardianId, studentId, dto);
+  }
+
+  @Get('payments/:id')
+  onlinePayment(@Req() req: ParentRequest, @Param('id') id: string) {
+    return this.portal.onlinePaymentStatus(req.parent.guardianId, id);
+  }
+
+  @Get('children/:studentId/payments/:paymentId/receipt')
+  receipt(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Param('paymentId') paymentId: string) {
+    return this.portal.receiptOf(req.parent.guardianId, studentId, paymentId);
   }
 }

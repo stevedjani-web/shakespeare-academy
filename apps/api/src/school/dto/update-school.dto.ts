@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateSchoolDto {
   @IsOptional()
@@ -17,4 +17,9 @@ export class UpdateSchoolDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  // Interrupteur du paiement des frais par les parents (Lot 17). Faux tant que l'Administrateur ne l'active pas.
+  @IsOptional()
+  @IsBoolean()
+  paiementEnLigneActif?: boolean;
 }

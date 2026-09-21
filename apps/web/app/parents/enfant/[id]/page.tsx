@@ -12,6 +12,7 @@ import { formatIso, shiftWeek } from "@/components/emploi-du-temps/shared";
 import { formatMontant } from "@/lib/format";
 import { ParentBulletinsTab } from "@/components/parents/bulletins-tab";
 import { ParentTextbookTab } from "@/components/parents/textbook-tab";
+import { PayTranches, type PayableTranche } from "@/components/parents/pay-tranche";
 
 type Tab = "emploi" | "absences" | "finances" | "bulletins" | "devoirs";
 
@@ -40,6 +41,9 @@ interface Attendance {
 }
 
 interface Finance {
+  // Paiement en ligne activé par l'école (et fournisseur configuré) : sinon aucune tranche n'est proposée à payer.
+  paiementEnLigne: boolean;
+  tranches: PayableTranche[];
   situation: {
     statut: "SOLVABLE" | "A_ECHOIR" | "EN_RETARD" | "IMPAYE_CRITIQUE" | "EXONERE";
     montantFacture: number;
@@ -121,6 +125,14 @@ export default function ChildPage() {
         .catch((e) => setError(describePortalError(e)));
     }
   }, [parent, tab, id, loadTimetable, attendance, finance]);
+
+  // Recharge la situation financière après un paiement (le solde, les reçus et les tranches changent).
+  const reloadFinance = useCallback(() => {
+    void portalApi
+      .get<Finance>(`/portal/children/${id}/finance`)
+      .then(setFinance)
+      .catch((e) => setError(describePortalError(e)));
+  }, [id]);
 
   if (loading || !parent) {
     return (
@@ -296,6 +308,10 @@ export default function ChildPage() {
                   </p>
                 )}
               </Card>
+
+              {finance.paiementEnLigne && (
+                <PayTranches studentId={id} tranches={finance.tranches} defaultPhone={parent.telephone} onChanged={reloadFinance} />
+              )}
 
               <h2 className="mb-2 font-display text-base font-semibold text-ink">Paiements et reçus</h2>
               {finance.paiements.length === 0 ? (

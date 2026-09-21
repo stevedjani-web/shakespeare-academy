@@ -30,6 +30,8 @@ export interface School {
   logoUrl: string | null;
   devise: string;
   fuseauHoraire: string;
+  // Paiement des frais par les parents (Mobile Money), activé par l'Administrateur.
+  paiementEnLigneActif: boolean;
 }
 
 export type AcademicYearStatus = "BROUILLON" | "ACTIVE" | "CLOTUREE";
@@ -231,7 +233,7 @@ export interface Payment {
   datePaiement: string;
   statut: PaymentStatus;
   motifAnnulation: string | null;
-  recuParUser: { id: string; nom: string; prenom: string };
+  recuParUser: { id: string; nom: string; prenom: string } | null;
   annuleParUser: { id: string; nom: string; prenom: string } | null;
   invoiceLine?: InvoiceLine & {
     invoice: {

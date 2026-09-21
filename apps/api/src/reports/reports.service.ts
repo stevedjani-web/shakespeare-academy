@@ -98,7 +98,7 @@ export class ReportsService {
           eleve: p.invoiceLine.invoice.enrollment.student
             ? `${p.invoiceLine.invoice.enrollment.student.prenom} ${p.invoiceLine.invoice.enrollment.student.nom}`
             : null,
-          recuPar: `${p.recuParUser.prenom} ${p.recuParUser.nom}`,
+          recuPar: p.recuParUser ? `${p.recuParUser.prenom} ${p.recuParUser.nom}` : "Paiement en ligne",
         })),
       },
       sorties: {

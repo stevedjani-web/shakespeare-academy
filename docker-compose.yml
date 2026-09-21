@@ -59,6 +59,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-https://academy.lobima.online}
+      # Lot 17 : paiement des frais par les parents (PawaPay). Vides = paiement en ligne indisponible.
+      # Doivent figurer ICI pour atteindre le conteneur : les mettre seulement dans .env.production ne suffit pas.
+      PAWAPAY_API_TOKEN: ${PAWAPAY_API_TOKEN:-}
+      PAWAPAY_ENVIRONMENT: ${PAWAPAY_ENVIRONMENT:-sandbox}
     volumes:
       # Logo de l'établissement (et futurs fichiers uploadés) : nommé pour survivre à une
       # recréation du conteneur (rebuild d'image), jamais dans l'image elle-même.

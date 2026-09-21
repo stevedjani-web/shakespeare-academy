@@ -126,7 +126,7 @@ export default function ReceiptPage() {
           <Row label="Motif" value={payment.invoiceLine?.libelle ?? "—"} />
           <Row label="Mode de paiement" value={MODE_LABEL[payment.modePaiement] ?? payment.modePaiement} />
           {payment.referenceExterne && <Row label="Référence" value={payment.referenceExterne} />}
-          <Row label="Reçu par" value={`${payment.recuParUser.prenom} ${payment.recuParUser.nom}`} />
+          <Row label="Reçu par" value={payment.recuParUser ? `${payment.recuParUser.prenom} ${payment.recuParUser.nom}` : "Paiement en ligne"} />
         </dl>
 
         <div className="mt-4 flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">

@@ -71,10 +71,12 @@ model School {
 
   // Lot 15 (notes et bulletins, valeurs provisoires modifiables, jamais des constantes). Barème par défaut d'une
   // nouvelle évaluation ; moyenne de passage : `null` = aucune mention admis ou refusé (rien d'inventé).
-  baremeDefaut        Int      @default(20)
-  moyennePassage      Decimal? @db.Decimal(4, 2)
+  baremeDefaut         Int      @default(20)
+  moyennePassage       Decimal? @db.Decimal(4, 2)
   // Le parent voit-il le rang de son enfant et les statistiques de la classe sur le bulletin ? Non par défaut (à décider).
-  bulletinAfficheRang Boolean  @default(false)
+  bulletinAfficheRang  Boolean  @default(false)
+  // Interrupteur du paiement des frais par les parents (Mobile Money). Faux tant que l'Administrateur ne l'a pas activé.
+  paiementEnLigneActif Boolean  @default(false)
 
   academicYears   AcademicYear[]
   sections        Section[]
@@ -88,6 +90,7 @@ model School {
   feeSchedules    FeeSchedule[]
   invoices        Invoice[]
   payments        Payment[]
+  onlinePayments  OnlinePayment[]
   expenses        Expense[]
   rooms           Room[]
   timeSlots       TimeSlot[]
@@ -406,6 +409,7 @@ model Guardian {
 
   studentGuardians StudentGuardian[]
   parentAccount    ParentAccount?
+  onlinePayments   OnlinePayment[]
   messageThreads   MessageThread[]
   activationCodes  ParentActivationCode[]
 
@@ -574,8 +578,9 @@ model InvoiceLine {
   ordre           Int       @default(0)
   createdAt       DateTime  @default(now())
 
-  discounts Discount[]
-  payments  Payment[]
+  discounts      Discount[]
+  payments       Payment[]
+  onlinePayments OnlinePayment[]
 
   @@map("invoice_lines")
 }
@@ -599,36 +604,75 @@ enum PaymentStatus {
   ANNULE
 }
 
+enum OnlinePaymentStatus {
+  EN_ATTENTE
+  CONFIRME
+  ECHOUE
+  A_TRAITER
+}
+
+// Tentative de paiement en ligne d'une tranche par un parent. Le Payment (et son reçu séquentiel, RG10)
+// ne naît qu'à la confirmation du fournisseur : une tentative échouée ou abandonnée ne consomme aucun numéro.
+model OnlinePayment {
+  id               String              @id @default(cuid())
+  schoolId         String
+  school           School              @relation(fields: [schoolId], references: [id])
+  invoiceLineId    String
+  invoiceLine      InvoiceLine         @relation(fields: [invoiceLineId], references: [id])
+  guardianId       String
+  guardian         Guardian            @relation(fields: [guardianId], references: [id])
+  montant          Int
+  // Numéro débité, au format international sans le plus.
+  telephone        String
+  // Identifiant envoyé au fournisseur (UUID), clé de rapprochement du retour signé.
+  depositId        String              @unique
+  statut           OnlinePaymentStatus @default(EN_ATTENTE)
+  motifEchec       String?
+  // Argent pris mais plus rien à imputer : clôturé par la Direction avec un motif.
+  motifCloture     String?
+  clotureParUserId String?
+  paymentId        String?             @unique
+  payment          Payment?            @relation(fields: [paymentId], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([invoiceLineId, statut])
+  @@index([schoolId, statut])
+  @@map("online_payments")
+}
+
 model Payment {
-  id                String        @id @default(cuid())
+  id                String         @id @default(cuid())
   schoolId          String
-  school            School        @relation(fields: [schoolId], references: [id])
+  school            School         @relation(fields: [schoolId], references: [id])
   invoiceLineId     String
-  invoiceLine       InvoiceLine   @relation(fields: [invoiceLineId], references: [id])
+  invoiceLine       InvoiceLine    @relation(fields: [invoiceLineId], references: [id])
   numeroRecu        String
   // Vérification d'authenticité du reçu (D29) : jeton aléatoire distinct de numeroRecu (séquentiel
   // et donc devinable) — sert de clé pour GET /payments/verify/:token, un endpoint public qui ne
   // doit jamais permettre d'énumérer tous les reçus de l'école en incrémentant un numéro.
-  verificationToken String        @unique @default(cuid())
+  verificationToken String         @unique @default(cuid())
   // Encaissement saisi sans Internet (D49) : numéro du reçu PROVISOIRE remis au parent (généré sur
   // l'appareil, jamais un numéro officiel) et instant réel de la saisie. Le reçu officiel REC-xxxxxx
   // n'est attribué qu'à la synchronisation, par le serveur (RG10 inchangée).
   numeroProvisoire  String?
   saisieHorsLigneAt DateTime?
   montant           Int
-  modePaiement      PaymentMode   @default(ESPECES)
+  modePaiement      PaymentMode    @default(ESPECES)
   // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais
   // d'intégration API automatisée, un simple enregistrement manuel (cahier §11, déjà tranché).
   referenceExterne  String?
-  datePaiement      DateTime      @default(now())
-  recuParUserId     String
-  recuParUser       User          @relation(fields: [recuParUserId], references: [id])
-  statut            PaymentStatus @default(VALIDE)
+  datePaiement      DateTime       @default(now())
+  // Vide pour un paiement en ligne confirmé par le fournisseur (aucun encaisseur du personnel).
+  recuParUserId     String?
+  recuParUser       User?          @relation(fields: [recuParUserId], references: [id])
+  onlinePayment     OnlinePayment?
+  statut            PaymentStatus  @default(VALIDE)
   motifAnnulation   String?
   annuleParUserId   String?
-  annuleParUser     User?         @relation("PaymentAnnulePar", fields: [annuleParUserId], references: [id])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  annuleParUser     User?          @relation("PaymentAnnulePar", fields: [annuleParUserId], references: [id])
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   @@unique([schoolId, numeroRecu])
   @@unique([schoolId, numeroProvisoire])
