@@ -371,3 +371,19 @@ export interface DashboardStats {
   depenses: { totalApprouve: number; enAttenteCount: number; enAttenteMontant: number };
   insolvables: { count: number };
 }
+
+export interface StudentByClassRow {
+  id: string;
+  section: string;
+  cycle: string;
+  classe: string;
+  annee: string;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  sexe: "M" | "F";
+  dateNaissance: string;
+  statut: string;
+  responsable: string;
+  telephoneResponsable: string;
+}

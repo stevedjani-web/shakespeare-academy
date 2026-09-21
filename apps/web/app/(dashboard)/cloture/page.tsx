@@ -1,11 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
-import type { CashClosing } from "@/lib/types";
-import { Card, EmptyState, Input, PageTitle, StatCard } from "@/components/ui";
+import { buildSection, type ExportSection } from "@/lib/export";
+import type { CashClosing, CashClosingEntry, CashClosingExpense, ExpenseCategory } from "@/lib/types";
+import { Badge, Card, EmptyState, Input, PageTitle, StatCard } from "@/components/ui";
+import { ExportButtons } from "@/components/export-buttons";
 import { ArrowDownCircle, ArrowUpCircle, ClipboardList, Wallet } from "lucide-react";
+
+const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  VERSEMENT_BANQUE: "Versement banque",
+  PAIEMENT_SALAIRE: "Paiement salaire",
+  PAIEMENT_FACTURE: "Paiement facture",
+  ACHAT_MATERIEL: "Achat matériel",
+  AUTRE: "Autre",
+};
+
+const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -24,11 +36,64 @@ export default function CashClosingPage() {
     });
   }, [date]);
 
+  const sections = useMemo<ExportSection[]>(() => {
+    if (!closing) return [];
+    return [
+      buildSection(
+        "Récapitulatif",
+        [
+          { header: "Indicateur", value: (r: [string, number]) => r[0] },
+          { header: "Montant", value: (r: [string, number]) => r[1], kind: "money" },
+        ],
+        [
+          ["Entrées du jour", closing.entrees.total],
+          ["Sorties du jour", closing.sorties.total],
+          ["Solde du jour", closing.soldeJour],
+          ["Solde cumulé en caisse", closing.soldeCumule],
+        ],
+      ),
+      buildSection(
+        "Entrées",
+        [
+          { header: "Reçu", value: (e: CashClosingEntry) => e.numeroRecu },
+          { header: "Élève", value: (e: CashClosingEntry) => e.eleve ?? "" },
+          { header: "Motif", value: (e: CashClosingEntry) => e.libelle },
+          { header: "Mode", value: (e: CashClosingEntry) => MODE_LABEL[e.modePaiement] ?? e.modePaiement },
+          { header: "Reçu par", value: (e: CashClosingEntry) => e.recuPar },
+          { header: "Montant", value: (e: CashClosingEntry) => e.montant, kind: "money" },
+        ],
+        closing.entrees.items,
+        ["Total entrées", "", "", "", "", closing.entrees.total],
+      ),
+      buildSection(
+        "Sorties",
+        [
+          { header: "Catégorie", value: (e: CashClosingExpense) => CATEGORY_LABEL[e.categorie] ?? e.categorie },
+          { header: "Description", value: (e: CashClosingExpense) => e.description },
+          { header: "Effectuée par", value: (e: CashClosingExpense) => e.effectuePar },
+          { header: "Montant", value: (e: CashClosingExpense) => e.montant, kind: "money" },
+        ],
+        closing.sorties.items,
+        ["Total sorties", "", "", closing.sorties.total],
+      ),
+    ];
+  }, [closing]);
+
   return (
     <div>
-      <PageTitle eyebrow="Lot 5" subtitle="État des entrées, sorties et solde de caisse pour une journée donnée.">
-        Clôture de journée
-      </PageTitle>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageTitle eyebrow="Lot 5" subtitle="État des entrées, sorties et solde de caisse pour une journée donnée.">
+          Clôture de journée
+        </PageTitle>
+        {closing && (
+          <ExportButtons
+            fileName={`cloture-${date}`}
+            title={`Clôture de journée du ${formatDate(date)}`}
+            subtitle={`Journée du ${formatDate(date)}`}
+            sections={sections}
+          />
+        )}
+      </div>
 
       <div className="mb-6 max-w-xs">
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -48,35 +113,44 @@ export default function CashClosingPage() {
               label="Sorties du jour"
               value={formatMontant(closing.sorties.total)}
               hint={`${closing.sorties.count} sortie(s) approuvée(s)`}
-              tone="danger"
+              tone={closing.sorties.total > 0 ? "danger" : "info"}
               icon={<ArrowUpCircle size={18} />}
             />
             <StatCard
               label="Solde du jour"
               value={formatMontant(closing.soldeJour)}
-              tone="primary"
+              tone={closing.soldeJour > 0 ? "success" : closing.soldeJour < 0 ? "danger" : "info"}
               icon={<Wallet size={18} />}
+              hint={closing.soldeJour > 0 ? "Excédent" : closing.soldeJour < 0 ? "Déficit" : "Équilibré"}
             />
             <StatCard
               label="Solde cumulé en caisse"
               value={formatMontant(closing.soldeCumule)}
               hint="Depuis le début"
-              tone="accent"
+              tone={closing.soldeCumule >= 0 ? "success" : "danger"}
               icon={<ClipboardList size={18} />}
             />
           </div>
 
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge color="green">Espèces : {formatMontant(closing.entrees.parMode.ESPECES)}</Badge>
+              <Badge color="blue">Mobile Money : {formatMontant(closing.entrees.parMode.MOBILE_MONEY)}</Badge>
+            </div>
+          )}
+
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <Card>
-              <h2 className="mb-3 font-display text-lg font-semibold text-ink">Entrées ({formatDate(date)})</h2>
+              <h2 className="mb-3 font-display text-lg font-semibold text-success">Entrées ({formatDate(date)})</h2>
               {closing.entrees.items.length === 0 ? (
                 <EmptyState icon={<ArrowDownCircle />} title="Aucune entrée ce jour." />
               ) : (
                 <ul className="space-y-2">
                   {closing.entrees.items.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-border p-3 text-sm">
-                      <p className="font-medium text-ink">
-                        {item.numeroRecu} — {formatMontant(item.montant)}
+                    <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-success bg-success-soft/40 p-3 text-sm">
+                      <p className="flex flex-wrap items-center justify-between gap-2 font-medium text-ink">
+                        <span>{item.numeroRecu}</span>
+                        <span className="font-semibold text-success">+ {formatMontant(item.montant)}</span>
                       </p>
                       <p className="text-xs text-ink-muted">
                         {item.libelle} {item.eleve && <>· {item.eleve}</>} · {item.recuPar}
@@ -88,15 +162,16 @@ export default function CashClosingPage() {
             </Card>
 
             <Card>
-              <h2 className="mb-3 font-display text-lg font-semibold text-ink">Sorties ({formatDate(date)})</h2>
+              <h2 className="mb-3 font-display text-lg font-semibold text-danger">Sorties ({formatDate(date)})</h2>
               {closing.sorties.items.length === 0 ? (
                 <EmptyState icon={<ArrowUpCircle />} title="Aucune sortie approuvée ce jour." />
               ) : (
                 <ul className="space-y-2">
                   {closing.sorties.items.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-border p-3 text-sm">
-                      <p className="font-medium text-ink">
-                        {item.categorie} — {formatMontant(item.montant)}
+                    <li key={item.id} className="rounded-xl border border-l-4 border-border border-l-danger bg-danger-soft/40 p-3 text-sm">
+                      <p className="flex flex-wrap items-center justify-between gap-2 font-medium text-ink">
+                        <span>{CATEGORY_LABEL[item.categorie] ?? item.categorie}</span>
+                        <span className="font-semibold text-danger">- {formatMontant(item.montant)}</span>
                       </p>
                       <p className="text-xs text-ink-muted">
                         {item.description} · {item.effectuePar}

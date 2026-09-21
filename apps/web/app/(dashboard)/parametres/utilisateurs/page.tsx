@@ -6,6 +6,8 @@ import { isApiError } from "@/contexts/auth-context";
 import type { AppUser, Permission, Role } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { KeyRound, ShieldCheck, UserCog, UserPlus, Users } from "lucide-react";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
@@ -98,6 +100,28 @@ function UsersTab() {
 
   return (
     <div>
+      {users.length > 0 && (
+        <div className="mb-3 flex justify-end">
+          <ExportButtons
+            fileName="utilisateurs"
+            title="Utilisateurs"
+            sections={[
+              buildSection(
+                "Utilisateurs",
+                [
+                  { header: "Nom", value: (u: AppUser) => u.nom },
+                  { header: "Prénom", value: (u: AppUser) => u.prenom },
+                  { header: "E-mail", value: (u: AppUser) => u.email },
+                  { header: "Rôle", value: (u: AppUser) => u.role.nom },
+                  { header: "Statut", value: (u: AppUser) => (u.statut === "ACTIF" ? "Actif" : "Inactif") },
+                  { header: "Dernière connexion", value: (u: AppUser) => (u.dernierLoginAt ? new Date(u.dernierLoginAt).toLocaleString("fr-FR") : "") },
+                ],
+                users,
+              ),
+            ]}
+          />
+        </div>
+      )}
       {users.length === 0 ? (
         <EmptyState icon={<Users />} title="Aucun utilisateur." description="Créez le premier compte ci-dessous." />
       ) : (

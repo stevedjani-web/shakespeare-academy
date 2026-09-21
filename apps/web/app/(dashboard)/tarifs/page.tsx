@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
-import { formatMontant } from "@/lib/format";
+import { formatDate, formatMontant } from "@/lib/format";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 import type { AcademicYear, FeeApplicability, FeeSchedule, FeeType, Level } from "@/lib/types";
 import {
   Badge,
@@ -24,6 +26,15 @@ const APPLIES_TO_LABEL: Record<FeeApplicability, string> = {
   INSCRIPTION: "Inscription uniquement",
   REINSCRIPTION: "Réinscription uniquement",
 };
+
+interface TarifRow {
+  annee: string;
+  niveau: string;
+  frais: string;
+  tranche: string;
+  dateLimite: string;
+  montant: number | null;
+}
 
 type InstallmentDraft = { libelle: string; montant: string; dateLimite: string; delaiGraceJours: string };
 
@@ -74,6 +85,19 @@ export default function TarifsPage() {
     [schedules, levelId],
   );
 
+  const tarifRows: TarifRow[] = schedulesForLevel.flatMap((sc) =>
+    sc.installments.length > 0
+      ? sc.installments.map((i) => ({
+          annee: sc.academicYear.libelle,
+          niveau: sc.level.nom,
+          frais: sc.feeType.nom,
+          tranche: i.libelle,
+          dateLimite: formatDate(i.dateLimite),
+          montant: i.montant,
+        }))
+      : [{ annee: sc.academicYear.libelle, niveau: sc.level.nom, frais: sc.feeType.nom, tranche: "", dateLimite: "", montant: sc.montant }],
+  );
+
   return (
     <div>
       <PageTitle eyebrow="Lot 3" subtitle="Types de frais, grilles tarifaires par niveau et tranches d'écolage.">
@@ -98,6 +122,26 @@ export default function TarifsPage() {
                     </option>
                   ))}
                 </Select>
+                <ExportButtons
+                  fileName="grille-tarifaire"
+                  title="Grille tarifaire"
+                  landscape
+                  disabled={schedulesForLevel.length === 0}
+                  sections={[
+                    buildSection(
+                      "Grille tarifaire",
+                      [
+                        { header: "Année", value: (r: TarifRow) => r.annee },
+                        { header: "Niveau", value: (r: TarifRow) => r.niveau },
+                        { header: "Type de frais", value: (r: TarifRow) => r.frais },
+                        { header: "Tranche", value: (r: TarifRow) => r.tranche },
+                        { header: "Date limite", value: (r: TarifRow) => r.dateLimite },
+                        { header: "Montant", value: (r: TarifRow) => r.montant, kind: "money" },
+                      ],
+                      tarifRows,
+                    ),
+                  ]}
+                />
                 <Select value={levelId} onChange={(e) => setLevelId(e.target.value)} className="w-auto">
                   <option value="">Tous les niveaux</option>
                   {levels.map((l) => (

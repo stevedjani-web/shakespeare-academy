@@ -7,7 +7,9 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { Student } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, Input, PageTitle, Spinner } from "@/components/ui";
-import { Download, GraduationCap, Search } from "lucide-react";
+import { GraduationCap, Search } from "lucide-react";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
@@ -20,17 +22,6 @@ export default function StudentsListPage() {
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      await api.download("/reports/export/students", "eleves-par-classe.csv");
-    } finally {
-      setExporting(false);
-    }
-  }
-
   useEffect(() => {
     void api.get<Student[]>("/students").then((data) => {
       setStudents(data);
@@ -63,9 +54,25 @@ export default function StudentsListPage() {
           Élèves
         </PageTitle>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => void handleExport()} disabled={exporting}>
-            {exporting ? <Spinner /> : <Download size={16} />} Exporter par classe (CSV)
-          </Button>
+          <ExportButtons
+            fileName="liste-des-eleves"
+            title="Liste des élèves"
+            disabled={!loaded}
+            sections={[
+              buildSection(
+                "Élèves",
+                [
+                  { header: "Matricule", value: (r: Student) => r.matricule },
+                  { header: "Nom", value: (r: Student) => r.nom },
+                  { header: "Prénom", value: (r: Student) => r.prenom },
+                  { header: "Sexe", value: (r: Student) => (r.sexe === "M" ? "Masculin" : "Féminin") },
+                  { header: "Date de naissance", value: (r: Student) => new Date(r.dateNaissance).toLocaleDateString("fr-FR") },
+                  { header: "Statut", value: (r: Student) => (r.statut === "ACTIF" ? "Actif" : "Inactif") },
+                ],
+                students,
+              ),
+            ]}
+          />
           {hasPermission("ENROLLMENT_MANAGE") && (
             <Link href="/eleves/inscription">
               <Button>Nouvelle inscription / réinscription</Button>

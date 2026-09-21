@@ -146,40 +146,59 @@ export function Spinner({ className = "" }: { className?: string }) {
   );
 }
 
+export type StatTone = "primary" | "accent" | "success" | "danger" | "warning" | "info";
+
+// Couleur = sens : vert pour ce qui est positif (encaissé, solde), rouge pour ce qui est négatif
+// (impayé, retard), orange pour ce qui demande de l'attention, bleu pour l'information neutre.
+// Classes écrites en toutes lettres (Tailwind ne détecte pas des noms construits dynamiquement).
+const STAT_TONES: Record<StatTone, { card: string; icon: string; value: string; bar: string }> = {
+  primary: { card: "border-l-primary bg-primary-soft/50", icon: "bg-primary text-white", value: "text-primary", bar: "bg-primary" },
+  accent: { card: "border-l-accent bg-accent-soft/60", icon: "bg-accent text-white", value: "text-accent-dark", bar: "bg-accent" },
+  success: { card: "border-l-success bg-success-soft/70", icon: "bg-success text-white", value: "text-success", bar: "bg-success" },
+  danger: { card: "border-l-danger bg-danger-soft/70", icon: "bg-danger text-white", value: "text-danger", bar: "bg-danger" },
+  warning: { card: "border-l-warning bg-warning-soft/70", icon: "bg-warning text-white", value: "text-warning", bar: "bg-warning" },
+  info: { card: "border-l-info bg-info-soft/70", icon: "bg-info text-white", value: "text-info", bar: "bg-info" },
+};
+
 export function StatCard({
   label,
   value,
   hint,
   tone = "primary",
   icon,
+  progress,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
-  tone?: "primary" | "accent" | "success" | "danger";
+  tone?: StatTone;
   icon?: ReactNode;
+  /** 0 à 100 : affiche une jauge sous la valeur. */
+  progress?: number | null;
 }) {
-  const toneClasses: Record<string, string> = {
-    primary: "bg-primary-soft text-primary",
-    accent: "bg-accent-soft text-accent-dark",
-    success: "bg-success-soft text-success",
-    danger: "bg-danger-soft text-danger",
-  };
+  const t = STAT_TONES[tone];
   return (
-    <Card>
+    <div
+      className={`sa-interactive h-full rounded-2xl border border-l-4 border-border p-4 shadow-[var(--shadow-soft)] sm:p-5 ${t.card}`}
+    >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-ink-muted">{label}</p>
-          <p className="mt-1 font-display text-2xl sm:text-3xl font-semibold text-ink">{value}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink-muted">{label}</p>
+          <p className={`mt-1 font-display text-2xl font-semibold sm:text-3xl ${t.value}`}>{value}</p>
           {hint && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
         </div>
         {icon && (
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${toneClasses[tone]}`}>
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg shadow-sm ${t.icon}`}>
             {icon}
           </div>
         )}
       </div>
-    </Card>
+      {typeof progress === "number" && (
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
+          <div className={`h-full rounded-full ${t.bar}`} style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+        </div>
+      )}
+    </div>
   );
 }
 

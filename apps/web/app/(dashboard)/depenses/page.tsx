@@ -5,8 +5,10 @@ import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { Expense, ExpenseCategory } from "@/lib/types";
-import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, StatCard } from "@/components/ui";
 import { CheckCircle2, Clock, Wallet, XCircle } from "lucide-react";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 
 const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   VERSEMENT_BANQUE: "Versement banque",
@@ -16,10 +18,10 @@ const CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   AUTRE: "Autre",
 };
 
-const STATUS_META: Record<Expense["statut"], { label: string; color: "orange" | "green" | "red"; icon: React.ReactNode }> = {
-  EN_ATTENTE: { label: "En attente", color: "orange", icon: <Clock size={13} /> },
-  APPROUVEE: { label: "Approuvée", color: "green", icon: <CheckCircle2 size={13} /> },
-  REJETEE: { label: "Rejetée", color: "red", icon: <XCircle size={13} /> },
+const STATUS_META: Record<Expense["statut"], { label: string; color: "orange" | "green" | "red"; icon: React.ReactNode; card: string }> = {
+  EN_ATTENTE: { label: "En attente", color: "orange", icon: <Clock size={13} />, card: "border-l-warning bg-warning-soft/40" },
+  APPROUVEE: { label: "Approuvée", color: "green", icon: <CheckCircle2 size={13} />, card: "border-l-success bg-success-soft/40" },
+  REJETEE: { label: "Rejetée", color: "red", icon: <XCircle size={13} />, card: "border-l-danger bg-danger-soft/40 opacity-80" },
 };
 
 export default function ExpensesPage() {
@@ -70,11 +72,45 @@ export default function ExpensesPage() {
     await load();
   }
 
+  const sum = (statut: Expense["statut"]) => expenses.filter((e) => e.statut === statut).reduce((n, e) => n + e.montant, 0);
+  const count = (statut: Expense["statut"]) => expenses.filter((e) => e.statut === statut).length;
+
   return (
     <div>
-      <PageTitle eyebrow="Lot 5" subtitle="Versements, salaires, factures, achats de matériel et autres sorties.">
-        Sorties financières
-      </PageTitle>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageTitle eyebrow="Lot 5" subtitle="Versements, salaires, factures, achats de matériel et autres sorties.">
+          Sorties financières
+        </PageTitle>
+        <ExportButtons
+          fileName="sorties-financieres"
+          title="Sorties financières"
+          landscape
+          disabled={!loaded}
+          sections={[
+            buildSection(
+              "Sorties",
+              [
+                { header: "Date", value: (e: Expense) => formatDate(e.dateDepense) },
+                { header: "Catégorie", value: (e: Expense) => CATEGORY_LABEL[e.categorie] },
+                { header: "Description", value: (e: Expense) => e.description },
+                { header: "Montant", value: (e: Expense) => e.montant, kind: "money" },
+                { header: "Statut", value: (e: Expense) => STATUS_META[e.statut].label },
+                { header: "Saisi par", value: (e: Expense) => `${e.effectuePar.prenom} ${e.effectuePar.nom}` },
+                { header: "Décidé par", value: (e: Expense) => (e.approbateur ? `${e.approbateur.prenom} ${e.approbateur.nom}` : "") },
+                { header: "Motif de rejet", value: (e: Expense) => e.motifRejet ?? "" },
+              ],
+              expenses,
+              ["Total approuvé", "", "", sum("APPROUVEE"), "", "", "", ""],
+            ),
+          ]}
+        />
+      </div>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <StatCard label="Sorties approuvées" value={formatMontant(sum("APPROUVEE"))} tone="danger" icon={<CheckCircle2 size={18} />} hint={`${count("APPROUVEE")} sortie(s), comptées dans la caisse`} />
+        <StatCard label="En attente de validation" value={formatMontant(sum("EN_ATTENTE"))} tone="warning" icon={<Clock size={18} />} hint={`${count("EN_ATTENTE")} sortie(s)`} />
+        <StatCard label="Rejetées" value={formatMontant(sum("REJETEE"))} tone="info" icon={<XCircle size={18} />} hint={`${count("REJETEE")} sortie(s), sans effet sur la caisse`} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -88,11 +124,11 @@ export default function ExpensesPage() {
               {expenses.map((exp) => {
                 const meta = STATUS_META[exp.statut];
                 return (
-                  <div key={exp.id} className="rounded-xl border border-border p-3">
+                  <div key={exp.id} className={`rounded-xl border border-l-4 border-border p-3 ${meta.card}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-ink">
-                          {CATEGORY_LABEL[exp.categorie]} — {formatMontant(exp.montant)}
+                          {CATEGORY_LABEL[exp.categorie]} · <span className="font-semibold text-danger">- {formatMontant(exp.montant)}</span>
                         </p>
                         <p className="text-xs text-ink-muted">
                           {formatDate(exp.dateDepense)} · {exp.description} · {exp.effectuePar.prenom}{" "}

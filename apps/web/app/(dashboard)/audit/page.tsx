@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import type { AuditLogEntry } from "@/lib/types";
 import { Badge, Card, EmptyState, PageTitle, Select } from "@/components/ui";
 import { ScrollText } from "lucide-react";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 
 function actionColor(action: string): "green" | "blue" | "orange" | "red" | "slate" {
   if (action.endsWith("_CREATE") || action.endsWith("_APPROVE") || action.endsWith("_REQUEST")) return "green";
@@ -37,7 +39,8 @@ export default function AuditLogPage() {
         Journal d&apos;audit
       </PageTitle>
 
-      <div className="mb-4 flex max-w-xs items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex max-w-xs items-center gap-2">
         <label className="shrink-0 text-sm text-ink-muted">Objet :</label>
         <Select value={entiteFilter} onChange={(e) => setEntiteFilter(e.target.value)}>
           <option value="">Tous</option>
@@ -47,6 +50,26 @@ export default function AuditLogPage() {
             </option>
           ))}
         </Select>
+      </div>
+        <ExportButtons
+          fileName="journal-audit"
+          title="Journal d'audit"
+          landscape
+          disabled={!loaded}
+          sections={[
+            buildSection(
+              "Journal d'audit",
+              [
+                { header: "Date", value: (l: AuditLogEntry) => new Date(l.createdAt).toLocaleString("fr-FR") },
+                { header: "Utilisateur", value: (l: AuditLogEntry) => (l.user ? `${l.user.prenom} ${l.user.nom}` : "") },
+                { header: "Action", value: (l: AuditLogEntry) => l.action },
+                { header: "Objet", value: (l: AuditLogEntry) => l.entite },
+                { header: "Référence", value: (l: AuditLogEntry) => l.entiteId ?? "" },
+              ],
+              logs,
+            ),
+          ]}
+        />
       </div>
 
       {loaded && logs.length === 0 ? (

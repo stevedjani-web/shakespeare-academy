@@ -225,6 +225,21 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
       expect(res.text).toContain('CM2 A');
     });
 
+    it('GET /reports/students-by-class renvoie la liste JSON avec classe, section et responsable', async () => {
+      const { studentId } = await setupInvoiceLine();
+      const res = await auth(request(app.getHttpServer()).get('/reports/students-by-class'));
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toMatchObject({
+        id: studentId,
+        classe: 'CM2 A',
+        cycle: 'Primaire',
+        section: 'Francophone',
+        nom: 'Moukala',
+        telephoneResponsable: '242060000001',
+      });
+    });
+
     it('exporte les élèves insolvables en CSV', async () => {
       await setupInvoiceLine();
       const res = await auth(request(app.getHttpServer()).get('/reports/export/insolvent-students'));

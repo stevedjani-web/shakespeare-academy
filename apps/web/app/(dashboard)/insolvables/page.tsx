@@ -5,13 +5,14 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { InsolventStudent } from "@/lib/types";
-import { Badge, Button, Card, EmptyState, PageTitle, Spinner } from "@/components/ui";
-import { AlertOctagon, AlertTriangle, Download } from "lucide-react";
+import { Badge, Card, EmptyState, PageTitle, StatCard } from "@/components/ui";
+import { AlertOctagon, AlertTriangle, Wallet } from "lucide-react";
+import { buildSection } from "@/lib/export";
+import { ExportButtons } from "@/components/export-buttons";
 
 export default function InsolventStudentsPage() {
   const [students, setStudents] = useState<InsolventStudent[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void api.get<InsolventStudent[]>("/reports/insolvent-students").then((data) => {
@@ -20,14 +21,8 @@ export default function InsolventStudentsPage() {
     });
   }, []);
 
-  async function handleExport() {
-    setExporting(true);
-    try {
-      await api.download("/reports/export/insolvent-students", "eleves-insolvables.csv");
-    } finally {
-      setExporting(false);
-    }
-  }
+  const totalExigible = students.reduce((n, r) => n + r.montantExigible, 0);
+  const totalRestant = students.reduce((n, r) => n + r.montantRestant, 0);
 
   return (
     <div>
@@ -36,11 +31,40 @@ export default function InsolventStudentsPage() {
           Élèves insolvables
         </PageTitle>
         {loaded && students.length > 0 && (
-          <Button variant="secondary" onClick={() => void handleExport()} disabled={exporting}>
-            {exporting ? <Spinner /> : <Download size={16} />} Exporter (CSV)
-          </Button>
+          <ExportButtons
+            fileName="eleves-insolvables"
+            title="Élèves insolvables"
+            landscape
+            sections={[
+              buildSection(
+                "Élèves insolvables",
+                [
+                  { header: "Matricule", value: (r: InsolventStudent) => r.student.matricule },
+                  { header: "Nom", value: (r: InsolventStudent) => r.student.nom },
+                  { header: "Prénom", value: (r: InsolventStudent) => r.student.prenom },
+                  { header: "Classe", value: (r: InsolventStudent) => r.classe ?? "" },
+                  { header: "Responsable", value: (r: InsolventStudent) => r.guardian?.nom ?? "" },
+                  { header: "Téléphone", value: (r: InsolventStudent) => r.guardian?.telephone ?? "" },
+                  { header: "Statut", value: (r: InsolventStudent) => (r.statut === "IMPAYE_CRITIQUE" ? "Impayé critique" : "En retard") },
+                  { header: "Montant exigible", value: (r: InsolventStudent) => r.montantExigible, kind: "money" },
+                  { header: "Montant restant", value: (r: InsolventStudent) => r.montantRestant, kind: "money" },
+                  { header: "Prochaine échéance", value: (r: InsolventStudent) => (r.prochaineEcheance ? `${r.prochaineEcheance.libelle} (${formatDate(r.prochaineEcheance.dateLimite)})` : "") },
+                ],
+                students,
+                ["Total", "", "", "", "", "", "", totalExigible, totalRestant, ""],
+              ),
+            ]}
+          />
         )}
       </div>
+
+      {loaded && students.length > 0 && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <StatCard label="Élèves en retard" value={students.length} tone="danger" icon={<AlertOctagon size={18} />} />
+          <StatCard label="Montant exigible" value={formatMontant(totalExigible)} tone="danger" icon={<Wallet size={18} />} hint="Déjà échu, à relancer" />
+          <StatCard label="Restant dû total" value={formatMontant(totalRestant)} tone="warning" icon={<Wallet size={18} />} hint="Y compris les échéances à venir" />
+        </div>
+      )}
 
       {!loaded ? null : students.length === 0 ? (
         <EmptyState icon={<AlertOctagon />} title="Aucun élève insolvable." description="Tous les frais exigibles sont couverts." />
@@ -60,7 +84,7 @@ export default function InsolventStudentsPage() {
               </thead>
               <tbody>
                 {students.map((row) => (
-                  <tr key={row.student.id} className="border-b border-border last:border-0 hover:bg-surface-muted">
+                  <tr key={row.student.id} className={`border-b border-border last:border-0 hover:bg-surface-muted ${row.statut === "IMPAYE_CRITIQUE" ? "bg-danger-soft/40" : ""}`}>
                     <td className="py-2.5 pr-4">
                       <Link href={`/eleves/${row.student.id}`} className="font-medium text-ink hover:underline">
                         {row.student.prenom} {row.student.nom}
@@ -89,7 +113,7 @@ export default function InsolventStudentsPage() {
                         </span>
                       </Badge>
                     </td>
-                    <td className="py-2.5 pr-4 font-semibold text-ink">{formatMontant(row.montantExigible)}</td>
+                    <td className="py-2.5 pr-4 font-semibold text-danger">{formatMontant(row.montantExigible)}</td>
                     <td className="py-2.5 pr-4 text-ink-muted">
                       {row.prochaineEcheance
                         ? `${row.prochaineEcheance.libelle} (${formatDate(row.prochaineEcheance.dateLimite)})`

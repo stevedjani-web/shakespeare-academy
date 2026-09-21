@@ -28,6 +28,12 @@ export class ReportsController {
     return this.reportsService.getDashboardStats();
   }
 
+  @Get('students-by-class')
+  @RequirePermission('STUDENT_READ')
+  getStudentsByClass() {
+    return this.reportsService.getStudentsByClass();
+  }
+
   @Get('export/students')
   @RequirePermission('STUDENT_READ')
   @Header('Content-Type', 'text/csv; charset=utf-8')

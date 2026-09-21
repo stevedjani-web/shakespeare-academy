@@ -17,6 +17,7 @@ import {
   Wallet,
   ClipboardList,
   AlertOctagon,
+  School,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -31,6 +32,7 @@ interface NavLink {
 const LINKS: NavLink[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/eleves", label: "Élèves", icon: GraduationCap },
+  { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
   { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
@@ -60,7 +62,7 @@ function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname:
   return (
     <nav className="flex flex-1 flex-col gap-1">
       {links.map((link) => {
-        const active = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+        const active = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href + "/"));
         const Icon = link.icon;
         return (
           <Link

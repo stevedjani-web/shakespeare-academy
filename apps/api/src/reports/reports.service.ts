@@ -308,8 +308,8 @@ export class ReportsService {
     };
   }
 
-  /** Export CSV des élèves, triés par section/cycle/classe (D. "exporter la liste des élèves par classe"). */
-  async exportStudentsByClass(): Promise<string> {
+  /** Liste des élèves avec leur classe active, triée par section/cycle/classe/nom. */
+  async getStudentsByClass() {
     const schoolId = await this.schoolService.getDefaultId();
     const students = await this.prisma.student.findMany({
       where: { schoolId },
@@ -335,6 +335,7 @@ export class ReportsService {
       const enrollment = s.enrollments[0];
       const guardian = s.studentGuardians[0]?.guardian;
       return {
+        id: s.id,
         section: enrollment?.class.level.cycle.section.nom ?? '',
         cycle: enrollment?.class.level.cycle.nom ?? '',
         classe: enrollment?.class.nom ?? '',
@@ -357,6 +358,12 @@ export class ReportsService {
       a.nom.localeCompare(b.nom, 'fr'),
     );
 
+    return rows;
+  }
+
+  /** Export CSV des élèves, triés par section/cycle/classe. */
+  async exportStudentsByClass(): Promise<string> {
+    const rows = await this.getStudentsByClass();
     return toCsv(rows, [
       { key: 'section', label: 'Section' },
       { key: 'cycle', label: 'Cycle' },
