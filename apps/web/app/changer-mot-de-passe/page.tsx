@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
 import { Button, Card, ErrorMessage, Field, Input } from "@/components/ui";
+import { ExpandButton, useExpanded } from "@/components/expand";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function ChangePasswordPage() {
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const why = useExpanded();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,10 +40,16 @@ export default function ChangePasswordPage() {
         <div className="mb-6">
           <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-lg">🔒</span>
           <h1 className="font-display text-xl font-semibold text-ink">Changement de mot de passe requis</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Votre mot de passe a été fixé temporairement (première connexion ou réinitialisation). Choisissez-en un
-            nouveau avant de continuer.
-          </p>
+          <div className="mt-3 flex items-center gap-2.5">
+            <ExpandButton open={why.isOpen("pourquoi")} onClick={() => why.toggle("pourquoi")} label="l'explication" />
+            <span className="text-sm font-medium text-ink">Pourquoi ce changement ?</span>
+          </div>
+          {why.isOpen("pourquoi") && (
+            <p className="mt-2 text-sm text-ink-muted">
+              Votre mot de passe a été fixé temporairement (première connexion ou réinitialisation). Choisissez-en un
+              nouveau avant de continuer.
+            </p>
+          )}
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Field label="Mot de passe actuel">
