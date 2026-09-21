@@ -158,15 +158,35 @@ export default function StudentsListPage() {
         </div>
       </div>
 
-      <div className="relative mb-4 max-w-md">
-        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />
-        <Input
-          placeholder="Rechercher un élève…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-10"
-        />
-        {searching && <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-md">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />
+          <Input
+            placeholder="Rechercher un élève…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-10"
+          />
+          {searching && <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />}
+        </div>
+        {students.length > 0 && (
+          <div className="flex gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => setOpen(new Set(students.map((st) => st.id)))}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+            >
+              Tout développer
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(new Set())}
+              className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+            >
+              Tout réduire
+            </button>
+          </div>
+        )}
       </div>
 
       {pendingStudents.length > 0 && !query.trim() && (
