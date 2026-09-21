@@ -10,6 +10,7 @@ import { montantEnLettres } from "@/lib/number-to-words-fr";
 import { getEntry, useOutbox, type OutboxEntry } from "@/lib/outbox";
 import type { School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
+import { ExpandButton, useExpanded } from "@/components/expand";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
@@ -25,6 +26,7 @@ export default function ProvisionalReceiptPage() {
   const { entries } = useOutbox();
   const [entry, setEntry] = useState<OutboxEntry | null | undefined>(undefined);
   const [school, setSchool] = useState<School | null>(null);
+  const details = useExpanded();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -103,7 +105,12 @@ export default function ProvisionalReceiptPage() {
           <p className="text-xs text-ink-muted">{dateLabel}</p>
         </div>
 
-        <dl className="space-y-2 border-t border-dashed border-border pt-4 text-sm">
+        {/* Le + ne concerne que l'écran : à l'impression, le détail est toujours imprimé. */}
+        <div className="flex items-center gap-2.5 border-t border-dashed border-border pt-4 print:hidden">
+          <ExpandButton open={details.isOpen("details")} onClick={() => details.toggle("details")} label="le détail du paiement" />
+          <span className="text-sm font-medium text-ink">Détail du paiement</span>
+        </div>
+        <dl className={`space-y-2 pt-3 text-sm print:block print:border-t print:border-dashed print:border-border print:pt-4 ${details.isOpen("details") ? "" : "hidden"}`}>
           <Row label="Élève" value={r.eleve} />
           <Row label="Matricule" value={r.matricule} />
           <Row label="Classe" value={r.classe} />
