@@ -54,8 +54,14 @@ export default function DashboardHomePage() {
       const students = await api.get<Student[]>("/students");
       setStudentCount(students.length);
     })();
-    void api.get<DashboardStats>("/reports/dashboard").then(setStats);
-  }, []);
+    // Le tableau de bord mêle effectifs et finances : il n'est demandé qu'aux comptes qui peuvent lire les finances.
+    if (hasPermission("FINANCE_READ")) {
+      void api
+        .get<DashboardStats>("/reports/dashboard")
+        .then(setStats)
+        .catch(() => setStats(null));
+    }
+  }, [hasPermission]);
 
   const exportSections = useMemo<ExportSection[]>(() => {
     if (!stats) return [];

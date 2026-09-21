@@ -24,7 +24,7 @@ export class UsersController {
 
   @Post()
   create(@Body() dto: CreateUserDto, @CurrentUser() user: CurrentUserData) {
-    return this.usersService.create(dto, user.id);
+    return this.usersService.create(dto, user);
   }
 
   @Patch(':id')
@@ -33,7 +33,7 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @CurrentUser() user: CurrentUserData,
   ) {
-    return this.usersService.update(id, dto, user.id);
+    return this.usersService.update(id, dto, user);
   }
 
   @Patch(':id/reset-password')
@@ -42,6 +42,6 @@ export class UsersController {
     @Body() dto: ResetPasswordDto,
     @CurrentUser() user: CurrentUserData,
   ) {
-    return this.usersService.resetPassword(id, dto, user.id);
+    return this.usersService.resetPassword(id, dto, user);
   }
 }

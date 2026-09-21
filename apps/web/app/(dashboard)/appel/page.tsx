@@ -18,6 +18,8 @@ type Tab = "appel" | "absences";
 export default function AppelPage() {
   const { hasPermission } = useAuth();
   const canRead = hasPermission("ATTENDANCE_READ");
+  // Un enseignant (ATTENDANCE_TAKE sans ATTENDANCE_READ) ne voit que ses séances : pas d'onglet des absences.
+  const canUse = canRead || hasPermission("ATTENDANCE_TAKE");
   const structure = useStructure();
   const [tab, setTab] = useState<Tab>("appel");
   const [classes, setClasses] = useState<Class[]>([]);
@@ -31,7 +33,7 @@ export default function AppelPage() {
       .catch(() => setClasses([]));
   }, [structure.activeYear]);
 
-  if (!canRead) {
+  if (!canUse) {
     return (
       <div>
         <PageTitle eyebrow="Vie scolaire">Appel et absences</PageTitle>
@@ -50,6 +52,7 @@ export default function AppelPage() {
         <Roster entryId={open.entryId} date={open.date} onBack={() => setOpen(null)} />
       ) : (
         <>
+          {canRead && (
           <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
             {(
               [
@@ -69,8 +72,9 @@ export default function AppelPage() {
               </button>
             ))}
           </div>
+          )}
           {tab === "appel" && <DayTab classes={classes} onOpen={(entryId, date) => setOpen({ entryId, date })} />}
-          {tab === "absences" && <AbsencesTab classes={classes} />}
+          {canRead && tab === "absences" && <AbsencesTab classes={classes} />}
         </>
       )}
     </div>

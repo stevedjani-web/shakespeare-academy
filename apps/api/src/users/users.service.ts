@@ -10,6 +10,8 @@ import { AuthService } from '../auth/auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { assertCanHandleReserved } from '../auth/reserved-permissions';
+import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -54,7 +56,22 @@ export class UsersService {
     return user;
   }
 
-  async create(dto: CreateUserDto, actingUserId: string) {
+  /** Permissions portées par un rôle (vide si le rôle n'existe pas : la base refusera l'identifiant). */
+  private async permissionsOfRole(roleId: string): Promise<string[]> {
+    const rows = await this.prisma.rolePermission.findMany({
+      where: { roleId },
+      select: { permission: { select: { code: true } } },
+    });
+    return rows.map((r) => r.permission.code);
+  }
+
+  async create(dto: CreateUserDto, actor: CurrentUserData) {
+    const actingUserId = actor.id;
+    assertCanHandleReserved(
+      actor.permissions,
+      await this.permissionsOfRole(dto.roleId),
+      'créer un compte avec ce rôle',
+    );
     const schoolId = await this.schoolService.getDefaultId();
     const existing = await this.prisma.user.findFirst({
       where: { schoolId, email: dto.email },
@@ -91,8 +108,21 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, dto: UpdateUserDto, actingUserId: string) {
+  async update(id: string, dto: UpdateUserDto, actor: CurrentUserData) {
+    const actingUserId = actor.id;
     const before = await this.findOne(id);
+    // Changer de rôle : ni le rôle quitté ni le rôle visé ne doivent porter de droit réservé que l'acteur n'a pas.
+    // Désactiver ou renommer un compte reste permis (aucune élévation de droits).
+    if (dto.roleId && dto.roleId !== before.role.id) {
+      assertCanHandleReserved(
+        actor.permissions,
+        [
+          ...(await this.permissionsOfRole(before.role.id)),
+          ...(await this.permissionsOfRole(dto.roleId)),
+        ],
+        'changer le rôle de ce compte',
+      );
+    }
     const updated = await this.prisma.user.update({
       where: { id },
       data: dto,
@@ -112,8 +142,20 @@ export class UsersService {
     return updated;
   }
 
-  async resetPassword(id: string, dto: ResetPasswordDto, actingUserId: string) {
-    await this.findOne(id);
+  async resetPassword(
+    id: string,
+    dto: ResetPasswordDto,
+    actor: CurrentUserData,
+  ) {
+    const actingUserId = actor.id;
+    const target = await this.findOne(id);
+    // Réinitialiser le mot de passe d'un compte, c'est pouvoir s'y connecter : interdit sur un compte qui porte des
+    // droits réservés que l'acteur n'a pas (sinon la garde sur les rôles serait contournée).
+    assertCanHandleReserved(
+      actor.permissions,
+      await this.permissionsOfRole(target.role.id),
+      'réinitialiser le mot de passe de ce compte',
+    );
     const motDePasseHash = await this.authService.hashPassword(
       dto.nouveauMotDePasse,
     );

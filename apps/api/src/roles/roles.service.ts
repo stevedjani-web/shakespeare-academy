@@ -11,6 +11,8 @@ import { SchoolService } from '../school/school.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { SetRolePermissionsDto } from './dto/set-role-permissions.dto';
+import { assertCanHandleReserved } from '../auth/reserved-permissions';
+import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 const ROLE_INCLUDE = {
   rolePermissions: { include: { permission: true } },
@@ -101,9 +103,24 @@ export class RolesService {
   async setPermissions(
     id: string,
     dto: SetRolePermissionsDto,
-    actingUserId: string,
+    actor: CurrentUserData,
   ) {
+    const actingUserId = actor.id;
     const before = await this.findOne(id);
+
+    // Ce qui change (ajouté ou retiré) : si c'est un droit réservé à la Direction que l'acteur ne détient pas,
+    // refus. Sans cela, l'Administrateur pourrait s'accorder l'approbation des remises ou des sorties.
+    const wanted = new Set(dto.permissionCodes);
+    const current = new Set(before.permissions);
+    const changed = [
+      ...dto.permissionCodes.filter((code) => !current.has(code)),
+      ...before.permissions.filter((code) => !wanted.has(code)),
+    ];
+    assertCanHandleReserved(
+      actor.permissions,
+      changed,
+      'modifier ces permissions',
+    );
 
     const permissions = await this.prisma.permission.findMany({
       where: { code: { in: dto.permissionCodes } },

@@ -45,6 +45,7 @@ export class StudentsController {
   }
 
   @Get(':id/financial-status')
+  @RequirePermission('FINANCE_READ')
   getFinancialStatus(@Param('id') id: string) {
     return this.financialStatusService.getForStudent(id);
   }

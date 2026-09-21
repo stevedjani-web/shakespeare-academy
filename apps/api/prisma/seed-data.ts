@@ -144,7 +144,8 @@ export const LOT8_PERMISSIONS = [
 export const LOT9_PERMISSIONS = [
   {
     code: 'ATTENDANCE_TAKE',
-    description: "Faire l'appel des élèves séance par séance.",
+    description:
+      "Faire l'appel des élèves séance par séance (un enseignant : uniquement ses propres séances).",
   },
   {
     code: 'ATTENDANCE_CORRECT',
@@ -237,6 +238,20 @@ export const LOT14_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Durcissement des rôles (audit du 21 septembre 2026). `FINANCE_READ` sépare la lecture des finances (paiements,
+ * factures, remises, situation financière, insolvables, tableau de bord et exports financiers) de la lecture d'un
+ * dossier élève (`STUDENT_READ`) : le surveillant et l'enseignant n'ont pas à connaître les finances des familles
+ * (RV12, strict nécessaire).
+ */
+export const HARDENING_PERMISSIONS = [
+  {
+    code: 'FINANCE_READ',
+    description:
+      "Consulter les paiements, factures, remises, la situation financière des élèves, les insolvables, le tableau de bord financier et leurs exports.",
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -258,6 +273,7 @@ export const ROLES: Array<{
       'AUDIT_LOG_READ',
       'STUDENT_READ',
       'ENROLLMENT_MANAGE',
+      'FINANCE_READ',
       'FEE_MANAGE',
       'PAYMENT_CREATE',
       'CASH_CLOSE',
@@ -285,6 +301,11 @@ export const ROLES: Array<{
     permissions: [
       'AUDIT_LOG_READ',
       'STUDENT_READ',
+      'FINANCE_READ',
+      // USER_MANAGE : les droits réservés à la Direction (approbations, supervision, pilotage) ne peuvent être portés
+      // que par un compte qu'un membre de la Direction crée ou réinitialise (l'Administrateur en est empêché, voir
+      // auth/reserved-permissions.ts). Sans cela, personne ne pourrait nommer un nouveau directeur.
+      'USER_MANAGE',
       'DISCOUNT_APPROVE',
       'PAYMENT_CANCEL_APPROVE',
       'EXPENSE_APPROVE',
@@ -311,6 +332,7 @@ export const ROLES: Array<{
       'Élèves, responsables, inscriptions, réinscriptions, encaissements, autres recettes, réimpressions, ouverture et clôture de caisse.',
     permissions: [
       'STUDENT_READ',
+      'FINANCE_READ',
       'ENROLLMENT_MANAGE',
       'PAYMENT_CREATE',
       'CASH_CLOSE',
@@ -322,7 +344,7 @@ export const ROLES: Array<{
     code: 'COMPTABLE',
     nom: 'Comptable',
     description: 'Sorties, rapports, rapprochements, export.',
-    permissions: ['STUDENT_READ', 'EXPENSE_CREATE', 'CASH_CLOSE'],
+    permissions: ['STUDENT_READ', 'FINANCE_READ', 'EXPENSE_CREATE', 'CASH_CLOSE'],
   },
   {
     code: 'AUDITEUR',
@@ -331,6 +353,7 @@ export const ROLES: Array<{
     permissions: [
       'AUDIT_LOG_READ',
       'STUDENT_READ',
+      'FINANCE_READ',
       'TIMETABLE_READ',
       'ATTENDANCE_READ',
       'TEACHER_CHECKIN_READ',
@@ -357,8 +380,15 @@ export const ROLES: Array<{
     code: 'ENSEIGNANT',
     nom: 'Enseignant',
     description:
-      'Son emploi du temps et son pointage par QR code (Lot 10). Compte relié à une fiche enseignant.',
-    permissions: ['TIMETABLE_READ', 'TEACHER_CHECKIN_SELF', 'MESSAGE_USE'],
+      "Son emploi du temps, son pointage par QR code (Lot 10), l'appel de ses séances et la messagerie. Compte relié à une fiche enseignant.",
+    // ATTENDANCE_TAKE sans ATTENDANCE_READ : l'enseignant fait l'appel de SES séances (D60), sans voir les absences
+    // des autres classes ; la portée est appliquée par le serveur (AttendanceService.scopeOf).
+    permissions: [
+      'TIMETABLE_READ',
+      'TEACHER_CHECKIN_SELF',
+      'MESSAGE_USE',
+      'ATTENDANCE_TAKE',
+    ],
   },
 ];
 
@@ -397,6 +427,7 @@ export async function seedReferenceData(
     ...LOT11_PERMISSIONS,
     ...LOT13_PERMISSIONS,
     ...LOT14_PERMISSIONS,
+    ...HARDENING_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

@@ -18,7 +18,7 @@ import {
   SaveCallDto,
   UpdateReasonDto,
 } from './dto/attendance.dto';
-import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { RequireAnyPermission, RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
@@ -47,25 +47,38 @@ export class AttendanceController {
     private readonly justifications: JustificationsService,
   ) {}
 
+  // Un enseignant (ATTENDANCE_TAKE sans ATTENDANCE_READ) ne voit et ne remplit que SES séances : la portée
+  // est appliquée par le service (voir AttendanceService.scopeOf), pas seulement masquée à l'écran.
   @Get('day')
-  @RequirePermission('ATTENDANCE_READ')
-  day(@Query('date') date: string, @Query('classId') classId?: string) {
-    return this.attendance.day(requireDate(date, 'date'), classId);
+  @RequireAnyPermission('ATTENDANCE_READ', 'ATTENDANCE_TAKE')
+  async day(
+    @Query('date') date: string,
+    @CurrentUser() user: CurrentUserData,
+    @Query('classId') classId?: string,
+  ) {
+    const scope = await this.attendance.scopeOf(user);
+    return this.attendance.day(requireDate(date, 'date'), classId, scope);
   }
 
   @Get('sheet')
-  @RequirePermission('ATTENDANCE_READ')
-  sheet(@Query('entryId') entryId: string, @Query('date') date: string) {
+  @RequireAnyPermission('ATTENDANCE_READ', 'ATTENDANCE_TAKE')
+  async sheet(
+    @Query('entryId') entryId: string,
+    @Query('date') date: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     if (!entryId) throw new BadRequestException('entryId est obligatoire.');
-    return this.attendance.sheet(entryId, requireDate(date, 'date'));
+    const scope = await this.attendance.scopeOf(user);
+    return this.attendance.sheet(entryId, requireDate(date, 'date'), scope);
   }
 
   @Post('calls')
   @RequirePermission('ATTENDANCE_TAKE')
-  saveCall(@Body() dto: SaveCallDto, @CurrentUser() user: CurrentUserData) {
+  async saveCall(@Body() dto: SaveCallDto, @CurrentUser() user: CurrentUserData) {
     return this.attendance.saveCall(dto, {
       id: user.id,
       canCorrect: user.permissions.includes('ATTENDANCE_CORRECT'),
+      scope: await this.attendance.scopeOf(user),
     });
   }
 

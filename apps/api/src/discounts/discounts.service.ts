@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -92,6 +93,12 @@ export class DiscountsService {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
       throw new ConflictException('Seule une remise en attente peut être approuvée.');
+    }
+    // RG06 : la personne qui a demandé la remise ne l'approuve jamais elle-même, même si son rôle le permettrait.
+    if (before.auteurId === actingUserId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas approuver votre propre demande de remise : un autre responsable doit la valider.',
+      );
     }
 
     const discount = await this.prisma.discount.update({

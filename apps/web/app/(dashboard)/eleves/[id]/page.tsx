@@ -340,6 +340,7 @@ export default function StudentDossierPage() {
           )}
         </Card>
 
+        {hasPermission("FINANCE_READ") && (
         <div className="lg:col-span-3">
           <FinancialStatusCard
             open={expand.isOpen("finance")}
@@ -354,6 +355,7 @@ export default function StudentDossierPage() {
             }}
           />
         </div>
+        )}
 
         <Card className="lg:col-span-3">
           <h2 className={`flex items-center gap-2 text-sm font-semibold text-ink ${expand.isOpen("parcours") ? "mb-3" : ""}`}>

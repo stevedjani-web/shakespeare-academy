@@ -9,3 +9,13 @@ export const PERMISSION_KEY = 'requiredPermission';
  */
 export const RequirePermission = (code: string) =>
   SetMetadata(PERMISSION_KEY, code);
+
+export const ANY_PERMISSION_KEY = 'requiredAnyPermission';
+
+/**
+ * Exige AU MOINS UNE des permissions listées. Sert aux routes que deux profils partagent avec une portée
+ * différente (ex. l'appel : la vie scolaire le lit en entier, un enseignant seulement ses séances) : le
+ * contrôleur ouvre la route, le service applique la portée.
+ */
+export const RequireAnyPermission = (...codes: string[]) =>
+  SetMetadata(ANY_PERMISSION_KEY, codes);

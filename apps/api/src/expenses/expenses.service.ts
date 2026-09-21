@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
@@ -77,6 +77,12 @@ export class ExpensesService {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
       throw new ConflictException('Seule une sortie en attente peut être approuvée.');
+    }
+    // D25 : celui qui enregistre une sortie ne l'approuve jamais lui-même.
+    if (before.effectueParId === actingUserId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas approuver votre propre sortie financière : un autre responsable doit la valider.',
+      );
     }
 
     const expense = await this.prisma.expense.update({

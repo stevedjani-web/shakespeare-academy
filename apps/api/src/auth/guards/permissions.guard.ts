@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { PERMISSION_KEY } from '../decorators/require-permission.decorator';
+import {
+  ANY_PERMISSION_KEY,
+  PERMISSION_KEY,
+} from '../decorators/require-permission.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { CurrentUserData } from '../types/current-user.interface';
 
@@ -33,7 +36,11 @@ export class PermissionsGuard implements CanActivate {
     const requiredPermission = this.reflector.getAllAndOverride<
       string | undefined
     >(PERMISSION_KEY, [context.getHandler(), context.getClass()]);
-    if (!requiredPermission) {
+    const requiredAny = this.reflector.getAllAndOverride<string[] | undefined>(
+      ANY_PERMISSION_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (!requiredPermission && !requiredAny?.length) {
       return true;
     }
 
@@ -41,9 +48,20 @@ export class PermissionsGuard implements CanActivate {
       .switchToHttp()
       .getRequest<Request & { user?: CurrentUserData }>();
     const user = request.user;
-    if (!user || !user.permissions.includes(requiredPermission)) {
+    if (
+      requiredPermission &&
+      (!user || !user.permissions.includes(requiredPermission))
+    ) {
       throw new ForbiddenException(
         `Permission requise : ${requiredPermission}.`,
+      );
+    }
+    if (
+      requiredAny?.length &&
+      (!user || !requiredAny.some((code) => user.permissions.includes(code)))
+    ) {
+      throw new ForbiddenException(
+        `Permission requise : l'une de ${requiredAny.join(', ')}.`,
       );
     }
     return true;

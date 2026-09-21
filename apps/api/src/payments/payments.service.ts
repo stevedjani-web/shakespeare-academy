@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -210,6 +211,12 @@ export class PaymentsService {
     const before = await this.findOne(id);
     if (before.statut !== 'VALIDE') {
       throw new ConflictException('Seul un paiement validé peut être annulé.');
+    }
+    // RG09 : celui qui a encaissé un paiement ne valide jamais lui-même son annulation.
+    if (before.recuParUserId === actingUserId) {
+      throw new ForbiddenException(
+        "Vous ne pouvez pas annuler un paiement que vous avez encaissé vous-même : un autre responsable doit l'approuver.",
+      );
     }
 
     const payment = await this.prisma.payment.update({

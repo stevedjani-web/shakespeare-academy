@@ -46,6 +46,6 @@ export class RolesController {
     @Body() dto: SetRolePermissionsDto,
     @CurrentUser() user: CurrentUserData,
   ) {
-    return this.rolesService.setPermissions(id, dto, user.id);
+    return this.rolesService.setPermissions(id, dto, user);
   }
 }

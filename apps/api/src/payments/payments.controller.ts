@@ -7,8 +7,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
+// FINANCE_READ (et non STUDENT_READ) : lire les paiements, factures et remises d'une famille n'est pas lire un dossier
+// d'élève. Le surveillant et l'enseignant n'ont pas à connaître la situation financière (RV12, strict nécessaire).
 @Controller('payments')
-@RequirePermission('STUDENT_READ')
+@RequirePermission('FINANCE_READ')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 

@@ -16,14 +16,24 @@ import { toMinutes } from '../timetable/timetable.util';
 import { isoDay, toDateOnly } from '../pedagogy/pedagogy.util';
 import { dayInTimezone, statusForDelay } from './attendance.util';
 import { SaveCallDto } from './dto/attendance.dto';
+import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 const OFFLINE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
 const OFFLINE_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * Portée d'un compte sur l'appel : null = toute l'école (ATTENDANCE_READ : vie scolaire, Direction) ;
+ * sinon uniquement les séances tenues par cet enseignant (remplacements compris, RV12 : un enseignant n'a pas
+ * à voir les absences des autres classes).
+ */
+export type AttendanceScope = { teacherId: string } | null;
 
 export interface Actor {
   id: string;
   /** Vrai pour la vie scolaire et la Direction (ATTENDANCE_CORRECT). */
   canCorrect: boolean;
+  /** Absent = toute l'école. */
+  scope?: AttendanceScope;
 }
 
 type State = { statut: 'PRESENT' | 'RETARD' | 'ABSENT'; minutesRetard: number | null };
@@ -74,12 +84,36 @@ export class AttendanceService {
     });
   }
 
+  /**
+   * Portée du compte : la vie scolaire et la Direction (ATTENDANCE_READ) voient toute l'école, un enseignant
+   * (ATTENDANCE_TAKE seul) uniquement ses séances. Un compte sans fiche enseignant reliée n'a aucune portée.
+   */
+  async scopeOf(user: CurrentUserData): Promise<AttendanceScope> {
+    if (user.permissions.includes('ATTENDANCE_READ')) return null;
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { userId: user.id },
+      select: { id: true },
+    });
+    if (!teacher) {
+      throw new ForbiddenException(
+        "Votre compte n'est relié à aucune fiche enseignant : l'appel n'est pas accessible.",
+      );
+    }
+    return { teacherId: teacher.id };
+  }
+
+  private assertInScope(seance: Occurrence, scope: AttendanceScope | undefined) {
+    if (scope && seance.teacherId !== scope.teacherId) {
+      throw new ForbiddenException("Cette séance n'est pas la vôtre : vous ne pouvez faire l'appel que de vos séances.");
+    }
+  }
+
   // ---------------------------------------------------------------- Lecture d'une journée
 
   /** Séances d'un jour avec l'état de leur appel (à faire, fait par qui, combien d'absents). */
-  async day(date: string, classId?: string) {
+  async day(date: string, classId?: string, scope?: AttendanceScope) {
     const ctx = await this.context();
-    const resolved = await this.occurrences.resolveDay(date, { classId });
+    const resolved = await this.occurrences.resolveDay(date, { classId, teacherId: scope?.teacherId });
     const calls = await this.prisma.attendanceCall.findMany({
       where: { date: toDateOnly(date), entryId: { in: resolved.seances.map((s) => s.entryId) } },
       include: {
@@ -138,9 +172,10 @@ export class AttendanceService {
   }
 
   /** Feuille d'appel : l'appel existant, ou tout le monde présent par défaut (D60). */
-  async sheet(entryId: string, date: string) {
+  async sheet(entryId: string, date: string, scope?: AttendanceScope) {
     const ctx = await this.context();
     const seance = await this.findOccurrence(entryId, date);
+    this.assertInScope(seance, scope);
     const roster = await this.roster(seance.classId);
     const call = await this.prisma.attendanceCall.findUnique({
       where: { entryId_date: { entryId, date: toDateOnly(date) } },
@@ -182,12 +217,14 @@ export class AttendanceService {
           recordId: r?.id ?? null,
           statut: r?.statut ?? 'PRESENT',
           minutesRetard: r?.minutesRetard ?? null,
+          // Le motif et le commentaire d'un justificatif peuvent relever de la santé ou de la famille :
+          // un enseignant en voit le statut, pas le contenu (RV12, strict nécessaire).
           justification: r?.justification
             ? {
                 id: r.justification.id,
                 statut: r.justification.statut,
-                motif: r.justification.reason?.libelle ?? null,
-                commentaire: r.justification.commentaire,
+                motif: scope ? null : (r.justification.reason?.libelle ?? null),
+                commentaire: scope ? null : r.justification.commentaire,
                 horsDelai: r.justification.horsDelai,
               }
             : null,
@@ -218,6 +255,7 @@ export class AttendanceService {
       throw new UnprocessableEntityException("Impossible de faire l'appel d'une séance qui n'a pas encore eu lieu.");
     }
     const seance = await this.findOccurrence(dto.entryId, dto.date);
+    this.assertInScope(seance, actor.scope);
     if (seance.statut === 'ANNULEE') {
       throw new UnprocessableEntityException('Cette séance est annulée : il n’y a pas d’appel à faire.');
     }
@@ -416,7 +454,7 @@ export class AttendanceService {
       });
     }
     await this.notifications.notifyAttendance(changes);
-    return this.sheet(dto.entryId, dto.date);
+    return this.sheet(dto.entryId, dto.date, actor.scope);
   }
 
   // ------------------------------------------------------------ Absences et historique

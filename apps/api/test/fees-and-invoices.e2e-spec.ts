@@ -3,7 +3,7 @@ import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
-import { seedBaseFixtures } from './utils/fixtures';
+import { seedBaseFixtures, createUserWithRole } from './utils/fixtures';
 
 describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
   let app: INestApplication;
@@ -27,14 +27,13 @@ describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
 
     // D19 (DECISIONS_PENDING.md) : l'approbation des remises est réservée à Direction, jamais
     // Administrateur — un compte Direction dédié est donc nécessaire pour ces actions.
-    const roles = await auth(request(app.getHttpServer()).get('/roles'));
-    const directionRole = roles.body.find((r: { code: string }) => r.code === 'DIRECTION');
-    await auth(request(app.getHttpServer()).post('/users')).send({
+    // Créé en base : l'Administrateur n'a plus le droit de créer un compte Direction (droits réservés).
+    const school = await prisma.school.findFirstOrThrow();
+    await createUserWithRole(prisma, school.id, 'DIRECTION', {
       nom: 'Direction',
       prenom: 'Test',
       email: 'direction@shakespeareacademy.cg',
       motDePasse: 'MotDePasse123!',
-      roleId: directionRole.id,
     });
     const directionLogin = await request(app.getHttpServer())
       .post('/auth/login')
@@ -496,6 +495,36 @@ describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
       });
       await authDir(request(app.getHttpServer()).post(`/discounts/${discount.body.id}/approve`)).expect(201);
       await authDir(request(app.getHttpServer()).post(`/discounts/${discount.body.id}/approve`)).expect(409);
+    });
+
+    it('refuse à celui qui a demandé une remise de l’approuver lui-même (RG06), même s’il en a le droit', async () => {
+      const school = await prisma.school.findFirstOrThrow();
+      const role = await prisma.role.create({ data: { code: 'DEMANDE_ET_APPROBATION', nom: 'Cumul', description: 'test' } });
+      const perms = await prisma.permission.findMany({
+        where: { code: { in: ['STUDENT_READ', 'FINANCE_READ', 'ENROLLMENT_MANAGE', 'DISCOUNT_APPROVE'] } },
+      });
+      await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })) });
+      const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'DEMANDE_ET_APPROBATION', {
+        email: 'cumul@test.local',
+      });
+      const login = await request(app.getHttpServer()).post('/auth/login').send({ email: user.email, motDePasse }).expect(201);
+      const cumulToken = login.body.accessToken as string;
+
+      const { invoiceLineId } = await setupInvoiceLine();
+      const discount = await request(app.getHttpServer())
+        .post('/discounts')
+        .set('Authorization', `Bearer ${cumulToken}`)
+        .send({ invoiceLineId, type: 'MONTANT_FIXE', valeur: 5000, motif: 'Fratrie' })
+        .expect(201);
+
+      const self = await request(app.getHttpServer())
+        .post(`/discounts/${discount.body.id}/approve`)
+        .set('Authorization', `Bearer ${cumulToken}`);
+      expect(self.status).toBe(403);
+      expect(self.body.message).toMatch(/votre propre demande/);
+      expect((await prisma.discount.findUniqueOrThrow({ where: { id: discount.body.id } })).statut).toBe('EN_ATTENTE');
+
+      await authDir(request(app.getHttpServer()).post(`/discounts/${discount.body.id}/approve`)).expect(201);
     });
 
     it('refuse à Administrateur d’approuver une remise (403) — D19 : Direction uniquement', async () => {

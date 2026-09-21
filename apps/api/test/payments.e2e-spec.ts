@@ -203,6 +203,44 @@ describe('Paiements et reçus (e2e)', () => {
       .expect(403);
   });
 
+  it('refuse à celui qui a encaissé un paiement de l’annuler lui-même (RG09), même s’il en a le droit', async () => {
+    // Un rôle sur mesure qui cumule l'encaissement et l'approbation des annulations.
+    const school = await prisma.school.findFirstOrThrow();
+    const role = await prisma.role.create({ data: { code: 'CAISSE_ET_DIRECTION', nom: 'Cumul', description: 'test' } });
+    const perms = await prisma.permission.findMany({
+      where: { code: { in: ['STUDENT_READ', 'FINANCE_READ', 'PAYMENT_CREATE', 'PAYMENT_CANCEL_APPROVE'] } },
+    });
+    await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })) });
+    const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'CAISSE_ET_DIRECTION', {
+      email: 'cumul@test.local',
+    });
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: user.email, motDePasse })
+      .expect(201);
+    const cumulToken = login.body.accessToken as string;
+
+    const { invoiceLineId } = await setupInvoiceLine();
+    const payment = await request(app.getHttpServer())
+      .post('/payments')
+      .set('Authorization', `Bearer ${cumulToken}`)
+      .send({ invoiceLineId, montant: 45000 })
+      .expect(201);
+
+    const self = await request(app.getHttpServer())
+      .post(`/payments/${payment.body.id}/cancel`)
+      .set('Authorization', `Bearer ${cumulToken}`)
+      .send({ motif: 'Je m’annule moi-même' });
+    expect(self.status).toBe(403);
+    expect(self.body.message).toMatch(/vous avez encaissé/);
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.body.id } })).statut).toBe('VALIDE');
+
+    // Un autre responsable (Direction) peut, lui, l'annuler.
+    await authDir(request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`))
+      .send({ motif: 'Erreur de saisie' })
+      .expect(201);
+  });
+
   it('refuse d’annuler deux fois le même paiement (409)', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
     const payment = await auth(request(app.getHttpServer()).post('/payments')).send({

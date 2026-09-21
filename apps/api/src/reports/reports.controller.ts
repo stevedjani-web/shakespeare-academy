@@ -16,14 +16,16 @@ export class ReportsController {
     return this.reportsService.getCashClosing(date || todayIsoDate());
   }
 
+  // Insolvables, tableau de bord et leur export mêlent des montants : FINANCE_READ. Les listes d'élèves par
+  // classe restent sous STUDENT_READ (aucun montant).
   @Get('insolvent-students')
-  @RequirePermission('STUDENT_READ')
+  @RequirePermission('FINANCE_READ')
   getInsolventStudents() {
     return this.reportsService.getInsolventStudents();
   }
 
   @Get('dashboard')
-  @RequirePermission('STUDENT_READ')
+  @RequirePermission('FINANCE_READ')
   getDashboardStats() {
     return this.reportsService.getDashboardStats();
   }
@@ -43,7 +45,7 @@ export class ReportsController {
   }
 
   @Get('export/insolvent-students')
-  @RequirePermission('STUDENT_READ')
+  @RequirePermission('FINANCE_READ')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="eleves-insolvables.csv"')
   exportInsolventStudents() {

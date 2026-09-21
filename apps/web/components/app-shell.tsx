@@ -39,15 +39,17 @@ interface NavLink {
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   requiredPermission?: string;
+  /** Visible dès que le compte détient l'une de ces permissions (ex. l'appel : vie scolaire ou enseignant). */
+  anyPermission?: string[];
 }
 
 const LINKS: NavLink[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/eleves", label: "Élèves", icon: GraduationCap },
+  { href: "/eleves", label: "Élèves", icon: GraduationCap, requiredPermission: "STUDENT_READ" },
   { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
   { href: "/vie-scolaire", label: "Vie scolaire", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
   { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
-  { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, requiredPermission: "ATTENDANCE_READ" },
+  { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },
   { href: "/pointage", label: "Mon pointage", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
   { href: "/pointage-enseignants", label: "Pointage enseignants", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
   { href: "/portail-parents", label: "Comptes parents", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
@@ -55,7 +57,7 @@ const LINKS: NavLink[] = [
   { href: "/messagerie", label: "Messagerie", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
   { href: "/annonces", label: "Annonces", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
-  { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
+  { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "FINANCE_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
   { href: "/cloture", label: "Clôture de journée", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
   { href: "/parametres/annees", label: "Années scolaires", icon: CalendarRange },
@@ -129,7 +131,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     void logout();
   }
 
-  const visibleLinks = LINKS.filter((link) => !link.requiredPermission || hasPermission(link.requiredPermission));
+  const visibleLinks = LINKS.filter(
+    (link) =>
+      (!link.requiredPermission || hasPermission(link.requiredPermission)) &&
+      (!link.anyPermission || link.anyPermission.some((code) => hasPermission(code))),
+  );
 
   return (
     <div className="flex min-h-screen flex-1">

@@ -90,6 +90,22 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
   }
   const can = (code: string) => options.permissions?.includes(code) ?? true;
 
+  // L'appel du jour se fait sans Internet : on garde les séances d'aujourd'hui et leurs feuilles d'appel
+  // (celles de l'école entière pour la vie scolaire, les siennes seulement pour un enseignant : le serveur
+  // applique la portée).
+  const warmAttendance = async (): Promise<void> => {
+    try {
+      const day = await api.get<AttendanceDay>(`/attendance/day?date=${new Date().toISOString().slice(0, 10)}`);
+      const today = await api.get<AttendanceDay>(`/attendance/day?date=${day.aujourdhui}`);
+      setProgress({ ...progress, total: progress.total + today.seances.length });
+      await inParallel(today.seances, async (s) => {
+        await api.get(`/attendance/sheet?entryId=${s.entryId}&date=${today.date}`);
+      });
+    } catch {
+      // l'appel reste possible avec ce qui a déjà été copié
+    }
+  };
+
   setProgress({ running: true, done: 0, total: 1 });
   try {
     // Un compte d'enseignant n'a accès qu'à son pointage : rien de la liste des élèves ni des finances.
@@ -98,6 +114,10 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
       precachePages(["/pointage", "/login", "/"]);
     }
     if (!can("STUDENT_READ")) {
+      if (can("ATTENDANCE_TAKE")) {
+        await warmAttendance();
+        precachePages(["/appel"]);
+      }
       await dbPut("meta", "lastWarmup", Date.now());
       return;
     }
@@ -112,10 +132,12 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
     const levels = await api.get<Level[]>("/levels");
     const activeYear = years.find((y) => y.statut === "ACTIVE");
 
+    // Les finances (tableau de bord, insolvables, statuts, reçus) ne sont copiées que pour un compte qui a
+    // le droit de les lire : sans FINANCE_READ le serveur les refuserait de toute façon.
+    const finance = can("FINANCE_READ");
     const shared: string[] = [
-      "/reports/dashboard",
+      ...(finance ? ["/reports/dashboard", "/reports/insolvent-students"] : []),
       "/reports/students-by-class",
-      "/reports/insolvent-students",
       "/fee-types",
       ...(can("CASH_CLOSE") ? ["/expenses", `/reports/cash-closing?date=${new Date().toISOString().slice(0, 10)}`] : []),
       ...(activeYear ? levels.map((l) => `/classes?levelId=${l.id}&academicYearId=${activeYear.id}`) : []),
@@ -131,6 +153,7 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
     await inParallel(students, async (student) => {
       const dossier = await api.get<StudentDossier>(`/students/${student.id}`);
       const active = dossier.enrollments.find((e) => e.statut === "ACTIVE");
+      if (!finance) return;
       const [, payments] = await Promise.all([
         api.get(`/students/${student.id}/financial-status`),
         api.get<Payment[]>(`/payments?studentId=${student.id}`),
@@ -143,18 +166,8 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
       }
     });
 
-    // L'appel du jour se fait sans Internet : on garde les séances d'aujourd'hui et leurs feuilles d'appel.
-    if (can("ATTENDANCE_READ")) {
-      try {
-        const day = await api.get<AttendanceDay>(`/attendance/day?date=${new Date().toISOString().slice(0, 10)}`);
-        const today = await api.get<AttendanceDay>(`/attendance/day?date=${day.aujourdhui}`);
-        setProgress({ ...progress, total: progress.total + today.seances.length });
-        await inParallel(today.seances, async (s) => {
-          await api.get(`/attendance/sheet?entryId=${s.entryId}&date=${today.date}`);
-        });
-      } catch {
-        // l'appel reste possible avec ce qui a déjà été copié
-      }
+    if (can("ATTENDANCE_READ") || can("ATTENDANCE_TAKE")) {
+      await warmAttendance();
     }
 
     precachePages([...STATIC_PAGES, ...students.map((s) => `/eleves/${s.id}`), ...receiptIds.map((id) => `/recus/${id}`)]);

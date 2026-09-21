@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { isApiError } from "@/contexts/auth-context";
+import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { AppUser, Permission, Role } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { KeyRound, ShieldCheck, UserCog, UserPlus, Users } from "lucide-react";
@@ -41,6 +41,9 @@ function UserDetails({ user }: { user: AppUser }) {
 }
 
 export default function UsersAndRolesPage() {
+  const { hasPermission } = useAuth();
+  // La Direction gère les comptes (dont ceux qui portent des droits réservés) mais pas les rôles : ROLE_MANAGE.
+  const canManageRoles = hasPermission("ROLE_MANAGE");
   const [tab, setTab] = useState<"users" | "roles">("users");
 
   return (
@@ -48,6 +51,7 @@ export default function UsersAndRolesPage() {
       <PageTitle eyebrow="Lot 1" subtitle="Comptes du personnel et permissions par rôle.">
         Utilisateurs & rôles
       </PageTitle>
+      {canManageRoles && (
       <div className="mb-6 inline-flex gap-1 rounded-full border border-border bg-surface-muted p-1">
         {(
           [
@@ -67,7 +71,8 @@ export default function UsersAndRolesPage() {
           </button>
         ))}
       </div>
-      {tab === "users" ? <UsersTab /> : <RolesTab />}
+      )}
+      {tab === "users" || !canManageRoles ? <UsersTab /> : <RolesTab />}
     </div>
   );
 }
