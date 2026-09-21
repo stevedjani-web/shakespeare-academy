@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
 import type { AppUser, Permission, Role } from "@/lib/types";
@@ -8,9 +8,36 @@ import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle,
 import { KeyRound, ShieldCheck, UserCog, UserPlus, Users } from "lucide-react";
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
+import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+}
+
+function UserDetails({ user }: { user: AppUser }) {
+  return (
+    <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <p>
+        <span className="block text-xs text-ink-muted">E-mail</span>
+        <span className="break-all font-medium text-ink">{user.email}</span>
+      </p>
+      <p>
+        <span className="block text-xs text-ink-muted">Rôle</span>
+        <span className="font-medium text-ink">{user.role.nom}</span>
+      </p>
+      <p>
+        <span className="block text-xs text-ink-muted">Dernière connexion</span>
+        <span className="font-medium text-ink">
+          {user.dernierLoginAt ? new Date(user.dernierLoginAt).toLocaleString("fr-FR") : "Jamais"}
+        </span>
+      </p>
+      {user.doitChangerMotDePasse && (
+        <p className="flex items-end">
+          <Badge color="orange">Doit changer son mot de passe</Badge>
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function UsersAndRolesPage() {
@@ -51,6 +78,7 @@ function UsersTab() {
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", motDePasse: "", roleId: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const expand = useExpanded();
 
   async function load() {
     const [u, r] = await Promise.all([api.get<AppUser[]>("/users"), api.get<Role[]>("/roles")]);
@@ -127,89 +155,102 @@ function UsersTab() {
       ) : (
         <>
           <Card className="hidden sm:block">
+            <ExpandAll count={users.length} onOpenAll={() => expand.openAll(users.map((u) => u.id))} onCloseAll={expand.closeAll} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-ink-muted">
+                    <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
                     <th className="py-2 pr-4">Nom</th>
-                    <th className="py-2 pr-4">E-mail</th>
-                    <th className="py-2 pr-4">Rôle</th>
                     <th className="py-2 pr-4">Statut</th>
                     <th className="py-2 pr-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-b border-border last:border-0 hover:bg-surface-muted">
-                      <td className="py-2.5 pr-4">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
-                            {initials(u.nom, u.prenom)}
-                          </span>
-                          <span className="font-medium text-ink">
-                            {u.prenom} {u.nom}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 pr-4 text-ink-muted">{u.email}</td>
-                      <td className="py-2.5 pr-4">{u.role.nom}</td>
-                      <td className="py-2.5 pr-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
-                            {u.statut === "ACTIF" ? "Actif" : "Inactif"}
-                          </Badge>
-                          {u.doitChangerMotDePasse && <Badge color="orange">Doit changer son mot de passe</Badge>}
-                        </div>
-                      </td>
-                      <td className="py-2.5 pr-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
-                            {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
-                          </Button>
-                          <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
-                            <KeyRound size={14} /> Réinitialiser
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {users.map((u) => {
+                    const expanded = expand.isOpen(u.id);
+                    return (
+                      <Fragment key={u.id}>
+                        <tr className="border-b border-border last:border-0 hover:bg-surface-muted">
+                          <td className="py-2.5 pr-2">
+                            <ExpandButton open={expanded} onClick={() => expand.toggle(u.id)} label={`${u.prenom} ${u.nom}`} />
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                                {initials(u.nom, u.prenom)}
+                              </span>
+                              <span className="font-medium text-ink">
+                                {u.prenom} {u.nom}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
+                              {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
+                                {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                              </Button>
+                              <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
+                                <KeyRound size={14} /> Réinitialiser
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                        {expanded && (
+                          <tr className="border-b border-border bg-surface-muted/50">
+                            <td></td>
+                            <td colSpan={3} className="py-3 pr-4">
+                              <UserDetails user={u} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </Card>
 
           <div className="space-y-2 sm:hidden">
-            {users.map((u) => (
-              <Card key={u.id} className="p-3.5">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-                    {initials(u.nom, u.prenom)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-ink">
+            <ExpandAll count={users.length} onOpenAll={() => expand.openAll(users.map((u) => u.id))} onCloseAll={expand.closeAll} />
+            {users.map((u) => {
+              const expanded = expand.isOpen(u.id);
+              return (
+                <Card key={u.id} className="p-3.5">
+                  <div className="flex items-center gap-3">
+                    <ExpandButton open={expanded} onClick={() => expand.toggle(u.id)} label={`${u.prenom} ${u.nom}`} />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+                      {initials(u.nom, u.prenom)}
+                    </span>
+                    <p className="min-w-0 flex-1 truncate font-medium text-ink">
                       {u.prenom} {u.nom}
                     </p>
-                    <p className="truncate text-xs text-ink-muted">
-                      {u.email} · {u.role.nom}
-                    </p>
+                    <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
+                      {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                    </Badge>
                   </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
-                    {u.statut === "ACTIF" ? "Actif" : "Inactif"}
-                  </Badge>
-                  {u.doitChangerMotDePasse && <Badge color="orange">Doit changer son mot de passe</Badge>}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
-                    {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
-                  </Button>
-                  <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
-                    <KeyRound size={14} /> Réinitialiser
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                  {expanded && (
+                    <div className="mt-3 space-y-3 border-t border-border pt-3">
+                      <UserDetails user={u} />
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
+                          {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                        </Button>
+                        <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
+                          <KeyRound size={14} /> Réinitialiser
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </>
       )}
@@ -268,6 +309,7 @@ function RolesTab() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [newRole, setNewRole] = useState({ code: "", nom: "" });
   const [error, setError] = useState<string | null>(null);
+  const expand = useExpanded();
 
   async function load() {
     const [r, p] = await Promise.all([api.get<Role[]>("/roles"), api.get<Permission[]>("/permissions")]);
@@ -305,37 +347,45 @@ function RolesTab() {
 
   return (
     <div className="space-y-4">
-      {roles.map((role) => (
-        <Card key={role.id}>
-          <div className="mb-3 flex items-center gap-2">
-            <ShieldCheck size={16} className="text-primary" />
-            <div>
-              <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
-              {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
+      <ExpandAll count={roles.length} onOpenAll={() => expand.openAll(roles.map((r) => r.id))} onCloseAll={expand.closeAll} />
+      {roles.map((role) => {
+        const expanded = expand.isOpen(role.id);
+        return (
+          <Card key={role.id}>
+            <div className="flex items-center gap-2.5">
+              <ExpandButton open={expanded} onClick={() => expand.toggle(role.id)} label={role.nom} />
+              <ShieldCheck size={16} className="shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
+                {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
+              </div>
+              <Badge color="slate">{role.permissions.length} permission(s)</Badge>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {permissions.map((perm) => {
-              const active = role.permissions.includes(perm.code);
-              return (
-                <button
-                  key={perm.id}
-                  onClick={() => void togglePermission(role, perm.code)}
-                  title={perm.description ?? undefined}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    active
-                      ? "border-primary bg-primary text-white"
-                      : "border-border bg-surface text-ink-muted hover:border-primary/40"
-                  }`}
-                >
-                  {perm.code}
-                </button>
-              );
-            })}
-            {permissions.length === 0 && <p className="text-xs text-ink-muted">Aucune permission disponible.</p>}
-          </div>
-        </Card>
-      ))}
+            {expanded && (
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                {permissions.map((perm) => {
+                  const active = role.permissions.includes(perm.code);
+                  return (
+                    <button
+                      key={perm.id}
+                      onClick={() => void togglePermission(role, perm.code)}
+                      title={perm.description ?? undefined}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        active
+                          ? "border-primary bg-primary text-white"
+                          : "border-border bg-surface text-ink-muted hover:border-primary/40"
+                      }`}
+                    >
+                      {perm.code}
+                    </button>
+                  );
+                })}
+                {permissions.length === 0 && <p className="text-xs text-ink-muted">Aucune permission disponible.</p>}
+              </div>
+            )}
+          </Card>
+        );
+      })}
 
       <Card className="max-w-lg">
         <h2 className="mb-3 text-sm font-semibold text-ink">Créer un rôle personnalisé</h2>

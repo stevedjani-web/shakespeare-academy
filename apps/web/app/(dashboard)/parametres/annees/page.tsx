@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { AcademicYear } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
+import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { CalendarPlus, CalendarRange } from "lucide-react";
 
 const STATUS_BADGE: Record<AcademicYear["statut"], { label: string; color: "slate" | "green" | "gray" }> = {
@@ -21,6 +22,7 @@ export default function AcademicYearsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const expand = useExpanded();
 
   async function load() {
     const data = await api.get<AcademicYear[]>("/academic-years");
@@ -82,48 +84,67 @@ export default function AcademicYearsPage() {
         <EmptyState icon={<CalendarRange />} title="Aucune année scolaire créée." />
       ) : (
         <Card className="mt-4">
+          <ExpandAll count={years.length} onOpenAll={() => expand.openAll(years.map((y) => y.id))} onCloseAll={expand.closeAll} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
                   <th className="py-2 pr-4">Libellé</th>
-                  <th className="py-2 pr-4">Début</th>
-                  <th className="py-2 pr-4">Fin</th>
                   <th className="py-2 pr-4">Statut</th>
                   {canManage && <th className="py-2 pr-4">Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {years.map((year) => (
-                  <tr key={year.id} className="border-b border-border last:border-0 hover:bg-surface-muted">
-                    <td className="py-2.5 pr-4 font-medium text-ink">{year.libelle}</td>
-                    <td className="py-2.5 pr-4 text-ink-muted">
-                      {new Date(year.dateDebut).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="py-2.5 pr-4 text-ink-muted">
-                      {new Date(year.dateFin).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <Badge color={STATUS_BADGE[year.statut].color}>{STATUS_BADGE[year.statut].label}</Badge>
-                    </td>
-                    {canManage && (
-                      <td className="py-2.5 pr-4">
-                        <div className="flex gap-2">
-                          {year.statut === "BROUILLON" && (
-                            <Button variant="secondary" onClick={() => void handleActivate(year.id)}>
-                              Activer
-                            </Button>
-                          )}
-                          {year.statut === "ACTIVE" && (
-                            <Button variant="danger" onClick={() => void handleClose(year.id)}>
-                              Clôturer
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                {years.map((year) => {
+                  const expanded = expand.isOpen(year.id);
+                  return (
+                    <Fragment key={year.id}>
+                      <tr className="border-b border-border last:border-0 hover:bg-surface-muted">
+                        <td className="py-2.5 pr-2">
+                          <ExpandButton open={expanded} onClick={() => expand.toggle(year.id)} label={year.libelle} />
+                        </td>
+                        <td className="py-2.5 pr-4 font-medium text-ink">{year.libelle}</td>
+                        <td className="py-2.5 pr-4">
+                          <Badge color={STATUS_BADGE[year.statut].color}>{STATUS_BADGE[year.statut].label}</Badge>
+                        </td>
+                        {canManage && (
+                          <td className="py-2.5 pr-4">
+                            <div className="flex gap-2">
+                              {year.statut === "BROUILLON" && (
+                                <Button variant="secondary" onClick={() => void handleActivate(year.id)}>
+                                  Activer
+                                </Button>
+                              )}
+                              {year.statut === "ACTIVE" && (
+                                <Button variant="danger" onClick={() => void handleClose(year.id)}>
+                                  Clôturer
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-border bg-surface-muted/50">
+                          <td></td>
+                          <td colSpan={canManage ? 3 : 2} className="py-3 pr-4">
+                            <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                              <p>
+                                <span className="block text-xs text-ink-muted">Début</span>
+                                <span className="font-medium text-ink">{new Date(year.dateDebut).toLocaleDateString("fr-FR")}</span>
+                              </p>
+                              <p>
+                                <span className="block text-xs text-ink-muted">Fin</span>
+                                <span className="font-medium text-ink">{new Date(year.dateFin).toLocaleDateString("fr-FR")}</span>
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
