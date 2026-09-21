@@ -9,6 +9,7 @@ import { getLastOnlineAt } from "@/lib/offline-cache";
 import { discardEntry, processOutbox, retryEntry, useOutbox, type OutboxEntry, type OutboxKind } from "@/lib/outbox";
 import { getLastWarmup, getWarmupProgress, warmOfflineCache } from "@/lib/offline-warmup";
 import { useAuth } from "@/contexts/auth-context";
+import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { Badge, Button, Card, EmptyState, PageTitle, Spinner, StatCard } from "@/components/ui";
 
 const KIND_LABEL: Record<OutboxKind, string> = {
@@ -34,6 +35,7 @@ export default function SyncPage() {
   const [lastWarm, setLastWarm] = useState<number | null>(null);
   const [warming, setWarming] = useState(false);
   const [progress, setProgress] = useState(getWarmupProgress());
+  const expand = useExpanded();
 
   useEffect(() => {
     void getLastOnlineAt().then(setLastOnline);
@@ -107,8 +109,15 @@ export default function SyncPage() {
         <EmptyState icon={<RefreshCw />} title="Aucune saisie hors ligne." description="Tout ce que vous saisirez sans Internet apparaîtra ici." />
       ) : (
         <div className="space-y-3">
+          <ExpandAll count={ordered.length} onOpenAll={() => expand.openAll(ordered.map((e) => e.id))} onCloseAll={expand.closeAll} />
           {ordered.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} currentUserId={user?.id} />
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              currentUserId={user?.id}
+              expanded={expand.isOpen(entry.id)}
+              onToggle={() => expand.toggle(entry.id)}
+            />
           ))}
         </div>
       )}
@@ -116,7 +125,17 @@ export default function SyncPage() {
   );
 }
 
-function EntryCard({ entry, currentUserId }: { entry: OutboxEntry; currentUserId?: string }) {
+function EntryCard({
+  entry,
+  currentUserId,
+  expanded,
+  onToggle,
+}: {
+  entry: OutboxEntry;
+  currentUserId?: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const tone =
     entry.status === "done"
       ? "border-l-success bg-success-soft/40"
@@ -128,41 +147,26 @@ function EntryCard({ entry, currentUserId }: { entry: OutboxEntry; currentUserId
 
   return (
     <div className={`rounded-2xl border border-l-4 border-border p-4 shadow-[var(--shadow-soft)] ${tone}`}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-medium text-ink">
-            {KIND_LABEL[entry.kind]} · {entry.label}
-          </p>
-          <p className="text-xs text-ink-muted">
-            Saisie le {when(entry.createdAt)} par {entry.userName}
-            {entry.montant ? <> · {formatMontant(entry.montant)}</> : null}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <ExpandButton open={expanded} onClick={onToggle} label={`${KIND_LABEL[entry.kind]} ${entry.label}`} />
+          <div>
+            <p className="font-medium text-ink">
+              {KIND_LABEL[entry.kind]} · {entry.label}
+            </p>
+            {entry.montant ? <p className="text-xs text-ink-muted">{formatMontant(entry.montant)}</p> : null}
+          </div>
         </div>
         <Badge color={entry.status === "done" ? "green" : entry.status === "failed" ? "red" : "orange"}>
           {entry.status === "done" ? "Synchronisée" : entry.status === "failed" ? "Échec" : "En attente"}
         </Badge>
       </div>
 
-      {entry.error && <p className="mt-2 text-sm text-danger">{entry.error}</p>}
-      {otherUser && (
-        <p className="mt-2 text-sm text-warning">
-          Cette saisie sera envoyée quand {entry.userName} se reconnectera (le reçu et le journal doivent porter son nom).
-        </p>
-      )}
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-        {entry.receipt && (
-          <Link href={`/recus/provisoire/${entry.id}`} className="font-medium text-primary hover:underline">
-            Reçu provisoire {entry.receipt.numero}
-          </Link>
-        )}
-        {entry.status === "done" && entry.kind === "payment" && entry.resultId && (
-          <Link href={`/recus/${entry.resultId}`} className="font-medium text-success hover:underline">
-            Reçu officiel {entry.resultNumero ?? ""}
-          </Link>
-        )}
-        {entry.status === "failed" && (
-          <>
+      {/* Une saisie refusée demande une action : son motif et ses boutons restent visibles sans développer. */}
+      {entry.status === "failed" && (
+        <div className="mt-3">
+          {entry.error && <p className="mb-2 text-sm text-danger">{entry.error}</p>}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <Button variant="secondary" onClick={() => void retryEntry(entry.id)}>
               Réessayer
             </Button>
@@ -174,21 +178,49 @@ function EntryCard({ entry, currentUserId }: { entry: OutboxEntry; currentUserId
                 Créer malgré le doublon
               </Button>
             )}
-          </>
-        )}
-        {entry.status !== "pending" && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              if (entry.status === "done" || window.confirm("Abandonner cette saisie ? Elle ne sera jamais envoyée.")) {
-                void discardEntry(entry.id);
-              }
-            }}
-          >
-            {entry.status === "done" ? "Retirer de la liste" : "Abandonner"}
-          </Button>
-        )}
-      </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (window.confirm("Abandonner cette saisie ? Elle ne sera jamais envoyée.")) void discardEntry(entry.id);
+              }}
+            >
+              Abandonner
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
+          <p className="text-xs text-ink-muted">
+            Saisie le {when(entry.createdAt)} par {entry.userName}
+            {entry.attempts > 0 ? ` · ${entry.attempts} tentative(s) d'envoi` : ""}
+          </p>
+          {entry.status !== "failed" && entry.error && <p className="text-sm text-danger">{entry.error}</p>}
+          {otherUser && (
+            <p className="text-sm text-warning">
+              Cette saisie sera envoyée quand {entry.userName} se reconnectera (le reçu et le journal doivent porter son nom).
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {entry.receipt && (
+              <Link href={`/recus/provisoire/${entry.id}`} className="font-medium text-primary hover:underline">
+                Reçu provisoire {entry.receipt.numero}
+              </Link>
+            )}
+            {entry.status === "done" && entry.kind === "payment" && entry.resultId && (
+              <Link href={`/recus/${entry.resultId}`} className="font-medium text-success hover:underline">
+                Reçu officiel {entry.resultNumero ?? ""}
+              </Link>
+            )}
+            {entry.status === "done" && (
+              <Button variant="ghost" onClick={() => void discardEntry(entry.id)}>
+                Retirer de la liste
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
