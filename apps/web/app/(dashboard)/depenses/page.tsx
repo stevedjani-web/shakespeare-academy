@@ -8,7 +8,7 @@ import { useOnOutboxChange, useOutbox } from "@/lib/outbox";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { Expense, ExpenseCategory } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, StatCard } from "@/components/ui";
-import { CheckCircle2, Clock, Wallet, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Minus, Plus, Wallet, XCircle } from "lucide-react";
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
 
@@ -42,7 +42,17 @@ export default function ExpensesPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const { entries } = useOutbox();
+
+  function toggle(id: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function load() {
     const data = await api.get<Expense[]>("/expenses");
@@ -171,20 +181,46 @@ export default function ExpensesPage() {
             <EmptyState icon={<Wallet />} title="Aucune sortie enregistrée." />
           ) : (
             <div className="space-y-2">
+              {expenses.length > 1 && (
+                <div className="mb-1 flex gap-2 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(new Set(expenses.map((x) => x.id)))}
+                    className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+                  >
+                    Tout développer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(new Set())}
+                    className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
+                  >
+                    Tout réduire
+                  </button>
+                </div>
+              )}
               {expenses.map((exp) => {
                 const meta = STATUS_META[exp.statut];
+                const expanded = open.has(exp.id);
                 return (
                   <div key={exp.id} className={`rounded-xl border border-l-4 border-border p-3 ${meta.card}`}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-ink">
-                          {CATEGORY_LABEL[exp.categorie]} · <span className="font-semibold text-danger">- {formatMontant(exp.montant)}</span>
-                        </p>
-                        <p className="text-xs text-ink-muted">
-                          {formatDate(exp.dateDepense)} · {exp.description} · {exp.effectuePar.prenom}{" "}
-                          {exp.effectuePar.nom}
-                        </p>
-                        {exp.motifRejet && <p className="text-xs text-danger">Rejet : {exp.motifRejet}</p>}
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => toggle(exp.id)}
+                          aria-expanded={expanded}
+                          aria-label={`${expanded ? "Réduire" : "Développer"} ${CATEGORY_LABEL[exp.categorie]}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-surface-muted"
+                        >
+                          {expanded ? <Minus size={15} /> : <Plus size={15} />}
+                        </button>
+                        <div>
+                          <p className="text-sm font-medium text-ink">
+                            {CATEGORY_LABEL[exp.categorie]} · <span className="font-semibold text-danger">- {formatMontant(exp.montant)}</span>
+                          </p>
+                          <p className="text-xs text-ink-muted">{formatDate(exp.dateDepense)}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge color={meta.color}>
@@ -210,6 +246,34 @@ export default function ExpensesPage() {
                         )}
                       </div>
                     </div>
+                    {expanded && (
+                      <dl className="mt-3 grid gap-x-6 gap-y-2 border-t border-border pt-3 text-sm sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <dt className="text-xs text-ink-muted">Description</dt>
+                          <dd className="font-medium text-ink">{exp.description}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-ink-muted">Saisi par</dt>
+                          <dd className="font-medium text-ink">
+                            {exp.effectuePar.prenom} {exp.effectuePar.nom}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-ink-muted">Décision</dt>
+                          <dd className="font-medium text-ink">
+                            {exp.approbateur
+                              ? `${exp.approbateur.prenom} ${exp.approbateur.nom}${exp.dateDecision ? `, le ${formatDate(exp.dateDecision)}` : ""}`
+                              : "En attente de la Direction"}
+                          </dd>
+                        </div>
+                        {exp.motifRejet && (
+                          <div className="sm:col-span-2">
+                            <dt className="text-xs text-danger">Motif du rejet</dt>
+                            <dd className="font-medium text-danger">{exp.motifRejet}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    )}
                   </div>
                 );
               })}
