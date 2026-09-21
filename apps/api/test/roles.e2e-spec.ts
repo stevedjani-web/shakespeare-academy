@@ -36,7 +36,7 @@ describe('Rôles et permissions (e2e)', () => {
     return req.set('Authorization', `Bearer ${adminToken}`);
   }
 
-  it('liste les 5 rôles du référentiel avec leurs permissions Lot 1', async () => {
+  it('liste les 6 rôles du référentiel avec leurs permissions Lot 1', async () => {
     const res = await auth(request(app.getHttpServer()).get('/roles'));
     expect(res.status).toBe(200);
     const codes = res.body.map((r: { code: string }) => r.code).sort();
@@ -46,6 +46,7 @@ describe('Rôles et permissions (e2e)', () => {
       'COMPTABLE',
       'DIRECTION',
       'SECRETAIRE_CAISSIER',
+      'SURVEILLANT',
     ]);
     const admin = res.body.find(
       (r: { code: string }) => r.code === 'ADMINISTRATEUR',
@@ -65,8 +66,8 @@ describe('Rôles et permissions (e2e)', () => {
 
   it('crée un rôle personnalisé puis lui assigne des permissions', async () => {
     const role = await auth(request(app.getHttpServer()).post('/roles')).send({
-      code: 'SURVEILLANT',
-      nom: 'Surveillant général',
+      code: 'CENSEUR',
+      nom: 'Censeur',
     });
     expect(role.status).toBe(201);
     expect(role.body.permissions).toEqual([]);

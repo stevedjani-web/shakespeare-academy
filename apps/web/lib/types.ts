@@ -544,3 +544,85 @@ export interface TimetableCheck {
   seances: number;
   problemes: string[];
 }
+
+// --- Lot 9 : assiduité des élèves ------------------------------------------------
+
+export type AttendanceStatus = "PRESENT" | "RETARD" | "ABSENT";
+export type JustificationStatus = "EN_ATTENTE" | "ACCEPTEE" | "REFUSEE";
+
+export interface AbsenceReason {
+  id: string;
+  libelle: string;
+  actif: boolean;
+}
+
+export interface AttendanceDaySession extends Occurrence {
+  appel: { id: string; par: string; absents: number; retards: number; eleves: number; horsLigne: boolean } | null;
+}
+
+export interface AttendanceDay {
+  date: string;
+  aujourdhui: string;
+  verrouille: boolean;
+  futur: boolean;
+  sansClasse: { type: string; libelle: string } | null;
+  seances: AttendanceDaySession[];
+}
+
+export interface SheetStudent {
+  studentId: string;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  recordId: string | null;
+  statut: AttendanceStatus;
+  minutesRetard: number | null;
+  justification: {
+    id: string;
+    statut: JustificationStatus;
+    motif: string | null;
+    commentaire: string | null;
+    horsDelai: boolean;
+  } | null;
+  corrections: number;
+}
+
+export interface AttendanceSheet {
+  seance: Occurrence;
+  date: string;
+  aujourdhui: string;
+  verrouille: boolean;
+  parametres: { retardMaxMinutes: number };
+  appel: { id: string; par: { id: string; nom: string }; pris: string; horsLigne: boolean } | null;
+  eleves: SheetStudent[];
+}
+
+export interface AbsenceRow {
+  recordId: string;
+  date: string;
+  heureDebut: string;
+  heureFin: string;
+  studentId: string;
+  eleve: string;
+  matricule: string;
+  classe: string;
+  matiere: string;
+  enseignant: string;
+  statut: AttendanceStatus;
+  minutesRetard: number | null;
+  justification: {
+    id: string;
+    statut: JustificationStatus;
+    motif: string | null;
+    commentaire: string | null;
+    horsDelai: boolean;
+    decision: string | null;
+  } | null;
+  corrections: Array<{ date: string; par: string; de: AttendanceStatus; vers: AttendanceStatus; motif: string }>;
+}
+
+export interface StudentAttendanceHistory {
+  eleve: { id: string; nom: string; prenom: string; matricule: string };
+  compteurs: { seancesAppelees: number; absences: number; retards: number; excusees: number; nonJustifiees: number };
+  lignes: AbsenceRow[];
+}

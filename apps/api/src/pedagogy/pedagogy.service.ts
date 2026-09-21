@@ -19,17 +19,21 @@ export class PedagogyService {
 
   async getSettings() {
     const school = await this.prisma.school.findFirstOrThrow({
-      select: { joursClasse: true },
+      select: { joursClasse: true, retardMaxMinutes: true, delaiJustificatifJours: true },
     });
-    return { joursClasse: school.joursClasse };
+    return school;
   }
 
   async updateSettings(dto: UpdatePedagogySettingsDto, userId: string) {
     const before = await this.getSettings();
     const school = await this.prisma.school.update({
       where: { id: await this.school.getDefaultId() },
-      data: { joursClasse: [...dto.joursClasse].sort((a, b) => a - b) },
-      select: { id: true, joursClasse: true },
+      data: {
+        joursClasse: dto.joursClasse ? [...dto.joursClasse].sort((a, b) => a - b) : undefined,
+        retardMaxMinutes: dto.retardMaxMinutes,
+        delaiJustificatifJours: dto.delaiJustificatifJours,
+      },
+      select: { id: true, joursClasse: true, retardMaxMinutes: true, delaiJustificatifJours: true },
     });
     await this.audit.log({
       schoolId: school.id,
@@ -38,9 +42,17 @@ export class PedagogyService {
       entite: 'School',
       entiteId: school.id,
       ancienneValeur: before,
-      nouvelleValeur: { joursClasse: school.joursClasse },
+      nouvelleValeur: {
+        joursClasse: school.joursClasse,
+        retardMaxMinutes: school.retardMaxMinutes,
+        delaiJustificatifJours: school.delaiJustificatifJours,
+      },
     });
-    return { joursClasse: school.joursClasse };
+    return {
+      joursClasse: school.joursClasse,
+      retardMaxMinutes: school.retardMaxMinutes,
+      delaiJustificatifJours: school.delaiJustificatifJours,
+    };
   }
 
   /**

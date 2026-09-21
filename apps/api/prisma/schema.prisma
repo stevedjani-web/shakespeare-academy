@@ -36,6 +36,12 @@ model School {
   // le samedi s'active par paramètre. Jamais codé en dur dans la logique.
   joursClasse Int[] @default([1, 2, 3, 4, 5])
 
+  // Lot 9 (D57, D58 : valeurs provisoires, modifiables par la Direction, jamais codées ailleurs).
+  // Un élève arrivé après ce nombre de minutes est absent de la séance ; en deçà, il est en retard.
+  retardMaxMinutes       Int @default(15)
+  // Délai (en jours de classe) pour justifier une absence.
+  delaiJustificatifJours Int @default(3)
+
   academicYears   AcademicYear[]
   sections        Section[]
   users           User[]
@@ -163,6 +169,7 @@ model Class {
   enrollments      Enrollment[]
   assignments      TeachingAssignment[]
   timetableEntries TimetableEntry[]
+  attendanceCalls  AttendanceCall[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -233,16 +240,20 @@ model User {
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
-  discountsProposed   Discount[]           @relation("DiscountAuteur")
-  discountsDecided    Discount[]           @relation("DiscountApprobateur")
-  paymentsRecus       Payment[]
-  paymentsAnnules     Payment[]            @relation("PaymentAnnulePar")
-  expensesEffectuees  Expense[]            @relation("ExpenseEffectuePar")
-  expensesApprouvees  Expense[]            @relation("ExpenseApprobateur")
-  timetablesPublished Timetable[]          @relation("TimetablePublishedBy")
-  timetableExceptions TimetableException[] @relation("ExceptionCreatedBy")
+  refreshTokens          RefreshToken[]
+  auditLogs              AuditLog[]
+  discountsProposed      Discount[]             @relation("DiscountAuteur")
+  discountsDecided       Discount[]             @relation("DiscountApprobateur")
+  paymentsRecus          Payment[]
+  paymentsAnnules        Payment[]              @relation("PaymentAnnulePar")
+  expensesEffectuees     Expense[]              @relation("ExpenseEffectuePar")
+  expensesApprouvees     Expense[]              @relation("ExpenseApprobateur")
+  timetablesPublished    Timetable[]            @relation("TimetablePublishedBy")
+  timetableExceptions    TimetableException[]   @relation("ExceptionCreatedBy")
+  attendanceCalls        AttendanceCall[]       @relation("CallTakenBy")
+  attendanceCorrections  AttendanceCorrection[]
+  justificationsDeclared AbsenceJustification[] @relation("JustificationDeclaredBy")
+  justificationsDecided  AbsenceJustification[] @relation("JustificationDecidedBy")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -310,8 +321,9 @@ model Student {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  studentGuardians StudentGuardian[]
-  enrollments      Enrollment[]
+  studentGuardians  StudentGuardian[]
+  enrollments       Enrollment[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([schoolId, matricule])
   @@map("students")
@@ -716,6 +728,7 @@ model Subject {
   teachers         TeacherSubject[]
   assignments      TeachingAssignment[]
   timetableEntries TimetableEntry[]
+  attendanceCalls  AttendanceCall[]
 
   @@unique([schoolId, code])
   @@map("subjects")
@@ -761,6 +774,8 @@ model Teacher {
 
   timetableEntries TimetableEntry[]
   replacements     TimetableException[] @relation("ExceptionReplacementTeacher")
+
+  attendanceCalls AttendanceCall[]
 
   @@map("teachers")
 }
@@ -887,7 +902,8 @@ model TimetableEntry {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  exceptions TimetableException[]
+  exceptions      TimetableException[]
+  attendanceCalls AttendanceCall[]
 
   @@index([timetableId])
   @@map("timetable_entries")
@@ -917,4 +933,122 @@ model TimetableException {
 
   @@unique([entryId, date])
   @@map("timetable_exceptions")
+}
+
+// --- Lot 9 : assiduité des élèves (addendum v1.1, RV04, RV05) -----------------------------------
+// Un appel porte sur une séance de l'emploi du temps à une date donnée ; il a un enregistrement par
+// élève inscrit dans la classe. Par défaut tout le monde est présent (D60). Le statut est calculé
+// par le serveur d'après le seuil de retard (RV05), jamais saisi tel quel.
+
+enum AttendanceStatus {
+  PRESENT
+  RETARD
+  ABSENT
+}
+
+enum JustificationStatus {
+  EN_ATTENTE
+  ACCEPTEE
+  REFUSEE
+}
+
+// Motifs d'absence saisis par la Direction (D58). Aucun motif n'est prérempli.
+model AbsenceReason {
+  id        String   @id @default(cuid())
+  libelle   String   @unique
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  justifications AbsenceJustification[]
+
+  @@map("absence_reasons")
+}
+
+model AttendanceCall {
+  id                String         @id @default(cuid())
+  entryId           String
+  entry             TimetableEntry @relation(fields: [entryId], references: [id])
+  date              DateTime       @db.Date
+  // Instantané de la séance au moment de l'appel : l'enseignant est celui qui tenait réellement la
+  // séance ce jour-là (remplaçant compris), et les heures ne bougent plus si l'emploi du temps change.
+  classId           String
+  class             Class          @relation(fields: [classId], references: [id])
+  subjectId         String
+  subject           Subject        @relation(fields: [subjectId], references: [id])
+  teacherId         String
+  teacher           Teacher        @relation(fields: [teacherId], references: [id])
+  heureDebut        String
+  heureFin          String
+  takenById         String
+  takenBy           User           @relation("CallTakenBy", fields: [takenById], references: [id])
+  takenAt           DateTime       @default(now())
+  // Heure de saisie sur l'appareil quand l'appel a été fait sans Internet (comme les encaissements).
+  saisieHorsLigneAt DateTime?
+  updatedAt         DateTime       @updatedAt
+
+  records AttendanceRecord[]
+
+  @@unique([entryId, date])
+  @@index([classId, date])
+  @@map("attendance_calls")
+}
+
+model AttendanceRecord {
+  id            String           @id @default(cuid())
+  callId        String
+  call          AttendanceCall   @relation(fields: [callId], references: [id])
+  studentId     String
+  student       Student          @relation(fields: [studentId], references: [id])
+  statut        AttendanceStatus @default(PRESENT)
+  minutesRetard Int?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  justification AbsenceJustification?
+  corrections   AttendanceCorrection[]
+
+  @@unique([callId, studentId])
+  @@index([studentId])
+  @@map("attendance_records")
+}
+
+// Historique des corrections faites après le verrouillage (D59) ou par un autre que l'auteur : ce qui
+// a changé, par qui, pourquoi. Une ligne de cette table n'est jamais modifiée.
+model AttendanceCorrection {
+  id             String           @id @default(cuid())
+  recordId       String
+  record         AttendanceRecord @relation(fields: [recordId], references: [id])
+  ancienStatut   AttendanceStatus
+  ancienMinutes  Int?
+  nouveauStatut  AttendanceStatus
+  nouveauMinutes Int?
+  motif          String
+  userId         String
+  user           User             @relation(fields: [userId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([recordId])
+  @@map("attendance_corrections")
+}
+
+model AbsenceJustification {
+  id                  String              @id @default(cuid())
+  recordId            String              @unique
+  record              AttendanceRecord    @relation(fields: [recordId], references: [id])
+  reasonId            String?
+  reason              AbsenceReason?      @relation(fields: [reasonId], references: [id])
+  commentaire         String?
+  statut              JustificationStatus @default(EN_ATTENTE)
+  // Déclarée après le délai paramétré (D58) : signalé, pas refusé d'office quand la vie scolaire la saisit.
+  horsDelai           Boolean             @default(false)
+  declaredById        String
+  declaredBy          User                @relation("JustificationDeclaredBy", fields: [declaredById], references: [id])
+  declaredAt          DateTime            @default(now())
+  decidedById         String?
+  decidedBy           User?               @relation("JustificationDecidedBy", fields: [decidedById], references: [id])
+  decidedAt           DateTime?
+  decisionCommentaire String?
+
+  @@map("absence_justifications")
 }

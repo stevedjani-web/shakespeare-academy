@@ -27,13 +27,28 @@ export const TEACHER_STATUSES = ['ACTIF', 'INACTIF'] as const;
 
 export class UpdatePedagogySettingsDto {
   // 0 = dimanche ... 6 = samedi. Au moins un jour, sans doublon.
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayUnique()
   @IsInt({ each: true })
   @Min(0, { each: true })
   @Max(6, { each: true })
-  joursClasse!: number[];
+  joursClasse?: number[];
+
+  // Lot 9 (D57) : minutes de retard au-delà desquelles un élève est absent de la séance.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(240)
+  retardMaxMinutes?: number;
+
+  // Lot 9 (D58) : délai, en jours de classe, pour justifier une absence.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(60)
+  delaiJustificatifJours?: number;
 }
 
 // --- Créneaux horaires (D52, D53) --------------------------------------------------------------

@@ -7,7 +7,7 @@ import { Badge, Button, Card, ErrorMessage, Field, Select, Spinner, SuccessMessa
 import { CheckCircle2, Circle, FileText } from "lucide-react";
 import { describeError, TAB_HINT, WEEK_DAYS } from "./shared";
 
-export type VieScolaireTab = "recap" | "horaires" | "matieres" | "enseignants" | "affectations" | "calendrier" | "salles";
+export type VieScolaireTab = "recap" | "horaires" | "matieres" | "enseignants" | "affectations" | "calendrier" | "salles" | "assiduite";
 
 /** Où en est la saisie : ce qui est rempli, ce qui manque, avec un raccourci vers chaque écran. */
 export function RecapTab({

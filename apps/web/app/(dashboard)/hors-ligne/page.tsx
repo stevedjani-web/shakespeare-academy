@@ -20,6 +20,7 @@ const KIND_LABEL: Record<OutboxKind, string> = {
   "student-update": "Correction élève",
   guardian: "Responsable",
   enrollment: "Inscription",
+  attendance: "Appel",
 };
 
 function when(ts: number | string | null): string {

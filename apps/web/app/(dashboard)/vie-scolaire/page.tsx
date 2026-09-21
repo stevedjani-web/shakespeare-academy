@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { PedagogySummary } from "@/lib/types";
 import { PageTitle } from "@/components/ui";
-import { BookOpen, CalendarDays, Clock, DoorOpen, LayoutList, ListChecks, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, DoorOpen, LayoutList, ListChecks, UserX, Users } from "lucide-react";
 import { RecapTab, type VieScolaireTab } from "@/components/vie-scolaire/recap-tab";
 import { HorairesTab } from "@/components/vie-scolaire/horaires-tab";
 import { MatieresTab } from "@/components/vie-scolaire/matieres-tab";
@@ -13,6 +13,7 @@ import { EnseignantsTab } from "@/components/vie-scolaire/enseignants-tab";
 import { AffectationsTab } from "@/components/vie-scolaire/affectations-tab";
 import { CalendrierTab } from "@/components/vie-scolaire/calendrier-tab";
 import { SallesTab } from "@/components/vie-scolaire/salles-tab";
+import { AssiduiteTab } from "@/components/vie-scolaire/assiduite-tab";
 import { describeError, useStructure } from "@/components/vie-scolaire/shared";
 
 const TABS: Array<{ key: VieScolaireTab; label: string; icon: typeof Clock }> = [
@@ -23,6 +24,7 @@ const TABS: Array<{ key: VieScolaireTab; label: string; icon: typeof Clock }> = 
   { key: "affectations", label: "Affectations", icon: ListChecks },
   { key: "calendrier", label: "Calendrier", icon: CalendarDays },
   { key: "salles", label: "Salles", icon: DoorOpen },
+  { key: "assiduite", label: "Assiduité", icon: UserX },
 ];
 
 // Espace de saisie du référentiel pédagogique (Lot 7, addendum v1.1) : la Direction y saisit elle-même
@@ -123,6 +125,7 @@ export default function VieScolairePage() {
         <CalendrierTab years={structure.years} activeYear={structure.activeYear} onChanged={() => void loadSummary()} />
       )}
       {tab === "salles" && <SallesTab onChanged={() => void loadSummary()} />}
+      {tab === "assiduite" && <AssiduiteTab onChanged={() => void loadSummary()} />}
     </div>
   );
 }

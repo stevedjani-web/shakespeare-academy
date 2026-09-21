@@ -20,6 +20,7 @@ import {
   School,
   RefreshCw,
   CalendarClock,
+  ClipboardCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -40,6 +41,7 @@ const LINKS: NavLink[] = [
   { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
   { href: "/vie-scolaire", label: "Vie scolaire", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
   { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
+  { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, requiredPermission: "ATTENDANCE_READ" },
   { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
   { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "STUDENT_READ" },
   { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },

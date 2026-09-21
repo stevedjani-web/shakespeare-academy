@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { isOnline } from "@/lib/connectivity";
 import { dbGet, dbPut } from "@/lib/offline-db";
 import { cachePut } from "@/lib/offline-cache";
-import type { AcademicYear, Level, Payment, Student, StudentDossier } from "@/lib/types";
+import type { AcademicYear, AttendanceDay, Level, Payment, Student, StudentDossier } from "@/lib/types";
 
 // Pages copiées à l'avance par le service worker : sans cela, une page jamais ouverte n'existerait pas
 // hors ligne (les pages dynamiques /eleves/<id> et /recus/<id> ne sont pas connues d'avance).
@@ -16,6 +16,8 @@ const STATIC_PAGES = [
   "/insolvables",
   "/depenses",
   "/cloture",
+  "/appel",
+  "/emploi-du-temps",
   "/tarifs",
   "/hors-ligne",
   "/audit",
@@ -129,6 +131,20 @@ export async function warmOfflineCache(options: { force?: boolean; permissions?:
         receiptIds.push(p.id);
       }
     });
+
+    // L'appel du jour se fait sans Internet : on garde les séances d'aujourd'hui et leurs feuilles d'appel.
+    if (can("ATTENDANCE_READ")) {
+      try {
+        const day = await api.get<AttendanceDay>(`/attendance/day?date=${new Date().toISOString().slice(0, 10)}`);
+        const today = await api.get<AttendanceDay>(`/attendance/day?date=${day.aujourdhui}`);
+        setProgress({ ...progress, total: progress.total + today.seances.length });
+        await inParallel(today.seances, async (s) => {
+          await api.get(`/attendance/sheet?entryId=${s.entryId}&date=${today.date}`);
+        });
+      } catch {
+        // l'appel reste possible avec ce qui a déjà été copié
+      }
+    }
 
     precachePages([...STATIC_PAGES, ...students.map((s) => `/eleves/${s.id}`), ...receiptIds.map((id) => `/recus/${id}`)]);
 

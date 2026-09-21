@@ -92,6 +92,20 @@ export const LOT8_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 9 (assiduité). `ATTENDANCE_TAKE` : faire l'appel ; `ATTENDANCE_CORRECT` : corriger après le
+ * verrouillage, saisir et décider les justificatifs ; `ATTENDANCE_READ` : consulter les appels et
+ * l'historique d'un élève (données de mineurs : accordée au strict nécessaire, RV12).
+ */
+export const LOT9_PERMISSIONS = [
+  { code: 'ATTENDANCE_TAKE', description: "Faire l'appel des élèves séance par séance." },
+  {
+    code: 'ATTENDANCE_CORRECT',
+    description: "Corriger un appel après son verrouillage (avec motif), saisir et décider les justificatifs d'absence.",
+  },
+  { code: 'ATTENDANCE_READ', description: "Consulter les appels, les absences et l'historique d'assiduité d'un élève." },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{ code: string; nom: string; description: string; permissions: string[] }> = [
   {
@@ -113,6 +127,9 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'EXPENSE_CREATE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
+      'ATTENDANCE_TAKE',
+      'ATTENDANCE_CORRECT',
+      'ATTENDANCE_READ',
       // Pas DISCOUNT_APPROVE, PAYMENT_CANCEL_APPROVE ni EXPENSE_APPROVE : D19 (DECISIONS_PENDING.md)
       // tranche explicitement "Direction uniquement" pour l'approbation des remises, même principe
       // pour l'annulation d'un paiement (RG09) et l'approbation d'une sortie (D25) — Administrateur
@@ -133,6 +150,9 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
       'CASH_CLOSE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
+      'ATTENDANCE_TAKE',
+      'ATTENDANCE_CORRECT',
+      'ATTENDANCE_READ',
     ],
   },
   {
@@ -152,7 +172,13 @@ export const ROLES: Array<{ code: string; nom: string; description: string; perm
     code: 'AUDITEUR',
     nom: 'Auditeur lecture seule',
     description: 'Consultation historique et exports.',
-    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'TIMETABLE_READ'],
+    permissions: ['AUDIT_LOG_READ', 'STUDENT_READ', 'TIMETABLE_READ', 'ATTENDANCE_READ'],
+  },
+  {
+    code: 'SURVEILLANT',
+    nom: 'Surveillant / vie scolaire',
+    description: "Appel des élèves, correction des présences, justificatifs d'absence (Lot 9).",
+    permissions: ['STUDENT_READ', 'TIMETABLE_READ', 'ATTENDANCE_TAKE', 'ATTENDANCE_CORRECT', 'ATTENDANCE_READ'],
   },
 ];
 
@@ -183,6 +209,7 @@ export async function seedReferenceData(prisma: PrismaClient, options: SeedOptio
     ...LOT5_PERMISSIONS,
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
+    ...LOT9_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

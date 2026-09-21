@@ -11,6 +11,7 @@ import { ExpandButton, useExpanded } from "@/components/expand";
 import type { Class, Enrollment, Student, StudentDossier } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
+import { AttendanceHistoryCard } from "@/components/attendance-history-card";
 import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
@@ -414,6 +415,8 @@ export default function StudentDossierPage() {
           </div>
           )}
         </Card>
+
+        {hasPermission("ATTENDANCE_READ") && <AttendanceHistoryCard studentId={student.id} />}
       </div>
 
       <div className="mt-4">

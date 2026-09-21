@@ -10,7 +10,15 @@ import { isOnline } from "@/lib/connectivity";
 // la même saisie). Elle survit à la fermeture de l'application ET à la déconnexion : ce sont des
 // opérations réelles (encaissements compris) qui ne doivent jamais se perdre en silence.
 
-export type OutboxKind = "payment" | "expense" | "discount" | "student" | "student-update" | "guardian" | "enrollment";
+export type OutboxKind =
+  | "payment"
+  | "expense"
+  | "discount"
+  | "student"
+  | "student-update"
+  | "guardian"
+  | "enrollment"
+  | "attendance";
 export type OutboxStatus = "pending" | "done" | "failed";
 
 /** Reçu provisoire remis au parent (encaissement hors ligne) : tout ce qui s'imprime dessus. */

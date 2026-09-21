@@ -20,5 +20,6 @@ import {
     TimetableViewController,
   ],
   providers: [TimetablesService, OccurrencesService],
+  exports: [OccurrencesService],
 })
 export class TimetableModule {}
