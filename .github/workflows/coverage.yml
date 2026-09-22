@@ -1,0 +1,78 @@
+name: Coverage
+
+# Couverture mesurée sur la suite e2e complète (506 tests, RG09/R7/etc.) — le chiffre réel de garantie
+# du projet, pas les 35 tests unitaires. Nécessite un service Postgres dédié dans ce workflow, distinct
+# des workflows CI (build+lint) et Tests (unitaires), volontairement plus légers.
+#
+# Pas de Codecov (service tiers orienté compte/payant, écarté explicitement) : le pourcentage réel est
+# lu depuis coverage/coverage-summary.json (jamais une valeur inventée), et un badge SVG est généré via
+# shields.io (simple générateur d'image gratuit, sans compte) puis committé directement dans le dépôt.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  e2e-coverage:
+    name: API — e2e avec couverture
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shakespeare
+          POSTGRES_PASSWORD: shakespeare
+          POSTGRES_DB: shakespeare_academy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/api
+    env:
+      # Base de test isolée du service ci-dessus (jamais la base de dev) — mêmes identifiants que
+      # docker/init-test-db.sql, adaptés au port par défaut d'un service GitHub Actions (5432).
+      DATABASE_URL: postgresql://shakespeare:shakespeare@localhost:5432/shakespeare_academy_test?schema=public
+      JWT_ACCESS_SECRET: ci-access-secret-not-a-real-value
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-a-real-value
+      JWT_REFRESH_TTL: 7d
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      # --runInBand : plusieurs suites e2e partagent la même base (voir README §Tests) — une exécution
+      # parallèle provoquerait des collisions de clés uniques/FK entre suites.
+      # jest-e2e.coverage.json (pas jest-e2e.json) : rootDir de ce dernier se résout au dossier test/
+      # (relatif au fichier de config lui-même), donc collectCoverageFrom n'y atteint jamais src/ —
+      # trouvé en vérifiant localement, jamais un « 100 % » qui n'aurait mesuré que des fakes de test.
+      - run: npx jest --config ./test/jest-e2e.coverage.json --runInBand --coverage
+      - run: node scripts/generate-coverage-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- ../../docs/badges/coverage.svg; then
+            git add ../../docs/badges/coverage.svg
+            git commit -m "Badge de couverture : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de couverture inchangé, rien à committer."
+          fi
