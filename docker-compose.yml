@@ -73,7 +73,7 @@ services:
       - default
       - proxy
     # Pas de port publié sur l'hôte : joignable uniquement via le réseau
-    # `proxy` par le Caddy d'Elyon (academy-api:3001).
+    # `proxy` par le Caddy commun de lobima-infra (academy-api:3001).
 
   academy-web:
     build:
@@ -98,11 +98,13 @@ services:
 networks:
   default:
     name: shakespeare-academy_default
-  # Réseau Docker du projet Elyon (elyon-restaurant-mvp), créé par SON
-  # docker-compose.yml — jamais créé ici. `external: true` : ce projet ne
-  # fait qu'y rejoindre deux conteneurs, il ne le gère jamais.
+  # Réseau partagé du VPS (22/09/2026) : celui du Caddy commun de la pile
+  # lobima-infra, seul à publier 80/443 pour Elyon, Shakespeare Academy et
+  # Maatri. Remplace l'ancien rattachement au réseau interne d'Elyon
+  # (elyon-restaurant-mvp_default). Créé une fois sur le VPS par
+  # `docker network create proxy`, jamais par ce fichier (external: true).
   proxy:
-    name: elyon-restaurant-mvp_default
+    name: proxy
     external: true
 
 volumes:

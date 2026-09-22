@@ -11,3 +11,6 @@ coverage/
 Thumbs.db
 apps/api/uploads/
 apps/api/private-uploads/
+
+# Identifiants personnels (jamais dans le dépôt)
+/Identifiant*.txt
