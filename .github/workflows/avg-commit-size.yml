@@ -1,0 +1,41 @@
+name: Average commit size
+
+# Aucun badge natif shields.io n'existe pour ça (github/avg-commit-size répond « 404 : badge not found »
+# — vérifié avant de coder). `git log --shortstat` (lignes ajoutées + supprimées, moyenne sur tout
+# l'historique) fait autorité, jamais un chiffre inventé. Uniquement sur push : n'importe quel nouveau
+# commit change cette moyenne, même patron que les badges de nombre de commits et de fichiers.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  avg-commit-size:
+    name: Taille moyenne des commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 obligatoire : la moyenne porte sur tout l'historique, pas seulement le
+          # dernier commit d'un clone superficiel (même piège que le badge de nombre de commits).
+          fetch-depth: 0
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/generate-avg-commit-size-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/avg-commit-size.svg; then
+            git add docs/badges/avg-commit-size.svg
+            git commit -m "Badge de taille moyenne des commits : mise à jour automatique [skip ci]"
+            git pull --rebase origin master
+            git push
+          else
+            echo "Badge de taille moyenne des commits inchangé, rien à committer."
+          fi
