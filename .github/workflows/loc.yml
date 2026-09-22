@@ -31,8 +31,15 @@ jobs:
           if ! git diff --quiet -- docs/badges/loc.svg; then
             git add docs/badges/loc.svg
             git commit -m "Badge de lignes de code : mise à jour automatique [skip ci]"
-            git pull --rebase origin master
-            git push
+            for attempt in 1 2 3 4 5; do
+              if git push; then
+                break
+              fi
+              echo "Push rejeté (tentative $attempt/5), nouvel essai après rebase..."
+              git fetch origin master
+              git rebase origin/master
+              sleep 2
+            done
           else
             echo "Badge de lignes de code inchangé, rien à committer."
           fi
