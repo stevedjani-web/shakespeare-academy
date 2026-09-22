@@ -50,7 +50,11 @@ export function StudentSummaryStrip({ studentId }: { studentId: string }) {
       : null;
 
   return (
-    <div className="mb-6 grid gap-4 sm:grid-cols-3">
+    // lg (1024px), pas sm (640px) : à cette largeur, la barre latérale (256px) grignote l'espace réel et
+    // ferait tenir trois cartes dans ~140px chacune (« Situation financière » se scinde sur deux lignes) —
+    // repéré en vérifiant le rendu sur tablette (768px). Le reste de la page utilise déjà lg:grid-cols-3
+    // pour la même raison (la grille des cartes détaillées plus bas).
+    <div className="mb-6 grid gap-4 lg:grid-cols-3">
       {canGrades && (
         <StatCard
           label="Moyenne actuelle"
