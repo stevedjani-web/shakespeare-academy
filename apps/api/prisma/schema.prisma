@@ -100,6 +100,7 @@ model School {
   onlinePayments    OnlinePayment[]
   issuedDocuments   IssuedDocument[]
   disciplineRecords DisciplineRecord[]
+  preRegistrations  PreRegistration[]
   expenses          Expense[]
   rooms             Room[]
   timeSlots         TimeSlot[]
@@ -193,9 +194,10 @@ model Level {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes       Class[]
-  feeSchedules  FeeSchedule[]
-  subjectLevels SubjectLevel[]
+  classes          Class[]
+  feeSchedules     FeeSchedule[]
+  subjectLevels    SubjectLevel[]
+  preRegistrations PreRegistration[]
 
   @@unique([cycleId, code])
   @@map("levels")
@@ -664,6 +666,52 @@ model OnlinePayment {
   @@index([invoiceLineId, statut])
   @@index([schoolId, statut])
   @@map("online_payments")
+}
+
+// --- Préinscription en ligne (Lot 21) --------------------------------------------
+
+enum PreRegistrationStatus {
+  EN_ATTENTE
+  ACCEPTEE
+  REJETEE
+}
+
+/**
+ * Demande déposée par une famille avant qu'aucun élève n'existe (formulaire public, sans compte). Le secrétariat
+ * l'examine puis, en l'acceptant, choisit la classe réelle et déclenche la création de l'élève et de son inscription
+ * (mêmes garde-fous que la saisie manuelle : doublon D33, numéro de matricule, facture). Aucun frais de dossier ici
+ * (D04 non tranchée) : ce n'est qu'une demande, jamais un engagement financier.
+ */
+model PreRegistration {
+  id                   String                @id @default(cuid())
+  schoolId             String
+  school               School                @relation(fields: [schoolId], references: [id])
+  reference            String                @unique
+  nom                  String
+  prenom               String
+  sexe                 Sexe
+  dateNaissance        DateTime
+  lieuNaissance        String?
+  nationalite          String?
+  levelId              String
+  level                Level                 @relation(fields: [levelId], references: [id])
+  responsableNom       String
+  responsablePrenom    String
+  responsableTelephone String
+  responsableEmail     String?
+  message              String?
+  statut               PreRegistrationStatus @default(EN_ATTENTE)
+  motifRejet           String?
+  studentId            String?
+  enrollmentId         String?
+  traiteParUserId      String?
+  traiteLe             DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([statut, createdAt])
+  @@index([responsableTelephone])
+  @@map("pre_registrations")
 }
 
 // --- Discipline (Lot 20) --------------------------------------------------------

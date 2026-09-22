@@ -329,6 +329,19 @@ Troisième lot de la feuille de route (parents, documents officiels, **disciplin
 | D123 | Combien de temps conserve-t-on ces dossiers ? | Un dossier disciplinaire d'un mineur ne se garde pas indéfiniment. | **PROVISOIRE, À VALIDER avec D76 et D77** : année scolaire en cours plus une, puis archivage, comme les autres données de vie scolaire. **Aucune purge automatique** (le projet n'a toujours aucun planificateur). La politique de confidentialité des parents est mise à jour (version `2026-09-v6`). |
 | D124 | Portée d'un enseignant | Un enseignant qui lit les signalements des autres classes voit des mineurs qui ne sont pas les siens. | **PROVISOIRE** : il ne signale que pour les élèves d'une classe où il a une affectation, et **ne relit que ses propres signalements**, avec le nom et l'état d'une sanction publiée mais sans le message à la famille. Toute demande hors portée est refusée par le serveur (403). |
 
+## 25. Préinscription en ligne : vague 2, Lot 21 (25 septembre 2026)
+
+Quatrième et dernier lot de la feuille de route (parents, documents officiels, discipline, **préinscription en ligne**). Aujourd'hui, une famille intéressée doit se déplacer pour qu'une inscription existe. Ce lot ouvre un formulaire public : dépôt, examen par le secrétariat, conversion en élève et inscription réels. Trois choix du propriétaire du projet (tranchés) ; le reste est une valeur provisoire.
+
+| # | Question | Impact si non tranchée | Décision |
+|---|---|---|---|
+| D125 | Que couvre ce lot ? | Un frais de dossier avant qu'un élève existe exigerait un modèle de paiement sans facture, sans équivalent aujourd'hui. | **TRANCHÉ (25 septembre 2026)** : **demande, examen, conversion en inscription**, sans frais de dossier. D04 (tarification d'un frais de dossier) reste ouverte, non traitée par ce lot. |
+| D126 | Qui décide d'accepter ou de refuser une demande ? | Une décision ouverte à tout le personnel banaliserait la création d'élèves. | **TRANCHÉ (25 septembre 2026)** : **même droit que l'inscription manuelle** (`ENROLLMENT_MANAGE`, déjà tenu par l'Administrateur et le Secrétaire-caissier). Aucune permission nouvelle, aucune migration de droits. |
+| D127 | Comment la famille suit-elle sa demande ? | Créer un compte parent avant qu'un élève existe n'a pas de sens (le portail est scopé à un élève inscrit). | **TRANCHÉ (25 septembre 2026)** : **page de suivi par numéro de référence et téléphone du responsable**, sans compte. Aucun compte parent n'est créé à ce stade, même après acceptation (il se crée séparément, comme pour tout élève, via le Lot 18). |
+| D128 | Quelle année scolaire cible une préinscription acceptée ? | Le visiteur ne connaît ni les classes réelles ni leurs places disponibles. | **PROVISOIRE** : la demande ne porte qu'un **niveau souhaité** (pas une classe ni une année) ; le **secrétariat choisit la classe réelle à l'acceptation**, parmi les années non clôturées (active ou à venir) — jamais le visiteur. |
+| D129 | Comment protéger le suivi d'une référence devinable ? | `PREINS-2026-000123` est séquentiel, donc devinable ; un jeton aléatoire serait peu pratique à retaper depuis une lettre ou un SMS. | **PROVISOIRE, compromis explicite** : référence séquentielle **et** téléphone du responsable exigés ensemble ; toute discordance renvoie un message générique (jamais lequel des deux est faux). À revoir si le volume de demandes grandit au point de rendre ce compromis insuffisant. |
+| D130 | Une famille peut-elle déposer deux fois pour le même enfant ? | Sans garde-fou, le secrétariat verrait des doublons de demandes s'accumuler. | **PROVISOIRE** : une deuxième demande pour le même enfant (nom, prénom, date de naissance normalisés) est bloquée **seulement si la première est encore en attente**. Une demande déjà refusée n'empêche pas une nouvelle tentative. |
+
 ---
 
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
@@ -345,4 +358,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 25 septembre 2026 : D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 25 septembre 2026 : D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

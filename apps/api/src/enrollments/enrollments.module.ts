@@ -21,5 +21,6 @@ import { InvoicesModule } from '../invoices/invoices.module';
   ],
   controllers: [EnrollmentsController],
   providers: [EnrollmentsService],
+  exports: [EnrollmentsService],
 })
 export class EnrollmentsModule {}

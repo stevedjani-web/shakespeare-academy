@@ -31,6 +31,7 @@ import {
   Megaphone,
   Gauge,
   ShieldAlert,
+  UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -51,6 +52,7 @@ const LINKS: NavLink[] = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/eleves", label: "Élèves", icon: GraduationCap, requiredPermission: "STUDENT_READ" },
   { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
+  { href: "/preinscriptions", label: "Préinscriptions", icon: UserPlus, requiredPermission: "ENROLLMENT_MANAGE" },
   { href: "/vie-scolaire", label: "Vie scolaire", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
   { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
   { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },

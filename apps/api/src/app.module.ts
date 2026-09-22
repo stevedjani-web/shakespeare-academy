@@ -35,6 +35,7 @@ import { TextbookModule } from './textbook/textbook.module';
 import { OnlinePaymentsModule } from './online-payments/online-payments.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DisciplineModule } from './discipline/discipline.module';
+import { PreRegistrationsModule } from './pre-registrations/pre-registrations.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { DisciplineModule } from './discipline/discipline.module';
     OnlinePaymentsModule,
     DocumentsModule,
     DisciplineModule,
+    PreRegistrationsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],
