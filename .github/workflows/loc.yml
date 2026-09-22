@@ -1,0 +1,37 @@
+name: Lines of code
+
+# tokei.rs (service habituel pour ce genre de badge) ne résout même plus en DNS — vérifié avant de coder,
+# le service est manifestement à l'arrêt. `git ls-files` + un vrai comptage de lignes (.ts/.tsx, lignes
+# non vides) font autorité, jamais un chiffre inventé. Uniquement sur push : ce nombre ne change jamais
+# sans un commit, même patron que le badge de nombre de fichiers.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  loc:
+    name: Lignes de code (.ts/.tsx)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/generate-loc-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/loc.svg; then
+            git add docs/badges/loc.svg
+            git commit -m "Badge de lignes de code : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de lignes de code inchangé, rien à committer."
+          fi
