@@ -38,6 +38,7 @@ jobs:
           if ! git diff --quiet -- docs/badges/outdated.svg; then
             git add docs/badges/outdated.svg
             git commit -m "Badge de dépendances obsolètes : mise à jour automatique [skip ci]"
+            git pull --rebase origin master
             git push
           else
             echo "Badge de dépendances obsolètes inchangé, rien à committer."

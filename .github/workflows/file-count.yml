@@ -31,6 +31,7 @@ jobs:
           if ! git diff --quiet -- docs/badges/file-count.svg; then
             git add docs/badges/file-count.svg
             git commit -m "Badge de nombre de fichiers : mise à jour automatique [skip ci]"
+            git pull --rebase origin master
             git push
           else
             echo "Badge de nombre de fichiers inchangé, rien à committer."
