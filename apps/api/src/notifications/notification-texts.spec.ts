@@ -20,6 +20,7 @@ const TYPES: NotificationType[] = [
   'ANNONCE',
   'BULLETIN_DISPONIBLE',
   'DEVOIR_DONNE',
+  'DISCIPLINE',
 ];
 
 describe('textes des notifications', () => {

@@ -237,7 +237,7 @@ describe('Paiement en ligne par les parents (e2e, Lot 17)', () => {
       code: body.code,
       motDePasse: 'MotDePasse123',
       consentement: true,
-      versionPolitique: '2026-09-v5',
+      versionPolitique: '2026-09-v6',
     }).expect(201);
     return res.body.accessToken as string;
   }

@@ -12,6 +12,7 @@ import { GradesModule } from '../grades/grades.module';
 import { TextbookModule } from '../textbook/textbook.module';
 import { OnlinePaymentsModule } from '../online-payments/online-payments.module';
 import { DocumentsModule } from '../documents/documents.module';
+import { DisciplineModule } from '../discipline/discipline.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
@@ -37,6 +38,7 @@ import { ParentMessagingController } from './parent-messaging.controller';
     TextbookModule,
     OnlinePaymentsModule,
     DocumentsModule,
+    DisciplineModule,
   ],
   controllers: [ParentAuthController, ParentPortalController, ParentNotificationsController, ParentMessagingController, ParentAccountsController],
   providers: [ParentAuthService, ParentAuthGuard, ParentPortalService, ParentAccountsService],

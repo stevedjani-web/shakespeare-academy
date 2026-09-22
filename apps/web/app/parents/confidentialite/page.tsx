@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Politique de confidentialité, espace parents | Shakespeare Academy" };
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-const VERSION = "2026-09-v5";
+const VERSION = "2026-09-v6";
 
 const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
@@ -24,6 +24,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
     titre: "Ce que vous pouvez voir",
     contenu: [
       "Pour chacun de vos enfants uniquement : sa classe, l'emploi du temps de sa classe, ses absences et retards avec l'état des justificatifs, sa situation financière (montants facturés, payés et restants), la liste de ses paiements avec leurs numéros de reçu et ses bulletins de notes et le cahier de textes de sa classe (ce qui a été fait en cours et les devoirs à faire, écrits par les enseignants, sans fichier joint). Un bulletin n'apparaît qu'une fois validé puis publié par la Direction de l'école : vous ne voyez jamais les notes en cours de saisie.",
+      "Dans l'onglet Vie scolaire : les sanctions décidées puis publiées par la Direction (nature, dates et, s'il existe, le message que l'école vous adresse), les convocations qui vous sont adressées, avec la possibilité d'indiquer que vous en avez pris connaissance, et les points positifs de votre enfant. Vous ne voyez jamais le récit des faits, le nom de l'enseignant qui a signalé, ni ce qui concerne un autre élève. Une sanction encore à l'étude n'est pas visible.",
       "Vous ne voyez jamais les informations d'un élève dont vous n'êtes pas responsable. Si l'école doit retirer votre accès à un enfant, il disparaît de votre espace.",
     ],
   },
@@ -31,13 +32,14 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
     titre: "Qui d'autre peut consulter ces informations",
     contenu: [
       "Le personnel de l'école y accède selon son rôle (secrétariat, vie scolaire, direction), pour faire son travail. Les actions sensibles, comme la remise d'un code d'activation ou le retrait d'un accès, sont enregistrées dans un journal.",
+      "Le dossier de vie scolaire (faits signalés, sanctions, convocations) n'est lu que par la vie scolaire et la Direction ; un enseignant ne relit que les signalements qu'il a faits lui-même. Chaque ouverture du dossier d'un élève est enregistrée dans un journal, sans son contenu. Seule la Direction décide et publie une sanction.",
       "Ces informations ne sont ni vendues, ni utilisées pour de la publicité, ni transmises à d'autres organismes par cet espace.",
     ],
   },
   {
     titre: "Notifications",
     contenu: [
-      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe et de la publication d'un bulletin et des devoirs donnés. Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note ni de montant. Vous pouvez couper les alertes par type d'événement.",
+      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe, de la publication d'un bulletin, des devoirs donnés et d'un élément de vie scolaire (sanction publiée, convocation). Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note, de sanction ni de montant. Vous pouvez couper les alertes par type d'événement.",
     ],
   },
   {
@@ -64,7 +66,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
     titre: "Combien de temps",
     contenu: [
-      "Les présences, les messages, les notifications et les informations de l'année scolaire en cours sont conservés pendant cette année et l'année suivante, puis archivés. Ces durées peuvent être précisées par l'école.",
+      "Les présences, les messages, les notifications, les informations de vie scolaire et celles de l'année scolaire en cours sont conservés pendant cette année et l'année suivante, puis archivés. Ces durées peuvent être précisées par l'école.",
     ],
   },
   {

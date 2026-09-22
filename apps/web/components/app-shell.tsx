@@ -30,6 +30,7 @@ import {
   MessagesSquare,
   Megaphone,
   Gauge,
+  ShieldAlert,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
@@ -54,6 +55,7 @@ const LINKS: NavLink[] = [
   { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
   { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },
   { href: "/notes", label: "Notes et bulletins", icon: BookOpenCheck, anyPermission: ["GRADE_ENTER", "GRADE_READ"] },
+  { href: "/discipline", label: "Discipline", icon: ShieldAlert, anyPermission: ["DISCIPLINE_REPORT", "DISCIPLINE_READ", "DISCIPLINE_DECIDE", "DISCIPLINE_CONVOKE"] },
   { href: "/cahier-de-textes", label: "Cahier de textes", icon: BookOpenText, anyPermission: ["TEXTBOOK_WRITE", "TEXTBOOK_READ"] },
   { href: "/pointage", label: "Mon pointage", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
   { href: "/pointage-enseignants", label: "Pointage enseignants", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },

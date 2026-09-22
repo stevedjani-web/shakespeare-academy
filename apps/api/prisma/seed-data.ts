@@ -335,6 +335,32 @@ export const LOT19_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Lot 20 (discipline, vague 2). `DISCIPLINE_REPORT` : signaler un incident ou une valorisation (un enseignant :
+ * uniquement les élèves de ses classes, la portée est appliquée par le serveur) ; `DISCIPLINE_READ` : lire tout le dossier
+ * de l'école (vie scolaire et Direction : ni l'Administrateur ni l'Auditeur, ce sont des données sensibles de mineurs) ;
+ * `DISCIPLINE_CONVOKE` : convoquer une famille ; `DISCIPLINE_DECIDE` : décider, publier et annuler une sanction, corriger
+ * ou annuler un signalement (Direction seulement, droit réservé).
+ */
+export const LOT20_PERMISSIONS = [
+  {
+    code: 'DISCIPLINE_REPORT',
+    description: "Signaler un incident ou une valorisation (un enseignant : uniquement les élèves de ses classes).",
+  },
+  {
+    code: 'DISCIPLINE_READ',
+    description: "Lire les signalements, sanctions et convocations de toute l'école.",
+  },
+  {
+    code: 'DISCIPLINE_CONVOKE',
+    description: 'Convoquer une famille et clôturer la convocation.',
+  },
+  {
+    code: 'DISCIPLINE_DECIDE',
+    description: 'Décider, publier et annuler une sanction, corriger ou annuler un signalement.',
+  },
+] as const;
+
 /** Rôles du cahier de cadrage §3, avec leurs permissions des Lots 1-2 uniquement (voir notes ci-dessus). */
 export const ROLES: Array<{
   code: string;
@@ -419,6 +445,10 @@ export const ROLES: Array<{
       'SETTINGS_READ',
       'DOCUMENT_ISSUE',
       'DOCUMENT_CANCEL',
+      'DISCIPLINE_REPORT',
+      'DISCIPLINE_READ',
+      'DISCIPLINE_CONVOKE',
+      'DISCIPLINE_DECIDE',
     ],
   },
   {
@@ -481,6 +511,9 @@ export const ROLES: Array<{
       'MESSAGE_USE',
       'MESSAGE_DESK',
       'TEXTBOOK_READ',
+      'DISCIPLINE_REPORT',
+      'DISCIPLINE_READ',
+      'DISCIPLINE_CONVOKE',
     ],
   },
   {
@@ -497,6 +530,7 @@ export const ROLES: Array<{
       'ATTENDANCE_TAKE',
       'GRADE_ENTER',
       'TEXTBOOK_WRITE',
+      'DISCIPLINE_REPORT',
     ],
   },
 ];
@@ -541,6 +575,7 @@ export async function seedReferenceData(
     ...LOT15_PERMISSIONS,
     ...LOT16_PERMISSIONS,
     ...LOT19_PERMISSIONS,
+    ...LOT20_PERMISSIONS,
   ]) {
     await prisma.permission.upsert({
       where: { code: permission.code },

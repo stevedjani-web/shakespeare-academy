@@ -15,6 +15,7 @@ import {
   announcementBody,
   bulletinBody,
   homeworkBody,
+  disciplineBody,
   messageReceivedBody,
   pushBody,
   replacedBody,
@@ -31,6 +32,7 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'ANNONCE',
   'BULLETIN_DISPONIBLE',
   'DEVOIR_DONNE',
+  'DISCIPLINE',
 ];
 
 /** Un fait à signaler pour un élève, avant de savoir à quels responsables il sera adressé. */
@@ -249,6 +251,39 @@ export class NotificationsService {
     } catch (err) {
       this.logger.error(
         `Notification de devoir non envoyée : ${(err as Error).message}`,
+      );
+    }
+  }
+
+  /**
+   * Un élément de vie scolaire concerne cet élève (sanction publiée, convocation). Le texte ne dit jamais la nature, le
+   * motif ni la sanction (RV10), ni dans l'alerte ni dans l'application : le détail reste dans l'onglet authentifié.
+   * Regroupée par fenêtre de temps comme les annonces. Ne lève jamais.
+   */
+  async notifyDiscipline(studentId: string): Promise<void> {
+    try {
+      const [student, school] = await Promise.all([
+        this.prisma.student.findUnique({
+          where: { id: studentId },
+          select: { id: true, prenom: true },
+        }),
+        this.prisma.school.findFirstOrThrow({
+          select: { fuseauHoraire: true },
+        }),
+      ]);
+      if (!student) return;
+      await this.deliver([
+        {
+          studentId,
+          prenom: student.prenom,
+          type: 'DISCIPLINE',
+          jour: dayInTimezone(new Date(), school.fuseauHoraire),
+          corps: disciplineBody(student.prenom),
+        },
+      ]);
+    } catch (err) {
+      this.logger.error(
+        `Notification de vie scolaire non envoyée : ${(err as Error).message}`,
       );
     }
   }

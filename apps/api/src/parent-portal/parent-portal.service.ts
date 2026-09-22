@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DocumentsService } from '../documents/documents.service';
+import { DisciplineService } from '../discipline/discipline.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OccurrencesService } from '../timetable/occurrences.service';
 import { AttendanceService } from '../attendance/attendance.service';
@@ -28,6 +29,7 @@ export class ParentPortalService {
     private readonly textbook: TextbookService,
     private readonly onlinePayments: OnlinePaymentsService,
     private readonly documents: DocumentsService,
+    private readonly discipline: DisciplineService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -98,6 +100,17 @@ export class ParentPortalService {
         })),
       })),
     };
+  }
+
+  /** Vie scolaire de l'enfant : sanctions publiées, convocations, valorisations (liste blanche, jamais le récit). */
+  async disciplineOf(guardianId: string, studentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.discipline.portalView(studentId);
+  }
+
+  async acknowledgeConvocation(guardianId: string, studentId: string, convocationId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.discipline.acknowledgeConvocation(guardianId, studentId, convocationId);
   }
 
   /**

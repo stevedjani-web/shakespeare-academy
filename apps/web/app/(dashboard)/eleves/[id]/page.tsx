@@ -14,6 +14,7 @@ import { FinancialStatusCard } from "@/components/financial-status-card";
 import { AttendanceHistoryCard } from "@/components/attendance-history-card";
 import { StudentDocumentsCard } from "@/components/documents/student-documents-card";
 import { StudentPhoto } from "@/components/documents/student-photo";
+import { StudentDisciplineCard } from "@/components/discipline/student-discipline-card";
 import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
@@ -441,6 +442,9 @@ export default function StudentDossierPage() {
         </Card>
 
         {hasPermission("ATTENDANCE_READ") && <AttendanceHistoryCard studentId={student.id} />}
+        {(hasPermission("DISCIPLINE_READ") || hasPermission("DISCIPLINE_DECIDE")) && (
+          <StudentDisciplineCard studentId={student.id} open={expand.isOpen("discipline")} onToggle={() => expand.toggle("discipline")} />
+        )}
       </div>
 
       <div className="mt-4">

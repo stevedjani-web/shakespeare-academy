@@ -109,6 +109,20 @@ export class ParentPortalController {
     return this.portal.attendanceOf(req.parent.guardianId, studentId);
   }
 
+  @Get('children/:studentId/discipline')
+  discipline(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
+    return this.portal.disciplineOf(req.parent.guardianId, studentId);
+  }
+
+  @Post('children/:studentId/discipline/convocations/:convocationId/accuser')
+  acknowledgeConvocation(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+    @Param('convocationId') convocationId: string,
+  ) {
+    return this.portal.acknowledgeConvocation(req.parent.guardianId, studentId, convocationId);
+  }
+
   @Post('children/:studentId/attestation')
   attestation(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
     return this.portal.attestationOf(req.parent.guardianId, studentId);

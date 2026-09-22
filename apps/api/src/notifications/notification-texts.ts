@@ -46,6 +46,9 @@ export function pushBody(type: NotificationType, names: string[]): string {
     // Ni la matière ni le contenu du devoir dans l'alerte externe (RV10) : seulement qu'un devoir a été donné.
     case 'DEVOIR_DONNE':
       return `Un devoir a été donné pour la classe ${dePrenom(who)}. Ouvrez l'application pour le consulter.`;
+    // Ni la nature ni le motif (RV10) : seulement qu'un élément de vie scolaire est disponible.
+    case 'DISCIPLINE':
+      return `Un nouvel élément de vie scolaire est disponible pour ${who}. Ouvrez l'application pour le consulter.`;
   }
 }
 
@@ -67,6 +70,8 @@ export function notificationTitle(type: NotificationType): string {
       return 'Bulletin disponible';
     case 'DEVOIR_DONNE':
       return 'Nouveau devoir';
+    case 'DISCIPLINE':
+      return 'Vie scolaire';
   }
 }
 
@@ -136,7 +141,14 @@ export function mergedBody(
       return `${count} bulletins sont disponibles pour ${prenom}. Consultez l'onglet Bulletins.`;
     case 'DEVOIR_DONNE':
       return `${count} devoirs ont été donnés pour la classe ${dePrenom(prenom)}. Consultez l'onglet Devoirs.`;
+    case 'DISCIPLINE':
+      return `${count} éléments de vie scolaire sont disponibles pour ${prenom}. Consultez l'onglet Vie scolaire.`;
   }
+}
+
+/** Dans l'application (authentifiée) comme dans l'alerte : jamais la nature, le motif ni la sanction (RV10). */
+export function disciplineBody(prenom: string): string {
+  return `Un nouvel élément de vie scolaire est disponible pour ${prenom}. Consultez l'onglet Vie scolaire.`;
 }
 
 export function messageReceivedBody(prenom: string, from: string): string {
@@ -171,7 +183,8 @@ export function coalescePolicy(type: NotificationType): 'JOUR' | 'FENETRE' {
   // Les annonces et les changements d'emploi du temps sont regroupés par fenêtre de temps ; le reste, tout de suite.
   return type === 'EMPLOI_DU_TEMPS_MODIFIE' ||
     type === 'ANNONCE' ||
-    type === 'DEVOIR_DONNE'
+    type === 'DEVOIR_DONNE' ||
+    type === 'DISCIPLINE'
     ? 'FENETRE'
     : 'JOUR';
 }

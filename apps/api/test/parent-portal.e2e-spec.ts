@@ -132,12 +132,12 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
   }
 
   const activate = (telephone: string, code: string, extra: object = {}) =>
-    portalPost('/portal/activate', { telephone, code, motDePasse: 'MotDePasse123', consentement: true, versionPolitique: '2026-09-v5', ...extra });
+    portalPost('/portal/activate', { telephone, code, motDePasse: 'MotDePasse123', consentement: true, versionPolitique: '2026-09-v6', ...extra });
 
   /** Génère un code (secrétariat) et active le compte : renvoie le jeton du parent. */
   async function activeParent(guardianId: string, telephone: string, motDePasse = 'MotDePasse123') {
     const { body } = await post(`/parent-accounts/guardians/${guardianId}/activation-code`, {}).expect(201);
-    const res = await portalPost('/portal/activate', { telephone, code: body.code, motDePasse, consentement: true, versionPolitique: '2026-09-v5' }).expect(201);
+    const res = await portalPost('/portal/activate', { telephone, code: body.code, motDePasse, consentement: true, versionPolitique: '2026-09-v6' }).expect(201);
     return res.body.accessToken as string;
   }
 
@@ -201,13 +201,13 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
 
       const consent = await prisma.parentConsent.findMany();
       expect(consent).toHaveLength(1);
-      expect(consent[0].version).toBe('2026-09-v5');
+      expect(consent[0].version).toBe('2026-09-v6');
       expect((await prisma.parentAccount.findFirstOrThrow()).motDePasseHash).not.toContain('MotDePasse123');
 
       // Le code est à usage unique.
       await activate(PHONE_MOUKALA, code).expect(401);
       const list = (await get('/parent-accounts').expect(200)).body.find((g: { id: string }) => g.id === s.moukala.id);
-      expect(list.compte).toMatchObject({ statut: 'ACTIF', consentement: { version: '2026-09-v5' } });
+      expect(list.compte).toMatchObject({ statut: 'ACTIF', consentement: { version: '2026-09-v6' } });
       expect(list.codeEnAttente).toBeNull();
     });
 
@@ -220,7 +220,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       expect(await prisma.parentAccount.count()).toBe(0);
       await activate(PHONE_MOUKALA, code).expect(201); // le code n'avait pas été consommé par les refus
       const info = await request(app.getHttpServer()).get('/portal/consent-info').expect(200);
-      expect(info.body.version).toBe('2026-09-v5');
+      expect(info.body.version).toBe('2026-09-v6');
     });
 
     it('un code faux ne dit jamais si le numéro existe, et se brûle après cinq essais', async () => {

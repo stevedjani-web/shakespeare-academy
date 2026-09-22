@@ -85,25 +85,26 @@ model School {
   ville          String?
   signatureUrl   String?
 
-  academicYears   AcademicYear[]
-  sections        Section[]
-  users           User[]
-  auditLogs       AuditLog[]
-  numberSequences NumberSequence[]
-  students        Student[]
-  guardians       Guardian[]
-  enrollments     Enrollment[]
-  feeTypes        FeeType[]
-  feeSchedules    FeeSchedule[]
-  invoices        Invoice[]
-  payments        Payment[]
-  onlinePayments  OnlinePayment[]
-  issuedDocuments IssuedDocument[]
-  expenses        Expense[]
-  rooms           Room[]
-  timeSlots       TimeSlot[]
-  subjects        Subject[]
-  teachers        Teacher[]
+  academicYears     AcademicYear[]
+  sections          Section[]
+  users             User[]
+  auditLogs         AuditLog[]
+  numberSequences   NumberSequence[]
+  students          Student[]
+  guardians         Guardian[]
+  enrollments       Enrollment[]
+  feeTypes          FeeType[]
+  feeSchedules      FeeSchedule[]
+  invoices          Invoice[]
+  payments          Payment[]
+  onlinePayments    OnlinePayment[]
+  issuedDocuments   IssuedDocument[]
+  disciplineRecords DisciplineRecord[]
+  expenses          Expense[]
+  rooms             Room[]
+  timeSlots         TimeSlot[]
+  subjects          Subject[]
+  teachers          Teacher[]
 
   @@map("schools")
 }
@@ -129,13 +130,14 @@ model AcademicYear {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
-  classes         Class[]
-  enrollments     Enrollment[]
-  feeSchedules    FeeSchedule[]
-  terms           Term[]
-  calendarEvents  CalendarEvent[]
-  timetables      Timetable[]
-  issuedDocuments IssuedDocument[]
+  classes           Class[]
+  enrollments       Enrollment[]
+  feeSchedules      FeeSchedule[]
+  terms             Term[]
+  calendarEvents    CalendarEvent[]
+  timetables        Timetable[]
+  issuedDocuments   IssuedDocument[]
+  disciplineRecords DisciplineRecord[]
 
   @@unique([schoolId, libelle])
   @@map("academic_years")
@@ -216,15 +218,16 @@ model Class {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  enrollments      Enrollment[]
-  assignments      TeachingAssignment[]
-  timetableEntries TimetableEntry[]
-  attendanceCalls  AttendanceCall[]
-  sessionCheckins  TeacherSessionCheckin[]
-  announcements    Announcement[]
-  evaluations      Evaluation[]
-  bulletinPeriods  BulletinPeriod[]
-  textbookEntries  TextbookEntry[]
+  enrollments       Enrollment[]
+  assignments       TeachingAssignment[]
+  timetableEntries  TimetableEntry[]
+  attendanceCalls   AttendanceCall[]
+  sessionCheckins   TeacherSessionCheckin[]
+  announcements     Announcement[]
+  disciplineRecords DisciplineRecord[]
+  evaluations       Evaluation[]
+  bulletinPeriods   BulletinPeriod[]
+  textbookEntries   TextbookEntry[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -297,34 +300,38 @@ model User {
 
   refreshTokens          RefreshToken[]
   auditLogs              AuditLog[]
-  discountsProposed      Discount[]              @relation("DiscountAuteur")
-  discountsDecided       Discount[]              @relation("DiscountApprobateur")
+  discountsProposed      Discount[]                 @relation("DiscountAuteur")
+  discountsDecided       Discount[]                 @relation("DiscountApprobateur")
   paymentsRecus          Payment[]
-  paymentsAnnules        Payment[]               @relation("PaymentAnnulePar")
-  documentsAnnules       IssuedDocument[]        @relation("DocumentAnnulePar")
-  expensesEffectuees     Expense[]               @relation("ExpenseEffectuePar")
-  expensesApprouvees     Expense[]               @relation("ExpenseApprobateur")
-  timetablesPublished    Timetable[]             @relation("TimetablePublishedBy")
-  timetableExceptions    TimetableException[]    @relation("ExceptionCreatedBy")
-  attendanceCalls        AttendanceCall[]        @relation("CallTakenBy")
+  paymentsAnnules        Payment[]                  @relation("PaymentAnnulePar")
+  documentsAnnules       IssuedDocument[]           @relation("DocumentAnnulePar")
+  disciplineRecords      DisciplineRecord[]         @relation("DisciplineRecordAuteur")
+  disciplineRevisions    DisciplineRecordRevision[]
+  disciplineSanctions    Sanction[]                 @relation("SanctionDecidePar")
+  disciplineConvocations DisciplineConvocation[]    @relation("ConvocationCreePar")
+  expensesEffectuees     Expense[]                  @relation("ExpenseEffectuePar")
+  expensesApprouvees     Expense[]                  @relation("ExpenseApprobateur")
+  timetablesPublished    Timetable[]                @relation("TimetablePublishedBy")
+  timetableExceptions    TimetableException[]       @relation("ExceptionCreatedBy")
+  attendanceCalls        AttendanceCall[]           @relation("CallTakenBy")
   attendanceCorrections  AttendanceCorrection[]
   evaluationsCreees      Evaluation[]
   gradesSaisies          Grade[]
   gradeCorrections       GradeCorrection[]
   textbookEntries        TextbookEntry[]
-  justificationsDeclared AbsenceJustification[]  @relation("JustificationDeclaredBy")
-  justificationsDecided  AbsenceJustification[]  @relation("JustificationDecidedBy")
-  teacher                Teacher?                @relation("TeacherUser")
-  checkinsDecided        TeacherSessionCheckin[] @relation("SessionCheckinDecidedBy")
-  dayCheckinsDecided     TeacherDayCheckin[]     @relation("DayCheckinDecidedBy")
+  justificationsDeclared AbsenceJustification[]     @relation("JustificationDeclaredBy")
+  justificationsDecided  AbsenceJustification[]     @relation("JustificationDecidedBy")
+  teacher                Teacher?                   @relation("TeacherUser")
+  checkinsDecided        TeacherSessionCheckin[]    @relation("SessionCheckinDecidedBy")
+  dayCheckinsDecided     TeacherDayCheckin[]        @relation("DayCheckinDecidedBy")
   activationCodesCreated ParentActivationCode[]
-  threadsAsStaff         MessageThread[]         @relation("ThreadStaff")
-  messagesAuthored       Message[]               @relation("MessageAuthorUser")
-  messagesWithdrawn      Message[]               @relation("MessageWithdrawnBy")
-  reportsFiled           MessageReport[]         @relation("ReportReporter")
-  reportsHandled         MessageReport[]         @relation("ReportHandler")
-  announcementsAuthored  Announcement[]          @relation("AnnouncementAuthor")
-  announcementsWithdrawn Announcement[]          @relation("AnnouncementWithdrawnBy")
+  threadsAsStaff         MessageThread[]            @relation("ThreadStaff")
+  messagesAuthored       Message[]                  @relation("MessageAuthorUser")
+  messagesWithdrawn      Message[]                  @relation("MessageWithdrawnBy")
+  reportsFiled           MessageReport[]            @relation("ReportReporter")
+  reportsHandled         MessageReport[]            @relation("ReportHandler")
+  announcementsAuthored  Announcement[]             @relation("AnnouncementAuthor")
+  announcementsWithdrawn Announcement[]             @relation("AnnouncementWithdrawnBy")
 
   @@unique([schoolId, email])
   @@map("users")
@@ -404,6 +411,9 @@ model Student {
   grades              Grade[]
   bulletins           Bulletin[]
   issuedDocuments     IssuedDocument[]
+  disciplineRecords   DisciplineRecord[]
+  sanctions           Sanction[]
+  convocations        DisciplineConvocation[]
 
   @@unique([schoolId, matricule])
   @@map("students")
@@ -654,6 +664,182 @@ model OnlinePayment {
   @@index([invoiceLineId, statut])
   @@index([schoolId, statut])
   @@map("online_payments")
+}
+
+// --- Discipline (Lot 20) --------------------------------------------------------
+
+enum DisciplineNature {
+  INCIDENT
+  VALORISATION
+}
+
+enum DisciplineGravite {
+  LEGER
+  MOYEN
+  GRAVE
+}
+
+enum DisciplineRecordStatus {
+  OUVERT
+  TRAITE
+  ANNULE
+}
+
+enum SanctionStatus {
+  DECIDEE
+  PUBLIEE
+  ANNULEE
+}
+
+enum ConvocationStatus {
+  ENVOYEE
+  ANNULEE
+}
+
+enum ConvocationIssue {
+  PRESENT
+  ABSENT
+}
+
+// Catalogue des types de signalement, saisi par l'école (aucune valeur préchargée : le règlement est le sien).
+model DisciplineType {
+  id        String           @id @default(cuid())
+  nature    DisciplineNature
+  nom       String
+  actif     Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  records DisciplineRecord[]
+
+  @@unique([nature, nom])
+  @@map("discipline_types")
+}
+
+// Catalogue des sanctions possibles (avertissement, retenue...), saisi par l'école.
+model SanctionType {
+  id        String   @id @default(cuid())
+  nom       String   @unique
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sanctions Sanction[]
+
+  @@map("sanction_types")
+}
+
+/**
+ * Signalement d'un incident ou d'une valorisation. La classe et l'année sont figées à la saisie. La description est une
+ * donnée sensible de mineur : jamais dans le journal, jamais dans le portail des parents, jamais dans une notification.
+ */
+model DisciplineRecord {
+  id              String                 @id @default(cuid())
+  studentId       String
+  student         Student                @relation(fields: [studentId], references: [id])
+  classId         String
+  class           Class                  @relation(fields: [classId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear           @relation(fields: [academicYearId], references: [id])
+  nature          DisciplineNature
+  typeId          String
+  type            DisciplineType         @relation(fields: [typeId], references: [id])
+  dateFaits       DateTime               @db.Date
+  gravite         DisciplineGravite?
+  description     String
+  auteurUserId    String
+  auteur          User                   @relation("DisciplineRecordAuteur", fields: [auteurUserId], references: [id])
+  statut          DisciplineRecordStatus @default(OUVERT)
+  // Classé sans suite (incident traité sans sanction) ou annulé : motif obligatoire.
+  motifClassement String?
+  motifAnnulation String?
+  annuleParUserId String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  revisions    DisciplineRecordRevision[]
+  sanctions    Sanction[]
+  convocations DisciplineConvocation[]
+  school       School?                    @relation(fields: [schoolId], references: [id])
+  schoolId     String?
+
+  @@index([studentId, dateFaits])
+  @@index([auteurUserId])
+  @@index([academicYearId, statut])
+  @@map("discipline_records")
+}
+
+// Historique append-only d'une correction (avant le jour de saisie révolu : par la Direction, avec un motif).
+model DisciplineRecordRevision {
+  id        String           @id @default(cuid())
+  recordId  String
+  record    DisciplineRecord @relation(fields: [recordId], references: [id])
+  avant     Json
+  motif     String
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  createdAt DateTime         @default(now())
+
+  @@index([recordId])
+  @@map("discipline_record_revisions")
+}
+
+/**
+ * Sanction décidée par la Direction pour un incident. Le parent ne la voit qu'une fois PUBLIEE : `messageFamille` est le
+ * seul texte libre qui lui est montré, rédigé pour lui.
+ */
+model Sanction {
+  id              String           @id @default(cuid())
+  recordId        String
+  record          DisciplineRecord @relation(fields: [recordId], references: [id])
+  studentId       String
+  student         Student          @relation(fields: [studentId], references: [id])
+  typeId          String
+  type            SanctionType     @relation(fields: [typeId], references: [id])
+  dateDebut       DateTime         @db.Date
+  dateFin         DateTime?        @db.Date
+  messageFamille  String?
+  statut          SanctionStatus   @default(DECIDEE)
+  decideParUserId String
+  decidePar       User             @relation("SanctionDecidePar", fields: [decideParUserId], references: [id])
+  publieLe        DateTime?
+  publieParUserId String?
+  annuleLe        DateTime?
+  motifAnnulation String?
+  annuleParUserId String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([studentId, statut])
+  @@index([recordId])
+  @@map("sanctions")
+}
+
+// Convocation d'une famille. Le parent voit la date, le lieu et l'objet, et accuse réception depuis le portail.
+model DisciplineConvocation {
+  id                  String            @id @default(cuid())
+  studentId           String
+  student             Student           @relation(fields: [studentId], references: [id])
+  // Incident à l'origine : lien interne, jamais montré au parent.
+  recordId            String?
+  record              DisciplineRecord? @relation(fields: [recordId], references: [id])
+  dateRdv             DateTime
+  lieu                String
+  objet               String
+  statut              ConvocationStatus @default(ENVOYEE)
+  creeParUserId       String
+  creePar             User              @relation("ConvocationCreePar", fields: [creeParUserId], references: [id])
+  accuseLe            DateTime?
+  accuseParGuardianId String?
+  issue               ConvocationIssue?
+  issueLe             DateTime?
+  annuleLe            DateTime?
+  motifAnnulation     String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([studentId, dateRdv])
+  @@map("discipline_convocations")
 }
 
 // --- Documents officiels (Lot 19) ---------------------------------------------
@@ -1429,6 +1615,8 @@ enum NotificationType {
   BULLETIN_DISPONIBLE
   // Lot 16 : un devoir vient d'être donné (jamais son contenu dans l'alerte, RV10).
   DEVOIR_DONNE
+  // Lot 20 : un élément de vie scolaire est disponible (sanction publiée, convocation) ; jamais le détail, RV10.
+  DISCIPLINE
 }
 
 enum PushDelivery {
