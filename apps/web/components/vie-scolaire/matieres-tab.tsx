@@ -139,8 +139,21 @@ export function MatieresTab({
       </p>
       <ErrorMessage>{error}</ErrorMessage>
 
+      <form onSubmit={addSubject} className="mb-5 space-y-3 border-b border-border pb-4">
+        <p className="text-sm font-semibold text-ink">Ajouter une matière</p>
+        <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+          <Field label="Code">
+            <Input required placeholder="MATH" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
+          </Field>
+          <Field label="Nom">
+            <Input required placeholder="Mathématiques" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          </Field>
+        </div>
+        <Button type="submit">Ajouter la matière</Button>
+      </form>
+
       {loaded && subjects.length === 0 ? (
-        <EmptyState icon={<BookOpen />} title="Aucune matière." description="Ajoutez la première matière ci-dessous." />
+        <EmptyState icon={<BookOpen />} title="Aucune matière." description="Ajoutez la première matière ci-dessus." />
       ) : (
         <>
           <ExpandAll count={subjects.length} onOpenAll={() => expand.openAll(subjects.map((s) => s.id))} onCloseAll={expand.closeAll} />
@@ -215,19 +228,6 @@ export function MatieresTab({
           </ul>
         </>
       )}
-
-      <form onSubmit={addSubject} className="mt-5 space-y-3 border-t border-border pt-4">
-        <p className="text-sm font-semibold text-ink">Ajouter une matière</p>
-        <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-          <Field label="Code">
-            <Input required placeholder="MATH" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
-          </Field>
-          <Field label="Nom">
-            <Input required placeholder="Mathématiques" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-          </Field>
-        </div>
-        <Button type="submit">Ajouter la matière</Button>
-      </form>
     </Card>
   );
 }

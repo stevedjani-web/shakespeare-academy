@@ -44,8 +44,30 @@ export function SallesTab({ onChanged }: { onChanged: () => void }) {
       <p className={`mb-3 ${TAB_HINT}`}>Les salles de classe, laboratoires ou autres lieux où se donnent les cours.</p>
       <ErrorMessage>{error}</ErrorMessage>
 
+      <form
+        className="mb-5 space-y-3 border-b border-border pb-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(
+            () => api.post("/rooms", { nom: form.nom, capacite: form.capacite ? Number(form.capacite) : undefined }),
+            () => setForm({ nom: "", capacite: "" }),
+          );
+        }}
+      >
+        <p className="text-sm font-semibold text-ink">Ajouter une salle</p>
+        <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+          <Field label="Nom">
+            <Input required placeholder="Salle 1" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          </Field>
+          <Field label="Capacité (facultatif)">
+            <Input type="number" min={1} value={form.capacite} onChange={(e) => setForm({ ...form, capacite: e.target.value })} />
+          </Field>
+        </div>
+        <Button type="submit">Ajouter la salle</Button>
+      </form>
+
       {loaded && rooms.length === 0 ? (
-        <EmptyState icon={<DoorOpen />} title="Aucune salle." description="Ajoutez la première salle ci-dessous." />
+        <EmptyState icon={<DoorOpen />} title="Aucune salle." description="Ajoutez la première salle ci-dessus." />
       ) : (
         <ul className="space-y-2">
           {rooms.map((r) => (
@@ -72,28 +94,6 @@ export function SallesTab({ onChanged }: { onChanged: () => void }) {
           ))}
         </ul>
       )}
-
-      <form
-        className="mt-5 space-y-3 border-t border-border pt-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run(
-            () => api.post("/rooms", { nom: form.nom, capacite: form.capacite ? Number(form.capacite) : undefined }),
-            () => setForm({ nom: "", capacite: "" }),
-          );
-        }}
-      >
-        <p className="text-sm font-semibold text-ink">Ajouter une salle</p>
-        <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
-          <Field label="Nom">
-            <Input required placeholder="Salle 1" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-          </Field>
-          <Field label="Capacité (facultatif)">
-            <Input type="number" min={1} value={form.capacite} onChange={(e) => setForm({ ...form, capacite: e.target.value })} />
-          </Field>
-        </div>
-        <Button type="submit">Ajouter la salle</Button>
-      </form>
     </Card>
   );
 }

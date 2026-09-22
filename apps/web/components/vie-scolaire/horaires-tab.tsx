@@ -142,8 +142,30 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
 
         <ErrorMessage>{error}</ErrorMessage>
 
+        <form onSubmit={addSlot} className="mb-5 space-y-3 border-b border-border pb-4">
+          <p className="text-sm font-semibold text-ink">Ajouter un créneau</p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Field label="Libellé">
+              <Input required placeholder="1ère heure" value={form.libelle} onChange={(e) => setForm({ ...form, libelle: e.target.value })} />
+            </Field>
+            <Field label="Début">
+              <Input type="time" required value={form.heureDebut} onChange={(e) => setForm({ ...form, heureDebut: e.target.value })} />
+            </Field>
+            <Field label="Fin">
+              <Input type="time" required value={form.heureFin} onChange={(e) => setForm({ ...form, heureFin: e.target.value })} />
+            </Field>
+            <Field label="Type">
+              <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as TimeSlotType })}>
+                <option value="COURS">Cours</option>
+                <option value="PAUSE">Pause / récréation</option>
+              </Select>
+            </Field>
+          </div>
+          <Button type="submit">Ajouter le créneau</Button>
+        </form>
+
         {visible.length === 0 ? (
-          <EmptyState icon={<Clock />} title="Aucun créneau pour cette grille." description="Ajoutez le premier créneau ci-dessous." />
+          <EmptyState icon={<Clock />} title="Aucun créneau pour cette grille." description="Ajoutez le premier créneau ci-dessus." />
         ) : (
           <>
             <ExpandAll count={visible.length} onOpenAll={() => expand.openAll(visible.map((s) => s.id))} onCloseAll={expand.closeAll} />
@@ -205,28 +227,6 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
             </ul>
           </>
         )}
-
-        <form onSubmit={addSlot} className="mt-5 space-y-3 border-t border-border pt-4">
-          <p className="text-sm font-semibold text-ink">Ajouter un créneau</p>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Field label="Libellé">
-              <Input required placeholder="1ère heure" value={form.libelle} onChange={(e) => setForm({ ...form, libelle: e.target.value })} />
-            </Field>
-            <Field label="Début">
-              <Input type="time" required value={form.heureDebut} onChange={(e) => setForm({ ...form, heureDebut: e.target.value })} />
-            </Field>
-            <Field label="Fin">
-              <Input type="time" required value={form.heureFin} onChange={(e) => setForm({ ...form, heureFin: e.target.value })} />
-            </Field>
-            <Field label="Type">
-              <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as TimeSlotType })}>
-                <option value="COURS">Cours</option>
-                <option value="PAUSE">Pause / récréation</option>
-              </Select>
-            </Field>
-          </div>
-          <Button type="submit">Ajouter le créneau</Button>
-        </form>
       </Card>
     </div>
   );

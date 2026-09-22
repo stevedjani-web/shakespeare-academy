@@ -113,8 +113,23 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
       <Card>
         <h2 className="font-display text-lg font-semibold text-ink">Motifs d&apos;absence</h2>
         <p className={`mb-3 ${TAB_HINT}`}>La liste proposée au moment d&apos;enregistrer un justificatif. Aucun motif n&apos;est prérempli.</p>
+
+        <form
+          className="mb-5 space-y-3 border-b border-border pb-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => api.post("/absence-reasons", { libelle }), "Motif ajouté.").then(() => setLibelle(""));
+          }}
+        >
+          <p className="text-sm font-semibold text-ink">Ajouter un motif</p>
+          <Field label="Libellé">
+            <Input required placeholder="Maladie" value={libelle} onChange={(e) => setLibelle(e.target.value)} />
+          </Field>
+          <Button type="submit">Ajouter le motif</Button>
+        </form>
+
         {reasons.length === 0 ? (
-          <EmptyState icon={<UserX />} title="Aucun motif." description="Ajoutez le premier motif ci-dessous (par exemple maladie)." />
+          <EmptyState icon={<UserX />} title="Aucun motif." description="Ajoutez le premier motif ci-dessus (par exemple maladie)." />
         ) : (
           <ul className="space-y-2">
             {reasons.map((r) => (
@@ -140,19 +155,6 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
             ))}
           </ul>
         )}
-        <form
-          className="mt-5 space-y-3 border-t border-border pt-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(() => api.post("/absence-reasons", { libelle }), "Motif ajouté.").then(() => setLibelle(""));
-          }}
-        >
-          <p className="text-sm font-semibold text-ink">Ajouter un motif</p>
-          <Field label="Libellé">
-            <Input required placeholder="Maladie" value={libelle} onChange={(e) => setLibelle(e.target.value)} />
-          </Field>
-          <Button type="submit">Ajouter le motif</Button>
-        </form>
       </Card>
     </div>
   );

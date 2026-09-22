@@ -330,36 +330,8 @@ function FeeTypesPanel({
         <h2 className="font-display text-lg font-semibold text-ink">Types de frais</h2>
       </div>
 
-      <ExpandAll ids={feeTypes.map((ft) => ft.id)} onChange={setOpen} />
-      <ul className="space-y-2">
-        {feeTypes.map((ft) => {
-          const expanded = open.has(ft.id);
-          return (
-            <li key={ft.id} className="rounded-xl border border-border px-3.5 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <ExpandButton open={expanded} onClick={() => toggle(ft.id)} label={ft.nom} />
-                <p className="text-sm font-medium text-ink">{ft.nom}</p>
-              </div>
-              {expanded && (
-                <div className="mt-2.5 space-y-2 border-t border-border pt-2.5">
-                  <p className="text-xs text-ink-muted">
-                    {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ft.obligatoire ? <Badge color="primary">Obligatoire</Badge> : <Badge color="slate">Facultatif</Badge>}
-                    {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
-                    {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
-                  </div>
-                </div>
-              )}
-            </li>
-          );
-        })}
-        {feeTypes.length === 0 && <p className="py-4 text-center text-sm text-ink-muted">Aucun type de frais.</p>}
-      </ul>
-
       {canManage && (
-        <form onSubmit={handleCreate} className="mt-5 space-y-3 border-t border-border pt-5">
+        <form onSubmit={handleCreate} className="mb-5 space-y-3 border-b border-border pb-5">
           <Field label="Code">
             <Input
               required
@@ -411,6 +383,34 @@ function FeeTypesPanel({
           </Button>
         </form>
       )}
+
+      <ExpandAll ids={feeTypes.map((ft) => ft.id)} onChange={setOpen} />
+      <ul className="space-y-2">
+        {feeTypes.map((ft) => {
+          const expanded = open.has(ft.id);
+          return (
+            <li key={ft.id} className="rounded-xl border border-border px-3.5 py-2.5">
+              <div className="flex items-center gap-2.5">
+                <ExpandButton open={expanded} onClick={() => toggle(ft.id)} label={ft.nom} />
+                <p className="text-sm font-medium text-ink">{ft.nom}</p>
+              </div>
+              {expanded && (
+                <div className="mt-2.5 space-y-2 border-t border-border pt-2.5">
+                  <p className="text-xs text-ink-muted">
+                    {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ft.obligatoire ? <Badge color="primary">Obligatoire</Badge> : <Badge color="slate">Facultatif</Badge>}
+                    {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
+                    {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+        {feeTypes.length === 0 && <p className="py-4 text-center text-sm text-ink-muted">Aucun type de frais.</p>}
+      </ul>
     </Card>
   );
 }

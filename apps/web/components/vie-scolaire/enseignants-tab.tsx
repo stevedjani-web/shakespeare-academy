@@ -116,8 +116,27 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
       </p>
       <ErrorMessage>{error}</ErrorMessage>
 
+      <form onSubmit={addTeacher} className="mb-5 space-y-3 border-b border-border pb-4">
+        <p className="text-sm font-semibold text-ink">Ajouter un enseignant</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Nom">
+            <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          </Field>
+          <Field label="Prénom">
+            <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
+          </Field>
+          <Field label="Téléphone (facultatif)">
+            <Input value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+          </Field>
+          <Field label="E-mail (facultatif)">
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </Field>
+        </div>
+        <Button type="submit">Ajouter l&apos;enseignant</Button>
+      </form>
+
       {loaded && teachers.length === 0 ? (
-        <EmptyState icon={<Users />} title="Aucun enseignant." description="Ajoutez la première fiche ci-dessous." />
+        <EmptyState icon={<Users />} title="Aucun enseignant." description="Ajoutez la première fiche ci-dessus." />
       ) : (
         <>
           <ExpandAll count={teachers.length} onOpenAll={() => expand.openAll(teachers.map((t) => t.id))} onCloseAll={expand.closeAll} />
@@ -238,25 +257,6 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
           </ul>
         </>
       )}
-
-      <form onSubmit={addTeacher} className="mt-5 space-y-3 border-t border-border pt-4">
-        <p className="text-sm font-semibold text-ink">Ajouter un enseignant</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nom">
-            <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-          </Field>
-          <Field label="Prénom">
-            <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
-          </Field>
-          <Field label="Téléphone (facultatif)">
-            <Input value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
-          </Field>
-          <Field label="E-mail (facultatif)">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          </Field>
-        </div>
-        <Button type="submit">Ajouter l&apos;enseignant</Button>
-      </form>
     </Card>
   );
 }

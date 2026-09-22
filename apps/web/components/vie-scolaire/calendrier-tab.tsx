@@ -110,8 +110,36 @@ export function CalendrierTab({
 
       <Card>
         <h3 className="mb-3 font-display text-base font-semibold text-ink">Trimestres</h3>
+
+        {!closed && year && (
+          <form
+            className="mb-4 space-y-3 border-b border-border pb-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(
+                () => api.post("/terms", { academicYearId: yearId, ...termForm }),
+                () => setTermForm({ libelle: "", dateDebut: "", dateFin: "" }),
+              );
+            }}
+          >
+            <p className="text-sm font-semibold text-ink">Ajouter un trimestre</p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Libellé">
+                <Input required placeholder="Trimestre 1" value={termForm.libelle} onChange={(e) => setTermForm({ ...termForm, libelle: e.target.value })} />
+              </Field>
+              <Field label="Début">
+                <Input type="date" required value={termForm.dateDebut} onChange={(e) => setTermForm({ ...termForm, dateDebut: e.target.value })} />
+              </Field>
+              <Field label="Fin">
+                <Input type="date" required value={termForm.dateFin} onChange={(e) => setTermForm({ ...termForm, dateFin: e.target.value })} />
+              </Field>
+            </div>
+            <Button type="submit">Ajouter le trimestre</Button>
+          </form>
+        )}
+
         {terms.length === 0 ? (
-          <EmptyState icon={<CalendarDays />} title="Aucun trimestre." description="Ajoutez le premier trimestre ci-dessous." />
+          <EmptyState icon={<CalendarDays />} title="Aucun trimestre." description="Ajoutez le premier trimestre ci-dessus." />
         ) : (
           <ul className="space-y-2">
             {terms.map((t) => (
@@ -164,75 +192,14 @@ export function CalendrierTab({
             ))}
           </ul>
         )}
-        {!closed && year && (
-          <form
-            className="mt-4 space-y-3 border-t border-border pt-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run(
-                () => api.post("/terms", { academicYearId: yearId, ...termForm }),
-                () => setTermForm({ libelle: "", dateDebut: "", dateFin: "" }),
-              );
-            }}
-          >
-            <p className="text-sm font-semibold text-ink">Ajouter un trimestre</p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Libellé">
-                <Input required placeholder="Trimestre 1" value={termForm.libelle} onChange={(e) => setTermForm({ ...termForm, libelle: e.target.value })} />
-              </Field>
-              <Field label="Début">
-                <Input type="date" required value={termForm.dateDebut} onChange={(e) => setTermForm({ ...termForm, dateDebut: e.target.value })} />
-              </Field>
-              <Field label="Fin">
-                <Input type="date" required value={termForm.dateFin} onChange={(e) => setTermForm({ ...termForm, dateFin: e.target.value })} />
-              </Field>
-            </div>
-            <Button type="submit">Ajouter le trimestre</Button>
-          </form>
-        )}
       </Card>
 
       <Card>
         <h3 className="mb-3 font-display text-base font-semibold text-ink">Vacances et jours fériés</h3>
-        {events.length === 0 ? (
-          <EmptyState icon={<CalendarDays />} title="Aucun jour sans classe." description="Ajoutez les vacances et jours fériés ci-dessous." />
-        ) : (
-          <>
-            <ExpandAll count={events.length} onOpenAll={() => expand.openAll(events.map((x) => x.id))} onCloseAll={expand.closeAll} />
-            <ul className="space-y-2">
-              {events.map((ev) => {
-                const expanded = expand.isOpen(ev.id);
-                return (
-                  <li key={ev.id} className="rounded-xl border border-border p-3">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <ExpandButton open={expanded} onClick={() => expand.toggle(ev.id)} label={ev.libelle} />
-                      <Badge color={EVENT_COLOR[ev.type]}>{EVENT_LABEL[ev.type]}</Badge>
-                      <span className="font-medium text-ink">{ev.libelle}</span>
-                      <span className="text-sm text-ink-muted">
-                        {day(ev.dateDebut) === day(ev.dateFin) ? formatDay(ev.dateDebut) : `du ${formatDay(ev.dateDebut)} au ${formatDay(ev.dateFin)}`}
-                      </span>
-                    </div>
-                    {expanded && !closed && (
-                      <div className="mt-3 border-t border-border pt-3">
-                        <Button
-                          variant="danger"
-                          onClick={() => {
-                            if (confirm(`Supprimer « ${ev.libelle} » ?`)) void run(() => api.delete(`/calendar-events/${ev.id}`));
-                          }}
-                        >
-                          Supprimer
-                        </Button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+
         {!closed && year && (
           <form
-            className="mt-4 space-y-3 border-t border-border pt-4"
+            className="mb-4 space-y-3 border-b border-border pb-4"
             onSubmit={(e) => {
               e.preventDefault();
               void run(
@@ -269,6 +236,43 @@ export function CalendrierTab({
             </div>
             <Button type="submit">Ajouter</Button>
           </form>
+        )}
+
+        {events.length === 0 ? (
+          <EmptyState icon={<CalendarDays />} title="Aucun jour sans classe." description="Ajoutez les vacances et jours fériés ci-dessus." />
+        ) : (
+          <>
+            <ExpandAll count={events.length} onOpenAll={() => expand.openAll(events.map((x) => x.id))} onCloseAll={expand.closeAll} />
+            <ul className="space-y-2">
+              {events.map((ev) => {
+                const expanded = expand.isOpen(ev.id);
+                return (
+                  <li key={ev.id} className="rounded-xl border border-border p-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <ExpandButton open={expanded} onClick={() => expand.toggle(ev.id)} label={ev.libelle} />
+                      <Badge color={EVENT_COLOR[ev.type]}>{EVENT_LABEL[ev.type]}</Badge>
+                      <span className="font-medium text-ink">{ev.libelle}</span>
+                      <span className="text-sm text-ink-muted">
+                        {day(ev.dateDebut) === day(ev.dateFin) ? formatDay(ev.dateDebut) : `du ${formatDay(ev.dateDebut)} au ${formatDay(ev.dateFin)}`}
+                      </span>
+                    </div>
+                    {expanded && !closed && (
+                      <div className="mt-3 border-t border-border pt-3">
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            if (confirm(`Supprimer « ${ev.libelle} » ?`)) void run(() => api.delete(`/calendar-events/${ev.id}`));
+                          }}
+                        >
+                          Supprimer
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </Card>
     </div>
