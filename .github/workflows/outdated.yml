@@ -35,8 +35,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- docs/badges/outdated.svg; then
-            git add docs/badges/outdated.svg
+          git add docs/badges/outdated.svg
+          if ! git diff --cached --quiet -- docs/badges/outdated.svg; then
             git commit -m "Badge de dépendances obsolètes : mise à jour automatique [skip ci]"
             for attempt in 1 2 3 4 5; do
               if git push; then

@@ -28,8 +28,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- docs/badges/file-count.svg; then
-            git add docs/badges/file-count.svg
+          git add docs/badges/file-count.svg
+          if ! git diff --cached --quiet -- docs/badges/file-count.svg; then
             git commit -m "Badge de nombre de fichiers : mise à jour automatique [skip ci]"
             for attempt in 1 2 3 4 5; do
               if git push; then
