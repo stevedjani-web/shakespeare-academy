@@ -23,7 +23,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const canSeeDraft = (user: CurrentUserData) => user.permissions.includes('PEDAGOGY_MANAGE');
+const canSeeDraft = (user: CurrentUserData) =>
+  user.permissions.includes('PEDAGOGY_MANAGE');
 
 function requireDate(value: string | undefined, name: string): string {
   if (!value || !DATE.test(value)) {
@@ -49,7 +50,10 @@ export class TimetablesController {
 
   @Post()
   @RequirePermission('PEDAGOGY_MANAGE')
-  create(@Body() dto: CreateTimetableDto, @CurrentUser() user: CurrentUserData) {
+  create(
+    @Body() dto: CreateTimetableDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.timetables.create(dto, user.id);
   }
 
@@ -179,7 +183,11 @@ export class TimetableViewController {
     @Query('teacherId') teacherId?: string,
     @Query('roomId') roomId?: string,
   ) {
-    return this.occurrences.resolveDay(requireDate(date, 'date'), { classId, teacherId, roomId });
+    return this.occurrences.resolveDay(requireDate(date, 'date'), {
+      classId,
+      teacherId,
+      roomId,
+    });
   }
 
   @Get('week')
@@ -190,6 +198,10 @@ export class TimetableViewController {
     @Query('teacherId') teacherId?: string,
     @Query('roomId') roomId?: string,
   ) {
-    return this.occurrences.week(requireDate(date, 'date'), { classId, teacherId, roomId });
+    return this.occurrences.week(requireDate(date, 'date'), {
+      classId,
+      teacherId,
+      roomId,
+    });
   }
 }

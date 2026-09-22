@@ -21,11 +21,18 @@ describe('Paiements et reçus (e2e)', () => {
     const school = await seedBaseFixtures(prisma);
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@shakespeareacademy.cg', motDePasse: 'ChangeMe123!' })
+      .send({
+        email: 'admin@shakespeareacademy.cg',
+        motDePasse: 'ChangeMe123!',
+      })
       .expect(201);
     adminToken = login.body.accessToken;
 
-    const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'DIRECTION');
+    const { user, motDePasse } = await createUserWithRole(
+      prisma,
+      school.id,
+      'DIRECTION',
+    );
     const dirLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: user.email, motDePasse })
@@ -44,32 +51,46 @@ describe('Paiements et reçus (e2e)', () => {
     return req.set('Authorization', `Bearer ${directionToken}`);
   }
 
-  async function setupInvoiceLine(feeTypeOverrides: Record<string, unknown> = {}) {
-    const section = await auth(request(app.getHttpServer()).post('/sections')).send({
+  async function setupInvoiceLine(
+    feeTypeOverrides: Record<string, unknown> = {},
+  ) {
+    const section = await auth(
+      request(app.getHttpServer()).post('/sections'),
+    ).send({
       code: 'FR',
       nom: 'Francophone',
     });
-    const cycle = await auth(request(app.getHttpServer()).post('/cycles')).send({
-      sectionId: section.body.id,
-      code: 'PRIMAIRE',
-      nom: 'Primaire',
-    });
-    const level = await auth(request(app.getHttpServer()).post('/levels')).send({
-      cycleId: cycle.body.id,
-      code: 'CM2',
-      nom: 'CM2',
-    });
-    const year = await auth(request(app.getHttpServer()).post('/academic-years')).send({
+    const cycle = await auth(request(app.getHttpServer()).post('/cycles')).send(
+      {
+        sectionId: section.body.id,
+        code: 'PRIMAIRE',
+        nom: 'Primaire',
+      },
+    );
+    const level = await auth(request(app.getHttpServer()).post('/levels')).send(
+      {
+        cycleId: cycle.body.id,
+        code: 'CM2',
+        nom: 'CM2',
+      },
+    );
+    const year = await auth(
+      request(app.getHttpServer()).post('/academic-years'),
+    ).send({
       libelle: '2026-2027',
       dateDebut: '2026-09-01',
       dateFin: '2027-07-15',
     });
-    const klass = await auth(request(app.getHttpServer()).post('/classes')).send({
+    const klass = await auth(
+      request(app.getHttpServer()).post('/classes'),
+    ).send({
       levelId: level.body.id,
       academicYearId: year.body.id,
       nom: 'CM2 A',
     });
-    const feeType = await auth(request(app.getHttpServer()).post('/fee-types')).send({
+    const feeType = await auth(
+      request(app.getHttpServer()).post('/fee-types'),
+    ).send({
       code: 'INSCRIPTION',
       nom: "Frais d'inscription",
       obligatoire: true,
@@ -82,28 +103,44 @@ describe('Paiements et reçus (e2e)', () => {
       feeTypeId: feeType.body.id,
       montant: 45000,
     });
-    const student = await auth(request(app.getHttpServer()).post('/students')).send({
+    const student = await auth(
+      request(app.getHttpServer()).post('/students'),
+    ).send({
       nom: 'Moukala',
       prenom: 'Grace',
       sexe: 'F',
       dateNaissance: '2015-04-12',
-      responsable: { nom: 'Moukala', prenom: 'Jean', telephone: '242060000001', lien: 'Père' },
+      responsable: {
+        nom: 'Moukala',
+        prenom: 'Jean',
+        telephone: '242060000001',
+        lien: 'Père',
+      },
     });
-    const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+    const enrollment = await auth(
+      request(app.getHttpServer()).post('/enrollments'),
+    ).send({
       studentId: student.body.id,
       classId: klass.body.id,
       academicYearId: year.body.id,
     });
     const invoice = await auth(
-      request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment.body.id}`),
+      request(app.getHttpServer()).get(
+        `/invoices/by-enrollment/${enrollment.body.id}`,
+      ),
     );
-    return { invoiceLineId: invoice.body.lines[0].id, studentId: student.body.id };
+    return {
+      invoiceLineId: invoice.body.lines[0].id,
+      studentId: student.body.id,
+    };
   }
 
   it('encaisse un paiement complet et génère un numéro de reçu séquentiel', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
 
-    const payment = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const payment = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
@@ -151,7 +188,9 @@ describe('Paiements et reçus (e2e)', () => {
       .send({ invoiceLineId, montant: 45000, modePaiement: 'MOBILE_MONEY' })
       .expect(400);
 
-    const withRef = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const withRef = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
       modePaiement: 'MOBILE_MONEY',
@@ -171,7 +210,9 @@ describe('Paiements et reçus (e2e)', () => {
 
   it('annule un paiement (Direction) — le solde redevient disponible', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
-    const payment = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const payment = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
@@ -184,7 +225,9 @@ describe('Paiements et reçus (e2e)', () => {
     expect(cancelled.body.motifAnnulation).toMatch(/Erreur de saisie/);
 
     // Le solde de la ligne redevient disponible : un nouveau paiement complet est accepté.
-    const retry = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const retry = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
@@ -193,12 +236,16 @@ describe('Paiements et reçus (e2e)', () => {
 
   it('refuse à Administrateur d’annuler un paiement (403) — Direction uniquement', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
-    const payment = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const payment = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
 
-    await auth(request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`))
+    await auth(
+      request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`),
+    )
       .send({ motif: 'Test' })
       .expect(403);
   });
@@ -206,14 +253,32 @@ describe('Paiements et reçus (e2e)', () => {
   it('refuse à celui qui a encaissé un paiement de l’annuler lui-même (RG09), même s’il en a le droit', async () => {
     // Un rôle sur mesure qui cumule l'encaissement et l'approbation des annulations.
     const school = await prisma.school.findFirstOrThrow();
-    const role = await prisma.role.create({ data: { code: 'CAISSE_ET_DIRECTION', nom: 'Cumul', description: 'test' } });
+    const role = await prisma.role.create({
+      data: { code: 'CAISSE_ET_DIRECTION', nom: 'Cumul', description: 'test' },
+    });
     const perms = await prisma.permission.findMany({
-      where: { code: { in: ['STUDENT_READ', 'FINANCE_READ', 'PAYMENT_CREATE', 'PAYMENT_CANCEL_APPROVE'] } },
+      where: {
+        code: {
+          in: [
+            'STUDENT_READ',
+            'FINANCE_READ',
+            'PAYMENT_CREATE',
+            'PAYMENT_CANCEL_APPROVE',
+          ],
+        },
+      },
     });
-    await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })) });
-    const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'CAISSE_ET_DIRECTION', {
-      email: 'cumul@test.local',
+    await prisma.rolePermission.createMany({
+      data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
     });
+    const { user, motDePasse } = await createUserWithRole(
+      prisma,
+      school.id,
+      'CAISSE_ET_DIRECTION',
+      {
+        email: 'cumul@test.local',
+      },
+    );
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: user.email, motDePasse })
@@ -233,31 +298,47 @@ describe('Paiements et reçus (e2e)', () => {
       .send({ motif: 'Je m’annule moi-même' });
     expect(self.status).toBe(403);
     expect(self.body.message).toMatch(/vous avez encaissé/);
-    expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.body.id } })).statut).toBe('VALIDE');
+    expect(
+      (
+        await prisma.payment.findUniqueOrThrow({
+          where: { id: payment.body.id },
+        })
+      ).statut,
+    ).toBe('VALIDE');
 
     // Un autre responsable (Direction) peut, lui, l'annuler.
-    await authDir(request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`))
+    await authDir(
+      request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`),
+    )
       .send({ motif: 'Erreur de saisie' })
       .expect(201);
   });
 
   it('refuse d’annuler deux fois le même paiement (409)', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
-    const payment = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const payment = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
-    await authDir(request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`)).send({
+    await authDir(
+      request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`),
+    ).send({
       motif: 'Première annulation',
     });
-    await authDir(request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`))
+    await authDir(
+      request(app.getHttpServer()).post(`/payments/${payment.body.id}/cancel`),
+    )
       .send({ motif: 'Deuxième tentative' })
       .expect(409);
   });
 
   it('D30 : la réimpression d’un reçu est journalisée', async () => {
     const { invoiceLineId } = await setupInvoiceLine();
-    const payment = await auth(request(app.getHttpServer()).post('/payments')).send({
+    const payment = await auth(
+      request(app.getHttpServer()).post('/payments'),
+    ).send({
       invoiceLineId,
       montant: 45000,
     });
@@ -268,16 +349,24 @@ describe('Paiements et reçus (e2e)', () => {
     expect(reprint.status).toBe(201);
     expect(reprint.body.numeroRecu).toBe(payment.body.numeroRecu);
 
-    const logs = await auth(request(app.getHttpServer()).get('/audit-logs?entite=Payment'));
+    const logs = await auth(
+      request(app.getHttpServer()).get('/audit-logs?entite=Payment'),
+    );
     const actions = logs.body.map((l: { action: string }) => l.action);
-    expect(actions).toEqual(expect.arrayContaining(['PAYMENT_CREATE', 'PAYMENT_REPRINT']));
+    expect(actions).toEqual(
+      expect.arrayContaining(['PAYMENT_CREATE', 'PAYMENT_REPRINT']),
+    );
   });
 
   it('refuse d’encaisser sur une facture annulée (409)', async () => {
     const { invoiceLineId, studentId } = await setupInvoiceLine();
-    const student = await auth(request(app.getHttpServer()).get(`/students/${studentId}`));
+    const student = await auth(
+      request(app.getHttpServer()).get(`/students/${studentId}`),
+    );
     const enrollmentId = student.body.enrollments[0].id;
-    await auth(request(app.getHttpServer()).post(`/enrollments/${enrollmentId}/cancel`)).send({
+    await auth(
+      request(app.getHttpServer()).post(`/enrollments/${enrollmentId}/cancel`),
+    ).send({
       motif: 'Annulation test',
     });
 
@@ -290,7 +379,9 @@ describe('Paiements et reçus (e2e)', () => {
     const { invoiceLineId, studentId } = await setupInvoiceLine();
 
     const before = await auth(
-      request(app.getHttpServer()).get(`/students/${studentId}/financial-status`),
+      request(app.getHttpServer()).get(
+        `/students/${studentId}/financial-status`,
+      ),
     );
     expect(before.body.statut).toBe('EN_RETARD');
     expect(before.body.montantPaye).toBe(0);
@@ -301,7 +392,9 @@ describe('Paiements et reçus (e2e)', () => {
     });
 
     const after = await auth(
-      request(app.getHttpServer()).get(`/students/${studentId}/financial-status`),
+      request(app.getHttpServer()).get(
+        `/students/${studentId}/financial-status`,
+      ),
     );
     expect(after.body.statut).toBe('SOLVABLE');
     expect(after.body.montantPaye).toBe(45000);
@@ -315,11 +408,15 @@ describe('Paiements et reçus (e2e)', () => {
       montant: 45000,
     });
 
-    const byStudent = await auth(request(app.getHttpServer()).get(`/payments?studentId=${studentId}`));
+    const byStudent = await auth(
+      request(app.getHttpServer()).get(`/payments?studentId=${studentId}`),
+    );
     expect(byStudent.body).toHaveLength(1);
 
     const byLine = await auth(
-      request(app.getHttpServer()).get(`/payments?invoiceLineId=${invoiceLineId}`),
+      request(app.getHttpServer()).get(
+        `/payments?invoiceLineId=${invoiceLineId}`,
+      ),
     );
     expect(byLine.body).toHaveLength(1);
   });
@@ -327,7 +424,9 @@ describe('Paiements et reçus (e2e)', () => {
   describe('D29 : vérification publique d’un reçu par jeton', () => {
     it('renvoie les informations du reçu sans authentification, via le jeton', async () => {
       const { invoiceLineId } = await setupInvoiceLine();
-      const created = await auth(request(app.getHttpServer()).post('/payments')).send({
+      const created = await auth(
+        request(app.getHttpServer()).post('/payments'),
+      ).send({
         invoiceLineId,
         montant: 45000,
       });
@@ -350,7 +449,9 @@ describe('Paiements et reçus (e2e)', () => {
 
     it('ne permet pas de deviner un reçu via son numéro séquentiel', async () => {
       const { invoiceLineId } = await setupInvoiceLine();
-      const created = await auth(request(app.getHttpServer()).post('/payments')).send({
+      const created = await auth(
+        request(app.getHttpServer()).post('/payments'),
+      ).send({
         invoiceLineId,
         montant: 45000,
       });

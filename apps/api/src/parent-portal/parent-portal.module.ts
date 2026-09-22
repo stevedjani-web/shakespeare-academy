@@ -17,7 +17,10 @@ import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
 import { ParentAccountsService } from './parent-accounts.service';
-import { ParentAuthController, ParentPortalController } from './parent-portal.controller';
+import {
+  ParentAuthController,
+  ParentPortalController,
+} from './parent-portal.controller';
 import { ParentAccountsController } from './parent-accounts.controller';
 import { ParentNotificationsController } from './parent-notifications.controller';
 import { ParentMessagingController } from './parent-messaging.controller';
@@ -40,7 +43,18 @@ import { ParentMessagingController } from './parent-messaging.controller';
     DocumentsModule,
     DisciplineModule,
   ],
-  controllers: [ParentAuthController, ParentPortalController, ParentNotificationsController, ParentMessagingController, ParentAccountsController],
-  providers: [ParentAuthService, ParentAuthGuard, ParentPortalService, ParentAccountsService],
+  controllers: [
+    ParentAuthController,
+    ParentPortalController,
+    ParentNotificationsController,
+    ParentMessagingController,
+    ParentAccountsController,
+  ],
+  providers: [
+    ParentAuthService,
+    ParentAuthGuard,
+    ParentPortalService,
+    ParentAccountsService,
+  ],
 })
 export class ParentPortalModule {}

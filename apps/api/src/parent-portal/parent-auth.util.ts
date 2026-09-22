@@ -10,7 +10,10 @@ export const MAX_CODE_ATTEMPTS = 5;
 
 /** Code lisible, en deux groupes de quatre : « K7MQ-2XPA ». */
 export function generateActivationCode(): string {
-  const chars = Array.from({ length: CODE_LENGTH }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]);
+  const chars = Array.from(
+    { length: CODE_LENGTH },
+    () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)],
+  );
   return `${chars.slice(0, 4).join('')}-${chars.slice(4).join('')}`;
 }
 
@@ -46,5 +49,7 @@ export function samePhone(a: string, b: string): boolean {
  * personnel ne se vérifie donc pas comme jeton de parent, ni l'inverse.
  */
 export function parentTokenSecret(): string {
-  return createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? '').update('portail-parents').digest('hex');
+  return createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? '')
+    .update('portail-parents')
+    .digest('hex');
 }

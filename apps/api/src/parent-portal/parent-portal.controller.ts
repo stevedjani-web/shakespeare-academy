@@ -17,7 +17,12 @@ import { ParentAuthService, type ParentSession } from './parent-auth.service';
 import { ParentPortalService } from './parent-portal.service';
 import { ParentAuthGuard, type ParentIdentity } from './parent-auth.guard';
 import { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
-import { ActivateDto, ParentChangePasswordDto, ParentLoginDto, WeekQueryDto } from './dto/parent.dto';
+import {
+  ActivateDto,
+  ParentChangePasswordDto,
+  ParentLoginDto,
+  WeekQueryDto,
+} from './dto/parent.dto';
 
 const REFRESH_COOKIE = 'parent_refresh_token';
 const REFRESH_PATH = '/portal';
@@ -51,17 +56,29 @@ export class ParentAuthController {
   }
 
   @Post('activate')
-  async activate(@Body() dto: ActivateDto, @Res({ passthrough: true }) res: Response) {
+  async activate(
+    @Body() dto: ActivateDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     return sessionBody(res, await this.auth.activate(dto));
   }
 
   @Post('login')
-  async login(@Body() dto: ParentLoginDto, @Res({ passthrough: true }) res: Response) {
-    return sessionBody(res, await this.auth.login(dto.telephone, dto.motDePasse));
+  async login(
+    @Body() dto: ParentLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return sessionBody(
+      res,
+      await this.auth.login(dto.telephone, dto.motDePasse),
+    );
   }
 
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
     if (!raw) throw new UnauthorizedException('Aucune session à renouveler.');
     const result = await this.auth.refresh(raw);
@@ -94,13 +111,24 @@ export class ParentPortalController {
   }
 
   @Patch('change-password')
-  async changePassword(@Req() req: ParentRequest, @Body() dto: ParentChangePasswordDto) {
-    await this.auth.changePassword(req.parent.accountId, dto.ancienMotDePasse, dto.nouveauMotDePasse);
+  async changePassword(
+    @Req() req: ParentRequest,
+    @Body() dto: ParentChangePasswordDto,
+  ) {
+    await this.auth.changePassword(
+      req.parent.accountId,
+      dto.ancienMotDePasse,
+      dto.nouveauMotDePasse,
+    );
     return { success: true };
   }
 
   @Get('children/:studentId/timetable')
-  timetable(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Query() q: WeekQueryDto) {
+  timetable(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+    @Query() q: WeekQueryDto,
+  ) {
     return this.portal.timetable(req.parent.guardianId, studentId, q.date);
   }
 
@@ -120,11 +148,18 @@ export class ParentPortalController {
     @Param('studentId') studentId: string,
     @Param('convocationId') convocationId: string,
   ) {
-    return this.portal.acknowledgeConvocation(req.parent.guardianId, studentId, convocationId);
+    return this.portal.acknowledgeConvocation(
+      req.parent.guardianId,
+      studentId,
+      convocationId,
+    );
   }
 
   @Post('children/:studentId/attestation')
-  attestation(@Req() req: ParentRequest, @Param('studentId') studentId: string) {
+  attestation(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+  ) {
     return this.portal.attestationOf(req.parent.guardianId, studentId);
   }
 
@@ -139,7 +174,11 @@ export class ParentPortalController {
   }
 
   @Get('children/:studentId/bulletins/:bulletinId')
-  bulletin(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Param('bulletinId') bulletinId: string) {
+  bulletin(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+    @Param('bulletinId') bulletinId: string,
+  ) {
     return this.portal.bulletinOf(req.parent.guardianId, studentId, bulletinId);
   }
 
@@ -149,7 +188,11 @@ export class ParentPortalController {
   }
 
   @Post('children/:studentId/payments')
-  payTranche(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Body() dto: InitiateOnlinePaymentDto) {
+  payTranche(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+    @Body() dto: InitiateOnlinePaymentDto,
+  ) {
     return this.portal.payTranche(req.parent.guardianId, studentId, dto);
   }
 
@@ -159,7 +202,11 @@ export class ParentPortalController {
   }
 
   @Get('children/:studentId/payments/:paymentId/receipt')
-  receipt(@Req() req: ParentRequest, @Param('studentId') studentId: string, @Param('paymentId') paymentId: string) {
+  receipt(
+    @Req() req: ParentRequest,
+    @Param('studentId') studentId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
     return this.portal.receiptOf(req.parent.guardianId, studentId, paymentId);
   }
 }

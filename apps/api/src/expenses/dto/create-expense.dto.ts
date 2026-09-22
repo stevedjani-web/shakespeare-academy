@@ -1,5 +1,15 @@
-import { IsIn, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
-import { EXPENSE_CATEGORIES, type ExpenseCategory } from '../expense-categories';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+} from 'class-validator';
+import {
+  EXPENSE_CATEGORIES,
+  type ExpenseCategory,
+} from '../expense-categories';
 
 export class CreateExpenseDto {
   @IsIn(EXPENSE_CATEGORIES)

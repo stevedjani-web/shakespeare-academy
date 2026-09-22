@@ -10,7 +10,14 @@ import { ClassesModule } from '../classes/classes.module';
 
 /** Lot 21 : préinscription en ligne (demande publique, examen et conversion en inscription réelle). */
 @Module({
-  imports: [AuditModule, SchoolModule, NumberSequenceModule, StudentsModule, EnrollmentsModule, ClassesModule],
+  imports: [
+    AuditModule,
+    SchoolModule,
+    NumberSequenceModule,
+    StudentsModule,
+    EnrollmentsModule,
+    ClassesModule,
+  ],
   controllers: [PreRegistrationsController],
   providers: [PreRegistrationsService],
   exports: [PreRegistrationsService],

@@ -11,7 +11,9 @@ export function overlaps(
   debut2: string,
   fin2: string,
 ): boolean {
-  return toMinutes(debut1) < toMinutes(fin2) && toMinutes(fin1) > toMinutes(debut2);
+  return (
+    toMinutes(debut1) < toMinutes(fin2) && toMinutes(fin1) > toMinutes(debut2)
+  );
 }
 
 /** "AAAA-MM-JJ" -> Date à minuit UTC. */

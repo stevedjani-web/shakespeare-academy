@@ -18,7 +18,10 @@ import {
   SaveCallDto,
   UpdateReasonDto,
 } from './dto/attendance.dto';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/require-permission.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
@@ -31,11 +34,19 @@ function requireDate(value: string | undefined, name: string): string {
   return value;
 }
 
-function optionalDate(value: string | undefined, name: string): string | undefined {
+function optionalDate(
+  value: string | undefined,
+  name: string,
+): string | undefined {
   return value ? requireDate(value, name) : undefined;
 }
 
-const JUSTIFICATION_FILTERS = ['aucune', 'attente', 'acceptee', 'refusee'] as const;
+const JUSTIFICATION_FILTERS = [
+  'aucune',
+  'attente',
+  'acceptee',
+  'refusee',
+] as const;
 
 // Lecture : ATTENDANCE_READ. Faire l'appel : ATTENDANCE_TAKE. Corriger après verrouillage, saisir et
 // décider les justificatifs : ATTENDANCE_CORRECT. Les motifs se gèrent avec PEDAGOGY_MANAGE.
@@ -74,7 +85,10 @@ export class AttendanceController {
 
   @Post('calls')
   @RequirePermission('ATTENDANCE_TAKE')
-  async saveCall(@Body() dto: SaveCallDto, @CurrentUser() user: CurrentUserData) {
+  async saveCall(
+    @Body() dto: SaveCallDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.attendance.saveCall(dto, {
       id: user.id,
       canCorrect: user.permissions.includes('ATTENDANCE_CORRECT'),
@@ -91,22 +105,36 @@ export class AttendanceController {
     @Query('to') to?: string,
     @Query('justification') justification?: string,
   ) {
-    if (justification && !(JUSTIFICATION_FILTERS as readonly string[]).includes(justification)) {
-      throw new BadRequestException('justification doit valoir aucune, attente, acceptee ou refusee.');
+    if (
+      justification &&
+      !(JUSTIFICATION_FILTERS as readonly string[]).includes(justification)
+    ) {
+      throw new BadRequestException(
+        'justification doit valoir aucune, attente, acceptee ou refusee.',
+      );
     }
     return this.attendance.listAbsences({
       classId,
       studentId,
       from: optionalDate(from, 'from'),
       to: optionalDate(to, 'to'),
-      justification: justification as (typeof JUSTIFICATION_FILTERS)[number] | undefined,
+      justification: justification as
+        (typeof JUSTIFICATION_FILTERS)[number] | undefined,
     });
   }
 
   @Get('students/:studentId/history')
   @RequirePermission('ATTENDANCE_READ')
-  history(@Param('studentId') studentId: string, @Query('from') from?: string, @Query('to') to?: string) {
-    return this.attendance.studentHistory(studentId, optionalDate(from, 'from'), optionalDate(to, 'to'));
+  history(
+    @Param('studentId') studentId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.attendance.studentHistory(
+      studentId,
+      optionalDate(from, 'from'),
+      optionalDate(to, 'to'),
+    );
   }
 
   @Post('records/:recordId/justification')
@@ -148,7 +176,11 @@ export class AbsenceReasonsController {
 
   @Patch(':id')
   @RequirePermission('PEDAGOGY_MANAGE')
-  update(@Param('id') id: string, @Body() dto: UpdateReasonDto, @CurrentUser() user: CurrentUserData) {
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateReasonDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.justifications.updateReason(id, dto, user.id);
   }
 

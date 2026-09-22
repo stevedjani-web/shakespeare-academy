@@ -1,0 +1,51 @@
+name: CI
+
+# Build + lint seulement (décision explicite) : pas la suite e2e complète, qui exigerait un service
+# Postgres dédié dans le workflow. Reflète ce que le badge du README annonce.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  api:
+    name: API — build & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      # Le client Prisma est importé par le code source : sans cette étape (identique au Dockerfile
+      # de production), la compilation échoue avant même d'atteindre le vrai code applicatif.
+      - run: npx prisma generate
+      - run: npm run build
+      - run: npm run lint
+
+  web:
+    name: Web — build & lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      # Inlinée au build par Next.js (jamais lue au runtime) : une valeur factice suffit ici,
+      # aucun appel réseau réel n'est fait pendant `next build`.
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint

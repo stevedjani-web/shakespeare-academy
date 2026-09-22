@@ -4,7 +4,9 @@
  * changée — le point-virgule évite ce piège classique), BOM UTF-8 en tête (sans lui, Excel affiche
  * les accents comme des caractères corrompus).
  */
-function escapeCsvValue(value: unknown): string {
+export type CsvCellValue = string | number | boolean | Date | null | undefined;
+
+function escapeCsvValue(value: CsvCellValue): string {
   const str = value === null || value === undefined ? '' : String(value);
   if (str.includes(';') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
@@ -12,11 +14,13 @@ function escapeCsvValue(value: unknown): string {
   return str;
 }
 
-export function toCsv<T extends Record<string, unknown>>(
+export function toCsv<T extends Record<string, CsvCellValue>>(
   rows: T[],
   columns: Array<{ key: keyof T; label: string }>,
 ): string {
   const header = columns.map((c) => escapeCsvValue(c.label)).join(';');
-  const lines = rows.map((row) => columns.map((c) => escapeCsvValue(row[c.key])).join(';'));
+  const lines = rows.map((row) =>
+    columns.map((c) => escapeCsvValue(row[c.key])).join(';'),
+  );
   return '﻿' + [header, ...lines].join('\r\n');
 }

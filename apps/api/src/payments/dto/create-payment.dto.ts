@@ -1,4 +1,14 @@
-import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Matches, Min, MinLength, ValidateIf } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { PaymentMode } from '@prisma/client';
 
 export class CreatePaymentDto {
@@ -25,7 +35,9 @@ export class CreatePaymentDto {
   // d'antidater un paiement en ligne).
   @IsOptional()
   @IsString()
-  @Matches(/^PROV-[A-Z0-9]{4,10}-\d{6}-\d{1,6}$/, { message: 'numeroProvisoire invalide.' })
+  @Matches(/^PROV-[A-Z0-9]{4,10}-\d{6}-\d{1,6}$/, {
+    message: 'numeroProvisoire invalide.',
+  })
   numeroProvisoire?: string;
 
   @IsOptional()

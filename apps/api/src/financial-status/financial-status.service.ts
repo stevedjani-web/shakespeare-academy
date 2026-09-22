@@ -4,7 +4,8 @@ import { SchoolService } from '../school/school.service';
 import { StudentsService } from '../students/students.service';
 import { computeApprovedDiscountAmount } from '../discounts/discount-amount.util';
 
-export type SolvencyStatus = 'SOLVABLE' | 'A_ECHOIR' | 'EN_RETARD' | 'IMPAYE_CRITIQUE' | 'EXONERE';
+export type SolvencyStatus =
+  'SOLVABLE' | 'A_ECHOIR' | 'EN_RETARD' | 'IMPAYE_CRITIQUE' | 'EXONERE';
 
 interface DueLine {
   invoiceId: string;
@@ -30,7 +31,9 @@ export class FinancialStatusService {
   async getForStudent(studentId: string) {
     await this.studentsService.findOne(studentId);
     const schoolId = await this.schoolService.getDefaultId();
-    const school = await this.prisma.school.findUniqueOrThrow({ where: { id: schoolId } });
+    const school = await this.prisma.school.findUniqueOrThrow({
+      where: { id: schoolId },
+    });
 
     const invoices = await this.prisma.invoice.findMany({
       where: {
@@ -39,7 +42,12 @@ export class FinancialStatusService {
         enrollment: { studentId },
       },
       include: {
-        lines: { include: { discounts: true, payments: { where: { statut: 'VALIDE' } } } },
+        lines: {
+          include: {
+            discounts: true,
+            payments: { where: { statut: 'VALIDE' } },
+          },
+        },
       },
     });
 
@@ -55,7 +63,10 @@ export class FinancialStatusService {
     for (const invoice of invoices) {
       for (const line of invoice.lines) {
         montantFacture += line.montant;
-        const remiseApprouvee = computeApprovedDiscountAmount(line, line.discounts);
+        const remiseApprouvee = computeApprovedDiscountAmount(
+          line,
+          line.discounts,
+        );
         montantRemise += remiseApprouvee;
         const paye = line.payments.reduce((sum, p) => sum + p.montant, 0);
         montantPaye += paye;
@@ -64,7 +75,9 @@ export class FinancialStatusService {
 
         const baseDate = line.dateEcheance ?? invoice.dateEmission;
         const dateLimiteEffective = new Date(baseDate);
-        dateLimiteEffective.setDate(dateLimiteEffective.getDate() + line.delaiGraceJours);
+        dateLimiteEffective.setDate(
+          dateLimiteEffective.getDate() + line.delaiGraceJours,
+        );
 
         const entry: DueLine = {
           invoiceId: invoice.id,
@@ -93,16 +106,22 @@ export class FinancialStatusService {
       statut = montantRemise >= montantFacture ? 'EXONERE' : 'SOLVABLE';
     } else if (montantExigible > 0) {
       statut =
-        school.seuilImpayeCritiqueFcfa != null && montantExigible > school.seuilImpayeCritiqueFcfa
+        school.seuilImpayeCritiqueFcfa != null &&
+        montantExigible > school.seuilImpayeCritiqueFcfa
           ? 'IMPAYE_CRITIQUE'
           : 'EN_RETARD';
     } else {
       statut = 'A_ECHOIR';
     }
 
-    lignesEnRetard.sort((a, b) => a.dateLimite.getTime() - b.dateLimite.getTime());
-    echeancesAVenir.sort((a, b) => a.dateLimite.getTime() - b.dateLimite.getTime());
-    const prochaineEcheance = [...lignesEnRetard, ...echeancesAVenir][0] ?? null;
+    lignesEnRetard.sort(
+      (a, b) => a.dateLimite.getTime() - b.dateLimite.getTime(),
+    );
+    echeancesAVenir.sort(
+      (a, b) => a.dateLimite.getTime() - b.dateLimite.getTime(),
+    );
+    const prochaineEcheance =
+      [...lignesEnRetard, ...echeancesAVenir][0] ?? null;
 
     return {
       statut,

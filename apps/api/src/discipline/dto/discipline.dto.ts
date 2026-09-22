@@ -25,7 +25,9 @@ export class CreateRecordDto {
   @MinLength(1)
   studentId!: string;
 
-  @IsEnum(DisciplineNature, { message: 'Nature inconnue (incident ou valorisation).' })
+  @IsEnum(DisciplineNature, {
+    message: 'Nature inconnue (incident ou valorisation).',
+  })
   nature!: DisciplineNature;
 
   @IsString()
@@ -36,7 +38,9 @@ export class CreateRecordDto {
   dateFaits!: string;
 
   @IsOptional()
-  @IsEnum(DisciplineGravite, { message: 'Gravité inconnue (léger, moyen ou grave).' })
+  @IsEnum(DisciplineGravite, {
+    message: 'Gravité inconnue (léger, moyen ou grave).',
+  })
   gravite?: DisciplineGravite;
 
   @IsOptional()
@@ -93,7 +97,9 @@ export class DecideSanctionDto {
   // Seul texte libre montré à la famille : rédigé pour elle, sans le récit de l'incident.
   @IsOptional()
   @IsString()
-  @MaxLength(300, { message: 'Le message à la famille est limité à 300 caractères.' })
+  @MaxLength(300, {
+    message: 'Le message à la famille est limité à 300 caractères.',
+  })
   messageFamille?: string;
 }
 
@@ -106,7 +112,10 @@ export class CreateConvocationDto {
   @IsString()
   recordId?: string;
 
-  @IsDateString({}, { message: 'La date et l’heure du rendez-vous sont invalides.' })
+  @IsDateString(
+    {},
+    { message: 'La date et l’heure du rendez-vous sont invalides.' },
+  )
   dateRdv!: string;
 
   @IsString()

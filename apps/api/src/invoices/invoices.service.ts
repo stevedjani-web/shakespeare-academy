@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EnrollmentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolService } from '../school/school.service';
@@ -8,14 +13,20 @@ import { AddInvoiceLineDto } from './dto/add-invoice-line.dto';
 
 const INVOICE_INCLUDE = {
   lines: {
-    include: { feeType: true, discounts: true, payments: { where: { statut: 'VALIDE' as const } } },
+    include: {
+      feeType: true,
+      discounts: true,
+      payments: { where: { statut: 'VALIDE' as const } },
+    },
     orderBy: { ordre: 'asc' as const },
   },
   enrollment: {
     select: {
       id: true,
       numero: true,
-      student: { select: { id: true, nom: true, prenom: true, matricule: true } },
+      student: {
+        select: { id: true, nom: true, prenom: true, matricule: true },
+      },
     },
   },
 };
@@ -78,7 +89,10 @@ export class InvoicesService {
         schoolId: params.schoolId,
         academicYearId: params.academicYearId,
         levelId: params.levelId,
-        feeType: { obligatoire: true, appliesTo: { in: ['TOUS', params.enrollmentType] } },
+        feeType: {
+          obligatoire: true,
+          appliesTo: { in: ['TOUS', params.enrollmentType] },
+        },
       },
       include: { feeType: true, installments: { orderBy: { ordre: 'asc' } } },
     });
@@ -118,12 +132,18 @@ export class InvoicesService {
     });
   }
 
-  async cancelForEnrollment(tx: Prisma.TransactionClient, enrollmentId: string) {
+  async cancelForEnrollment(
+    tx: Prisma.TransactionClient,
+    enrollmentId: string,
+  ) {
     const invoice = await tx.invoice.findUnique({ where: { enrollmentId } });
     if (!invoice || invoice.statut === 'ANNULEE') {
       return invoice;
     }
-    return tx.invoice.update({ where: { id: invoice.id }, data: { statut: 'ANNULEE' } });
+    return tx.invoice.update({
+      where: { id: invoice.id },
+      data: { statut: 'ANNULEE' },
+    });
   }
 
   /**
@@ -132,10 +152,16 @@ export class InvoicesService {
    * à tout moment via cet écran). Jamais pour un `FeeType.avecTranches` : les tranches passent
    * toujours par la grille tarifaire (`/fee-schedules`), pas par un ajout ponctuel.
    */
-  async addManualLine(invoiceId: string, dto: AddInvoiceLineDto, actingUserId: string) {
+  async addManualLine(
+    invoiceId: string,
+    dto: AddInvoiceLineDto,
+    actingUserId: string,
+  ) {
     const invoice = await this.findOne(invoiceId);
     if (invoice.statut === 'ANNULEE') {
-      throw new ConflictException('Cette facture est annulée, aucune ligne ne peut y être ajoutée.');
+      throw new ConflictException(
+        'Cette facture est annulée, aucune ligne ne peut y être ajoutée.',
+      );
     }
     const feeType = await this.feeTypesService.findOne(dto.feeTypeId);
     if (feeType.avecTranches) {
@@ -144,7 +170,10 @@ export class InvoicesService {
       );
     }
 
-    const ordreMax = invoice.lines.reduce((max, l) => Math.max(max, l.ordre), 0);
+    const ordreMax = invoice.lines.reduce(
+      (max, l) => Math.max(max, l.ordre),
+      0,
+    );
     const line = await this.prisma.invoiceLine.create({
       data: {
         invoiceId,

@@ -188,7 +188,9 @@ export class EnrollmentsService {
   async changeClass(id: string, dto: ChangeClassDto, actingUserId: string) {
     const before = await this.findOne(id);
     if (before.statut !== 'ACTIVE') {
-      throw new ConflictException('Seule une inscription active peut être modifiée.');
+      throw new ConflictException(
+        'Seule une inscription active peut être modifiée.',
+      );
     }
     if (dto.classId === before.classId) {
       throw new ConflictException('Cet élève est déjà dans cette classe.');
@@ -197,7 +199,9 @@ export class EnrollmentsService {
     const currentClass = await this.classesService.findOne(before.classId);
     const newClass = await this.classesService.findOne(dto.classId);
     if (newClass.academicYearId !== before.academicYearId) {
-      throw new BadRequestException('La nouvelle classe doit appartenir à la même année scolaire.');
+      throw new BadRequestException(
+        'La nouvelle classe doit appartenir à la même année scolaire.',
+      );
     }
     if (newClass.levelId !== currentClass.levelId) {
       throw new BadRequestException(

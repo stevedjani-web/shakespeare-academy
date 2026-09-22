@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
-import { generateActivationCode, hashCode, normalizeCode } from './parent-auth.util';
+import {
+  generateActivationCode,
+  hashCode,
+  normalizeCode,
+} from './parent-auth.util';
 import { BulkCodesDto, SetLinkAccessDto } from './dto/parent.dto';
 
 /** Au-delà, la génération en lot est refusée : on la fait classe par classe (lettres à imprimer, contrôle à l'œil). */
@@ -11,7 +19,10 @@ export const BULK_CODES_MAX_FAMILIES = 500;
 export type ParentAccountState = 'SANS_COMPTE' | 'CODE_EN_ATTENTE' | 'ACTIF';
 
 /** Inscription en cours : ACTIVE, dans l'année scolaire active. */
-const CURRENT_ENROLLMENT = { statut: 'ACTIVE' as const, academicYear: { statut: 'ACTIVE' as const } };
+const CURRENT_ENROLLMENT = {
+  statut: 'ACTIVE' as const,
+  academicYear: { statut: 'ACTIVE' as const },
+};
 
 /** Gestion des comptes parents par l'école : codes d'activation, désactivation, retrait d'accès (D66, D67). */
 @Injectable()
@@ -22,7 +33,14 @@ export class ParentAccountsService {
     private readonly school: SchoolService,
   ) {}
 
-  private async log(userId: string, action: string, entite: string, entiteId: string, ancienne?: unknown, nouvelle?: unknown) {
+  private async log(
+    userId: string,
+    action: string,
+    entite: string,
+    entiteId: string,
+    ancienne?: unknown,
+    nouvelle?: unknown,
+  ) {
     await this.audit.log({
       schoolId: await this.school.getDefaultId(),
       userId,
@@ -44,14 +62,26 @@ export class ParentAccountsService {
         ...(classId
           ? {
               studentGuardians: {
-                some: { accesPortail: true, student: { enrollments: { some: { ...CURRENT_ENROLLMENT, classId } } } },
+                some: {
+                  accesPortail: true,
+                  student: {
+                    enrollments: { some: { ...CURRENT_ENROLLMENT, classId } },
+                  },
+                },
               },
             }
           : {}),
-        ...(etat === 'ACTIF' ? { parentAccount: { is: { statut: 'ACTIF' as const } } } : {}),
+        ...(etat === 'ACTIF'
+          ? { parentAccount: { is: { statut: 'ACTIF' as const } } }
+          : {}),
         ...(etat === 'SANS_COMPTE' ? { parentAccount: { is: null } } : {}),
         ...(etat === 'CODE_EN_ATTENTE'
-          ? { parentAccount: { is: null }, activationCodes: { some: { usedAt: null, expiresAt: { gt: now } } } }
+          ? {
+              parentAccount: { is: null },
+              activationCodes: {
+                some: { usedAt: null, expiresAt: { gt: now } },
+              },
+            }
           : {}),
         ...(q
           ? {
@@ -64,9 +94,21 @@ export class ParentAccountsService {
                     some: {
                       student: {
                         OR: [
-                          { nom: { contains: q, mode: 'insensitive' as const } },
-                          { prenom: { contains: q, mode: 'insensitive' as const } },
-                          { matricule: { contains: q, mode: 'insensitive' as const } },
+                          {
+                            nom: { contains: q, mode: 'insensitive' as const },
+                          },
+                          {
+                            prenom: {
+                              contains: q,
+                              mode: 'insensitive' as const,
+                            },
+                          },
+                          {
+                            matricule: {
+                              contains: q,
+                              mode: 'insensitive' as const,
+                            },
+                          },
                         ],
                       },
                     },
@@ -79,9 +121,21 @@ export class ParentAccountsService {
       orderBy: [{ nom: 'asc' }, { prenom: 'asc' }],
       take: 300,
       include: {
-        studentGuardians: { include: { student: { select: { id: true, nom: true, prenom: true, matricule: true } } } },
-        parentAccount: { include: { consents: { orderBy: { acceptedAt: 'desc' }, take: 1 } } },
-        activationCodes: { where: { usedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' }, take: 1 },
+        studentGuardians: {
+          include: {
+            student: {
+              select: { id: true, nom: true, prenom: true, matricule: true },
+            },
+          },
+        },
+        parentAccount: {
+          include: { consents: { orderBy: { acceptedAt: 'desc' }, take: 1 } },
+        },
+        activationCodes: {
+          where: { usedAt: null, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
     });
     return guardians.map((g) => ({
@@ -95,11 +149,16 @@ export class ParentAccountsService {
             activeLe: g.parentAccount.activatedAt,
             dernierLoginAt: g.parentAccount.dernierLoginAt,
             consentement: g.parentAccount.consents[0]
-              ? { version: g.parentAccount.consents[0].version, le: g.parentAccount.consents[0].acceptedAt }
+              ? {
+                  version: g.parentAccount.consents[0].version,
+                  le: g.parentAccount.consents[0].acceptedAt,
+                }
               : null,
           }
         : null,
-      codeEnAttente: g.activationCodes[0] ? { expireLe: g.activationCodes[0].expiresAt } : null,
+      codeEnAttente: g.activationCodes[0]
+        ? { expireLe: g.activationCodes[0].expiresAt }
+        : null,
       enfants: g.studentGuardians.map((l) => ({
         liaisonId: l.id,
         studentId: l.student.id,
@@ -118,10 +177,16 @@ export class ParentAccountsService {
    * réinitialise le compte). Le code n'est montré qu'ici, une seule fois : seule son empreinte est conservée.
    */
   async generateCode(guardianId: string, userId: string) {
-    const guardian = await this.prisma.guardian.findUnique({ where: { id: guardianId } });
+    const guardian = await this.prisma.guardian.findUnique({
+      where: { id: guardianId },
+    });
     if (!guardian) throw new NotFoundException('Responsable introuvable.');
-    const school = await this.prisma.school.findFirstOrThrow({ select: { parentCodeValiditeJours: true } });
-    const expiresAt = new Date(Date.now() + school.parentCodeValiditeJours * 24 * 60 * 60 * 1000);
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { parentCodeValiditeJours: true },
+    });
+    const expiresAt = new Date(
+      Date.now() + school.parentCodeValiditeJours * 24 * 60 * 60 * 1000,
+    );
     const code = generateActivationCode();
     await this.prisma.$transaction([
       // Un seul code valable à la fois : le précédent est invalidé.
@@ -130,33 +195,67 @@ export class ParentAccountsService {
         data: { expiresAt: new Date() },
       }),
       this.prisma.parentActivationCode.create({
-        data: { guardianId, codeHash: hashCode(normalizeCode(code)), expiresAt, createdById: userId },
+        data: {
+          guardianId,
+          codeHash: hashCode(normalizeCode(code)),
+          expiresAt,
+          createdById: userId,
+        },
       }),
     ]);
-    await this.log(userId, 'PARENT_CODE_GENERATE', 'Guardian', guardianId, null, { expireLe: expiresAt }); // jamais le code
+    await this.log(
+      userId,
+      'PARENT_CODE_GENERATE',
+      'Guardian',
+      guardianId,
+      null,
+      { expireLe: expiresAt },
+    ); // jamais le code
     return { code, expireLe: expiresAt, telephone: guardian.telephone };
   }
 
   async setAccountActive(guardianId: string, actif: boolean, userId: string) {
-    const account = await this.prisma.parentAccount.findUnique({ where: { guardianId } });
-    if (!account) throw new NotFoundException("Ce responsable n'a pas de compte parent.");
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { guardianId },
+    });
+    if (!account)
+      throw new NotFoundException("Ce responsable n'a pas de compte parent.");
     const statut = actif ? 'ACTIF' : 'INACTIF';
-    await this.prisma.parentAccount.update({ where: { id: account.id }, data: { statut } });
+    await this.prisma.parentAccount.update({
+      where: { id: account.id },
+      data: { statut },
+    });
     if (!actif) {
       // Les sessions ouvertes tombent tout de suite : le jeton d'accès est aussi refusé (compte inactif).
-      await this.prisma.parentRefreshToken.updateMany({ where: { accountId: account.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      await this.prisma.parentRefreshToken.updateMany({
+        where: { accountId: account.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
     }
-    await this.log(userId, actif ? 'PARENT_ACCOUNT_REACTIVATE' : 'PARENT_ACCOUNT_DEACTIVATE', 'ParentAccount', account.id, account.statut, statut);
+    await this.log(
+      userId,
+      actif ? 'PARENT_ACCOUNT_REACTIVATE' : 'PARENT_ACCOUNT_DEACTIVATE',
+      'ParentAccount',
+      account.id,
+      account.statut,
+      statut,
+    );
     return { statut };
   }
 
   /** D67 : retirer ou rétablir l'accès d'un responsable pour UN élève, avec motif et trace. */
   async setLinkAccess(linkId: string, dto: SetLinkAccessDto, userId: string) {
-    const link = await this.prisma.studentGuardian.findUnique({ where: { id: linkId } });
+    const link = await this.prisma.studentGuardian.findUnique({
+      where: { id: linkId },
+    });
     if (!link) throw new NotFoundException('Lien introuvable.');
     const updated = await this.prisma.studentGuardian.update({
       where: { id: linkId },
-      data: { accesPortail: dto.acces, accesModifieAt: new Date(), accesMotif: dto.motif.trim() },
+      data: {
+        accesPortail: dto.acces,
+        accesModifieAt: new Date(),
+        accesMotif: dto.motif.trim(),
+      },
     });
     await this.log(
       userId,
@@ -164,7 +263,12 @@ export class ParentAccountsService {
       'StudentGuardian',
       linkId,
       { accesPortail: link.accesPortail },
-      { accesPortail: dto.acces, motif: dto.motif.trim(), studentId: link.studentId, guardianId: link.guardianId },
+      {
+        accesPortail: dto.acces,
+        motif: dto.motif.trim(),
+        studentId: link.studentId,
+        guardianId: link.guardianId,
+      },
     );
     return { accesPortail: updated.accesPortail };
   }
@@ -178,7 +282,13 @@ export class ParentAccountsService {
       where: { ...CURRENT_ENROLLMENT, ...(classId ? { classId } : {}) },
       select: {
         class: { select: { id: true, nom: true } },
-        student: { select: { studentGuardians: { select: { guardianId: true, accesPortail: true } } } },
+        student: {
+          select: {
+            studentGuardians: {
+              select: { guardianId: true, accesPortail: true },
+            },
+          },
+        },
       },
     });
     const withAccess = new Set<string>();
@@ -191,12 +301,17 @@ export class ParentAccountsService {
           continue;
         }
         withAccess.add(link.guardianId);
-        const entry = byClass.get(e.class.id) ?? { nom: e.class.nom, guardians: new Set<string>() };
+        const entry = byClass.get(e.class.id) ?? {
+          nom: e.class.nom,
+          guardians: new Set<string>(),
+        };
         entry.guardians.add(link.guardianId);
         byClass.set(e.class.id, entry);
       }
     }
-    const sansAcces = [...withoutAccess].filter((id) => !withAccess.has(id)).length;
+    const sansAcces = [...withoutAccess].filter(
+      (id) => !withAccess.has(id),
+    ).length;
     return { withAccess, byClass, sansAcces };
   }
 
@@ -209,18 +324,34 @@ export class ParentAccountsService {
       select: {
         id: true,
         parentAccount: { select: { statut: true } },
-        activationCodes: { where: { usedAt: null, expiresAt: { gt: now } }, select: { id: true }, take: 1 },
+        activationCodes: {
+          where: { usedAt: null, expiresAt: { gt: now } },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
     type State = 'ACTIF' | 'DESACTIVE' | 'CODE_EN_ATTENTE' | 'SANS_CODE';
     const state = new Map<string, State>(
       guardians.map((g) => [
         g.id,
-        g.parentAccount ? (g.parentAccount.statut === 'ACTIF' ? 'ACTIF' : 'DESACTIVE') : g.activationCodes.length > 0 ? 'CODE_EN_ATTENTE' : 'SANS_CODE',
+        g.parentAccount
+          ? g.parentAccount.statut === 'ACTIF'
+            ? 'ACTIF'
+            : 'DESACTIVE'
+          : g.activationCodes.length > 0
+            ? 'CODE_EN_ATTENTE'
+            : 'SANS_CODE',
       ]),
     );
     const count = (ids: Iterable<string>) => {
-      const r = { total: 0, actifs: 0, desactives: 0, codesEnAttente: 0, sansCode: 0 };
+      const r = {
+        total: 0,
+        actifs: 0,
+        desactives: 0,
+        codesEnAttente: 0,
+        sansCode: 0,
+      };
       for (const id of ids) {
         r.total++;
         const s = state.get(id);
@@ -235,7 +366,11 @@ export class ParentAccountsService {
       ...count(withAccess),
       sansAcces,
       classes: [...byClass.entries()]
-        .map(([classId, c]) => ({ classId, classe: c.nom, ...count(c.guardians) }))
+        .map(([classId, c]) => ({
+          classId,
+          classe: c.nom,
+          ...count(c.guardians),
+        }))
         .sort((a, b) => a.classe.localeCompare(b.classe, 'fr')),
     };
   }
@@ -248,12 +383,19 @@ export class ParentAccountsService {
    */
   async bulkCodes(dto: BulkCodesDto, userId: string) {
     if (dto.classId) {
-      const found = await this.prisma.class.findUnique({ where: { id: dto.classId }, select: { id: true } });
+      const found = await this.prisma.class.findUnique({
+        where: { id: dto.classId },
+        select: { id: true },
+      });
       if (!found) throw new NotFoundException('Classe introuvable.');
     }
-    const school = await this.prisma.school.findFirstOrThrow({ select: { parentCodeValiditeJours: true } });
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { parentCodeValiditeJours: true },
+    });
     const validiteJours = dto.validiteJours ?? school.parentCodeValiditeJours;
-    const { withAccess, sansAcces } = await this.concernedGuardians(dto.classId);
+    const { withAccess, sansAcces } = await this.concernedGuardians(
+      dto.classId,
+    );
     const now = new Date();
 
     const guardians = await this.prisma.guardian.findMany({
@@ -265,16 +407,27 @@ export class ParentAccountsService {
         prenom: true,
         telephone: true,
         parentAccount: { select: { id: true } },
-        activationCodes: { where: { usedAt: null, expiresAt: { gt: now } }, select: { id: true }, take: 1 },
+        activationCodes: {
+          where: { usedAt: null, expiresAt: { gt: now } },
+          select: { id: true },
+          take: 1,
+        },
         // Tous ses enfants inscrits cette année, quelle que soit leur classe : la lettre les liste tous.
         studentGuardians: {
-          where: { accesPortail: true, student: { enrollments: { some: CURRENT_ENROLLMENT } } },
+          where: {
+            accesPortail: true,
+            student: { enrollments: { some: CURRENT_ENROLLMENT } },
+          },
           select: {
             student: {
               select: {
                 nom: true,
                 prenom: true,
-                enrollments: { where: CURRENT_ENROLLMENT, select: { class: { select: { nom: true } } }, take: 1 },
+                enrollments: {
+                  where: CURRENT_ENROLLMENT,
+                  select: { class: { select: { nom: true } } },
+                  take: 1,
+                },
               },
             },
           },
@@ -296,8 +449,13 @@ export class ParentAccountsService {
       );
     }
 
-    const expiresAt = new Date(now.getTime() + validiteJours * 24 * 60 * 60 * 1000);
-    const generated = targets.map((g) => ({ g, code: generateActivationCode() }));
+    const expiresAt = new Date(
+      now.getTime() + validiteJours * 24 * 60 * 60 * 1000,
+    );
+    const generated = targets.map((g) => ({
+      g,
+      code: generateActivationCode(),
+    }));
     await this.prisma.$transaction(
       generated.flatMap(({ g, code }) => [
         // Un seul code valable à la fois : l'éventuel précédent est invalidé (seulement possible avec `regenerer`).
@@ -306,20 +464,32 @@ export class ParentAccountsService {
           data: { expiresAt: now },
         }),
         this.prisma.parentActivationCode.create({
-          data: { guardianId: g.id, codeHash: hashCode(normalizeCode(code)), expiresAt, createdById: userId },
+          data: {
+            guardianId: g.id,
+            codeHash: hashCode(normalizeCode(code)),
+            expiresAt,
+            createdById: userId,
+          },
         }),
       ]),
     );
 
     // Jamais un code dans le journal : la classe, le nombre, les identifiants et l'échéance suffisent.
-    await this.log(userId, 'PARENT_CODES_BULK', 'Class', dto.classId ?? 'ECOLE', null, {
-      classId: dto.classId ?? null,
-      nombre: generated.length,
-      guardianIds: generated.map(({ g }) => g.id),
-      expireLe: expiresAt,
-      regenerer: dto.regenerer === true,
-      ignores: { avecCompte, codeEnAttente, sansAcces },
-    });
+    await this.log(
+      userId,
+      'PARENT_CODES_BULK',
+      'Class',
+      dto.classId ?? 'ECOLE',
+      null,
+      {
+        classId: dto.classId ?? null,
+        nombre: generated.length,
+        guardianIds: generated.map(({ g }) => g.id),
+        expireLe: expiresAt,
+        regenerer: dto.regenerer === true,
+        ignores: { avecCompte, codeEnAttente, sansAcces },
+      },
+    );
 
     return {
       validiteJours,

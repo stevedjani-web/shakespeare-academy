@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { FeeSchedulesService } from './fee-schedules.service';
 import { CreateFeeScheduleDto } from './dto/create-fee-schedule.dto';
 import { UpdateFeeScheduleDto } from './dto/update-fee-schedule.dto';
@@ -25,7 +33,10 @@ export class FeeSchedulesController {
 
   @Post()
   @RequirePermission('FEE_MANAGE')
-  create(@Body() dto: CreateFeeScheduleDto, @CurrentUser() user: CurrentUserData) {
+  create(
+    @Body() dto: CreateFeeScheduleDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.feeSchedulesService.create(dto, user.id);
   }
 

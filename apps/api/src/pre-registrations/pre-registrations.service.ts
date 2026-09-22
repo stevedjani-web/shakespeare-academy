@@ -50,7 +50,10 @@ export class PreRegistrationsService {
           select: {
             id: true,
             nom: true,
-            levels: { orderBy: { ordre: 'asc' }, select: { id: true, nom: true } },
+            levels: {
+              orderBy: { ordre: 'asc' },
+              select: { id: true, nom: true },
+            },
           },
         },
       },
@@ -88,12 +91,23 @@ export class PreRegistrationsService {
     });
     const nom = normalizeText(dto.nom);
     const prenom = normalizeText(dto.prenom);
-    if (pending.some((p) => normalizeText(p.nom) === nom && normalizeText(p.prenom) === prenom)) {
-      throw new ConflictException('Une demande est déjà en attente pour cet enfant : inutile de la redéposer.');
+    if (
+      pending.some(
+        (p) =>
+          normalizeText(p.nom) === nom && normalizeText(p.prenom) === prenom,
+      )
+    ) {
+      throw new ConflictException(
+        'Une demande est déjà en attente pour cet enfant : inutile de la redéposer.',
+      );
     }
 
     const year = new Date().getFullYear();
-    const sequence = await this.numberSequenceService.next(schoolId, 'PREINSCRIPTION', String(year));
+    const sequence = await this.numberSequenceService.next(
+      schoolId,
+      'PREINSCRIPTION',
+      String(year),
+    );
     const reference = `PREINS-${year}-${String(sequence).padStart(REFERENCE_DIGITS, '0')}`;
 
     const created = await this.prisma.preRegistration.create({
@@ -120,16 +134,23 @@ export class PreRegistrationsService {
       action: 'PREREGISTRATION_CREATE',
       entite: 'PreRegistration',
       entiteId: created.id,
-      nouvelleValeur: { reference: created.reference, levelId: created.levelId },
+      nouvelleValeur: {
+        reference: created.reference,
+        levelId: created.levelId,
+      },
     });
     return { reference: created.reference };
   }
 
   /** Suivi public : la référence seule ne suffit pas (séquentielle, devinable) ; le téléphone doit correspondre. */
   async track(reference: string, telephone: string) {
-    const row = await this.prisma.preRegistration.findUnique({ where: { reference: reference.trim() } });
+    const row = await this.prisma.preRegistration.findUnique({
+      where: { reference: reference.trim() },
+    });
     if (!row || row.responsableTelephone !== telephone.trim()) {
-      throw new NotFoundException('Aucune demande ne correspond à cette référence et ce téléphone.');
+      throw new NotFoundException(
+        'Aucune demande ne correspond à cette référence et ce téléphone.',
+      );
     }
     return {
       reference: row.reference,
@@ -143,7 +164,9 @@ export class PreRegistrationsService {
 
   private async findOrThrow(id: string) {
     const schoolId = await this.schoolService.getDefaultId();
-    const row = await this.prisma.preRegistration.findFirst({ where: { id, schoolId } });
+    const row = await this.prisma.preRegistration.findFirst({
+      where: { id, schoolId },
+    });
     if (!row) throw new NotFoundException('Préinscription introuvable.');
     return row;
   }
@@ -161,16 +184,34 @@ export class PreRegistrationsService {
 
   async findOne(id: string) {
     const row = await this.findOrThrow(id);
-    const level = await this.prisma.level.findUnique({ where: { id: row.levelId }, select: { id: true, nom: true } });
+    const level = await this.prisma.level.findUnique({
+      where: { id: row.levelId },
+      select: { id: true, nom: true },
+    });
     return this.present({ ...row, level });
   }
 
   private present(row: {
-    id: string; reference: string; nom: string; prenom: string; sexe: string; dateNaissance: Date;
-    lieuNaissance: string | null; nationalite: string | null; level: { id: string; nom: string } | null;
-    responsableNom: string; responsablePrenom: string; responsableTelephone: string; responsableEmail: string | null;
-    message: string | null; statut: string; motifRejet: string | null; studentId: string | null;
-    enrollmentId: string | null; createdAt: Date; traiteLe: Date | null;
+    id: string;
+    reference: string;
+    nom: string;
+    prenom: string;
+    sexe: string;
+    dateNaissance: Date;
+    lieuNaissance: string | null;
+    nationalite: string | null;
+    level: { id: string; nom: string } | null;
+    responsableNom: string;
+    responsablePrenom: string;
+    responsableTelephone: string;
+    responsableEmail: string | null;
+    message: string | null;
+    statut: string;
+    motifRejet: string | null;
+    studentId: string | null;
+    enrollmentId: string | null;
+    createdAt: Date;
+    traiteLe: Date | null;
   }) {
     return {
       id: row.id,
@@ -206,7 +247,11 @@ export class PreRegistrationsService {
    * (comme le fait déjà l'assistant d'inscription du dashboard, deux appels non atomiques) : le secrétariat termine
    * alors l'inscription manuellement depuis le dossier de l'élève.
    */
-  async accept(id: string, dto: AcceptPreRegistrationDto, actingUserId: string) {
+  async accept(
+    id: string,
+    dto: AcceptPreRegistrationDto,
+    actingUserId: string,
+  ) {
     const row = await this.findOrThrow(id);
     if (row.statut !== 'EN_ATTENTE') {
       throw new ConflictException('Cette demande a déjà été traitée.');
@@ -234,7 +279,11 @@ export class PreRegistrationsService {
     );
 
     const enrollment = await this.enrollmentsService.create(
-      { studentId: student.id, classId: klass.id, academicYearId: klass.academicYearId },
+      {
+        studentId: student.id,
+        classId: klass.id,
+        academicYearId: klass.academicYearId,
+      },
       actingUserId,
     );
 
@@ -266,7 +315,12 @@ export class PreRegistrationsService {
     }
     await this.prisma.preRegistration.update({
       where: { id: row.id },
-      data: { statut: 'REJETEE', motifRejet: motif.trim(), traiteParUserId: actingUserId, traiteLe: new Date() },
+      data: {
+        statut: 'REJETEE',
+        motifRejet: motif.trim(),
+        traiteParUserId: actingUserId,
+        traiteLe: new Date(),
+      },
     });
     await this.audit.log({
       schoolId: row.schoolId,

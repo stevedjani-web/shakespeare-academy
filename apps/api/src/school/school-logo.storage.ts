@@ -20,12 +20,24 @@ export const schoolSignatureMulterOptions = {
   storage: diskStorage({
     destination: SCHOOL_LOGO_UPLOAD_DIR,
     filename: (_req, file, callback) => {
-      callback(null, `signature-${randomUUID()}${file.mimetype === 'image/png' ? '.png' : '.jpg'}`);
+      callback(
+        null,
+        `signature-${randomUUID()}${file.mimetype === 'image/png' ? '.png' : '.jpg'}`,
+      );
     },
   }),
-  fileFilter: (_req: unknown, file: Express.Multer.File, callback: (error: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    callback: (error: Error | null, accept: boolean) => void,
+  ) => {
     if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg') {
-      callback(new BadRequestException('Format non supporté (PNG ou JPEG uniquement).'), false);
+      callback(
+        new BadRequestException(
+          'Format non supporté (PNG ou JPEG uniquement).',
+        ),
+        false,
+      );
       return;
     }
     callback(null, true);
@@ -40,9 +52,18 @@ export const schoolLogoMulterOptions = {
       callback(null, `${randomUUID()}${extname(file.originalname)}`);
     },
   }),
-  fileFilter: (_req: unknown, file: Express.Multer.File, callback: (error: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    callback: (error: Error | null, accept: boolean) => void,
+  ) => {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      callback(new BadRequestException('Format non supporté (JPEG, PNG ou WebP uniquement).'), false);
+      callback(
+        new BadRequestException(
+          'Format non supporté (JPEG, PNG ou WebP uniquement).',
+        ),
+        false,
+      );
       return;
     }
     callback(null, true);

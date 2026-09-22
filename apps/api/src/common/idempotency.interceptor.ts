@@ -27,33 +27,46 @@ const KEY_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
 export class IdempotencyInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> | Promise<Observable<unknown>> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<unknown> | Promise<Observable<unknown>> {
     if (context.getType() !== 'http') return next.handle();
     const http = context.switchToHttp();
     const req = http.getRequest<Request & { user?: CurrentUserData }>();
     const res = http.getResponse<Response>();
     const rawKey = req.headers['idempotency-key'];
-    if (!rawKey || !MUTATING_METHODS.has(req.method) || !req.user) return next.handle();
+    if (!rawKey || !MUTATING_METHODS.has(req.method) || !req.user)
+      return next.handle();
 
     const key = Array.isArray(rawKey) ? rawKey[0] : rawKey;
     if (!KEY_PATTERN.test(key)) {
-      throw new BadRequestException('Idempotency-Key invalide (8 à 100 caractères alphanumériques, - ou _).');
+      throw new BadRequestException(
+        'Idempotency-Key invalide (8 à 100 caractères alphanumériques, - ou _).',
+      );
     }
     const userId = req.user.id;
     const path = req.originalUrl.split('?')[0];
 
-    return from(this.prisma.idempotencyRecord.findUnique({ where: { userId_key: { userId, key } } })).pipe(
+    return from(
+      this.prisma.idempotencyRecord.findUnique({
+        where: { userId_key: { userId, key } },
+      }),
+    ).pipe(
       mergeMap((existing) => {
         if (existing) {
           if (existing.method !== req.method || existing.path !== path) {
-            throw new ConflictException('Cette Idempotency-Key a déjà servi pour une autre requête.');
+            throw new ConflictException(
+              'Cette Idempotency-Key a déjà servi pour une autre requête.',
+            );
           }
           res.status(existing.statusCode);
           return of(existing.response);
         }
         return next.handle().pipe(
           mergeMap(async (body: unknown) => {
-            const statusCode = res.statusCode || (req.method === 'POST' ? 201 : 200);
+            const statusCode =
+              res.statusCode || (req.method === 'POST' ? 201 : 200);
             try {
               await this.prisma.idempotencyRecord.create({
                 data: {
@@ -65,7 +78,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
                   response:
                     body === undefined || body === null
                       ? Prisma.JsonNull
-                      : (JSON.parse(JSON.stringify(body)) as Prisma.InputJsonValue),
+                      : (JSON.parse(
+                          JSON.stringify(body),
+                        ) as Prisma.InputJsonValue),
                 },
               });
             } catch {

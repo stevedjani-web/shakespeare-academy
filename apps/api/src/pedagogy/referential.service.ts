@@ -331,11 +331,19 @@ export class ReferentialService {
     if (!subject) {
       throw new NotFoundException('Matière introuvable.');
     }
-    const wanted = new Map<string, { minutes?: number; coefficient?: number }>();
+    const wanted = new Map<
+      string,
+      { minutes?: number; coefficient?: number }
+    >();
     for (const l of dto.levels) {
-      wanted.set(l.levelId, { minutes: l.minutesParSemaine, coefficient: l.coefficient });
+      wanted.set(l.levelId, {
+        minutes: l.minutesParSemaine,
+        coefficient: l.coefficient,
+      });
     }
-    const previousCoefficient = new Map(subject.levels.map((l) => [l.levelId, l.coefficient]));
+    const previousCoefficient = new Map(
+      subject.levels.map((l) => [l.levelId, l.coefficient]),
+    );
     const existingLevels = await this.prisma.level.findMany({
       where: { id: { in: [...wanted.keys()] } },
       select: { id: true },
@@ -364,7 +372,8 @@ export class ReferentialService {
           levelId,
           minutesParSemaine: values.minutes ?? null,
           // Le remplacement complet ne doit jamais remettre à 1 un coefficient que la Direction a fixé.
-          coefficient: values.coefficient ?? previousCoefficient.get(levelId) ?? 1,
+          coefficient:
+            values.coefficient ?? previousCoefficient.get(levelId) ?? 1,
         })),
       }),
     ]);

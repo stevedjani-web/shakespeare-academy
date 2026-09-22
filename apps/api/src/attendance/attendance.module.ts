@@ -5,7 +5,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { TimetableModule } from '../timetable/timetable.module';
 import { AttendanceService } from './attendance.service';
 import { JustificationsService } from './justifications.service';
-import { AbsenceReasonsController, AttendanceController } from './attendance.controller';
+import {
+  AbsenceReasonsController,
+  AttendanceController,
+} from './attendance.controller';
 
 /** Lot 9 : assiduité des élèves (addendum v1.1). */
 @Module({

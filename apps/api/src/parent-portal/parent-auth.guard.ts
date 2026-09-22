@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { ParentAuthService } from './parent-auth.service';
 
@@ -16,9 +21,13 @@ export class ParentAuthGuard implements CanActivate {
   constructor(private readonly auth: ParentAuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request & { parent?: ParentIdentity }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { parent?: ParentIdentity }>();
     const header = request.headers.authorization;
-    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
+    const token = header?.startsWith('Bearer ')
+      ? header.slice('Bearer '.length).trim()
+      : '';
     if (!token) {
       throw new UnauthorizedException('Authentification requise.');
     }

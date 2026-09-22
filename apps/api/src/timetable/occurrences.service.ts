@@ -10,7 +10,14 @@ import { SchoolService } from '../school/school.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateExceptionDto } from './dto/timetable.dto';
 import { ENTRY_INCLUDE } from './timetables.service';
-import { addDays, isoDay, mondayOf, overlaps, toDateOnly, weekdayOf } from './timetable.util';
+import {
+  addDays,
+  isoDay,
+  mondayOf,
+  overlaps,
+  toDateOnly,
+  weekdayOf,
+} from './timetable.util';
 
 export interface OccurrenceFilters {
   classId?: string;
@@ -40,7 +47,10 @@ export class OccurrencesService {
       where: {
         statut: { in: ['PUBLIE', 'ARCHIVE'] },
         dateEffet: { lte: toDateOnly(day) },
-        academicYear: { dateDebut: { lte: toDateOnly(day) }, dateFin: { gte: toDateOnly(day) } },
+        academicYear: {
+          dateDebut: { lte: toDateOnly(day) },
+          dateFin: { gte: toDateOnly(day) },
+        },
       },
       orderBy: { dateEffet: 'desc' },
     });
@@ -48,20 +58,36 @@ export class OccurrencesService {
 
   private async closureOn(day: string) {
     return this.prisma.calendarEvent.findFirst({
-      where: { dateDebut: { lte: toDateOnly(day) }, dateFin: { gte: toDateOnly(day) } },
+      where: {
+        dateDebut: { lte: toDateOnly(day) },
+        dateFin: { gte: toDateOnly(day) },
+      },
     });
   }
 
   /** Séances d'un jour, avec l'enseignant et la salle effectivement en place (exceptions comprises). */
   async resolveDay(day: string, filters: OccurrenceFilters = {}) {
-    const empty = { date: day, version: null as null | { id: string; numero: number }, sansClasse: null as null | { type: string; libelle: string }, seances: [] as Occurrence[] };
+    const empty = {
+      date: day,
+      version: null as null | { id: string; numero: number },
+      sansClasse: null as null | { type: string; libelle: string },
+      seances: [] as Occurrence[],
+    };
     const closure = await this.closureOn(day);
     if (closure) {
-      return { ...empty, sansClasse: { type: closure.type, libelle: closure.libelle } };
+      return {
+        ...empty,
+        sansClasse: { type: closure.type, libelle: closure.libelle },
+      };
     }
-    const school = await this.prisma.school.findFirstOrThrow({ select: { joursClasse: true } });
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { joursClasse: true },
+    });
     if (!school.joursClasse.includes(weekdayOf(day))) {
-      return { ...empty, sansClasse: { type: 'AUTRE', libelle: 'Jour sans classe' } };
+      return {
+        ...empty,
+        sansClasse: { type: 'AUTRE', libelle: 'Jour sans classe' },
+      };
     }
     const timetable = await this.effectiveTimetable(day);
     if (!timetable) return empty;
@@ -70,14 +96,20 @@ export class OccurrencesService {
       where: { timetableId: timetable.id, jourSemaine: weekdayOf(day) },
       include: {
         ...ENTRY_INCLUDE,
-        exceptions: { where: { date: toDateOnly(day) }, include: EXCEPTION_INCLUDE },
+        exceptions: {
+          where: { date: toDateOnly(day) },
+          include: EXCEPTION_INCLUDE,
+        },
       },
       orderBy: { heureDebut: 'asc' },
     });
 
     const seances: Occurrence[] = entries.map((e) => {
       const ex = e.exceptions[0] ?? null;
-      const teacher = ex?.type === 'REMPLACEE' && ex.replacementTeacher ? ex.replacementTeacher : e.teacher;
+      const teacher =
+        ex?.type === 'REMPLACEE' && ex.replacementTeacher
+          ? ex.replacementTeacher
+          : e.teacher;
       const room = ex?.type === 'SALLE_MODIFIEE' && ex.room ? ex.room : e.room;
       return {
         entryId: e.id,
@@ -112,7 +144,11 @@ export class OccurrencesService {
         (!filters.teacherId || s.teacherId === filters.teacherId) &&
         (!filters.roomId || s.roomId === filters.roomId),
     );
-    return { ...empty, version: { id: timetable.id, numero: timetable.numero }, seances: filtered };
+    return {
+      ...empty,
+      version: { id: timetable.id, numero: timetable.numero },
+      seances: filtered,
+    };
   }
 
   /** Semaine du lundi au dimanche qui contient `date`. */
@@ -143,7 +179,11 @@ export class OccurrencesService {
     });
   }
 
-  async createException(entryId: string, dto: CreateExceptionDto, userId: string) {
+  async createException(
+    entryId: string,
+    dto: CreateExceptionDto,
+    userId: string,
+  ) {
     const entry = await this.prisma.timetableEntry.findUnique({
       where: { id: entryId },
       include: { ...ENTRY_INCLUDE, timetable: true },
@@ -157,7 +197,9 @@ export class OccurrencesService {
       );
     }
     if (weekdayOf(dto.date) !== entry.jourSemaine) {
-      throw new UnprocessableEntityException('Cette date ne tombe pas le jour de cette séance.');
+      throw new UnprocessableEntityException(
+        'Cette date ne tombe pas le jour de cette séance.',
+      );
     }
     const effective = await this.effectiveTimetable(dto.date);
     if (!effective || effective.id !== entry.timetableId) {
@@ -167,7 +209,9 @@ export class OccurrencesService {
     }
     const closure = await this.closureOn(dto.date);
     if (closure) {
-      throw new UnprocessableEntityException(`Ce jour est sans classe (${closure.libelle}).`);
+      throw new UnprocessableEntityException(
+        `Ce jour est sans classe (${closure.libelle}).`,
+      );
     }
     const already = await this.prisma.timetableException.findUnique({
       where: { entryId_date: { entryId, date: toDateOnly(dto.date) } },
@@ -184,17 +228,31 @@ export class OccurrencesService {
 
     if (dto.type === 'REMPLACEE') {
       if (!dto.replacementTeacherId) {
-        throw new UnprocessableEntityException('Indiquez l’enseignant remplaçant.');
+        throw new UnprocessableEntityException(
+          'Indiquez l’enseignant remplaçant.',
+        );
       }
-      const teacher = await this.prisma.teacher.findUnique({ where: { id: dto.replacementTeacherId } });
-      if (!teacher) throw new NotFoundException('Enseignant remplaçant introuvable.');
+      const teacher = await this.prisma.teacher.findUnique({
+        where: { id: dto.replacementTeacherId },
+      });
+      if (!teacher)
+        throw new NotFoundException('Enseignant remplaçant introuvable.');
       if (teacher.statut !== 'ACTIF') {
         throw new ConflictException('Cet enseignant est inactif.');
       }
       if (teacher.id === entry.teacherId) {
-        throw new UnprocessableEntityException('Le remplaçant est déjà l’enseignant de cette séance.');
+        throw new UnprocessableEntityException(
+          'Le remplaçant est déjà l’enseignant de cette séance.',
+        );
       }
-      const busy = await this.busyWith(dto.date, entry.heureDebut, entry.heureFin, entry.id, 'teacherId', teacher.id);
+      const busy = await this.busyWith(
+        dto.date,
+        entry.heureDebut,
+        entry.heureFin,
+        entry.id,
+        'teacherId',
+        teacher.id,
+      );
       if (busy) {
         throw new ConflictException(
           `${teacher.prenom} ${teacher.nom} a déjà cours à ce moment : ${busy.className}, ${busy.subjectName}, ${busy.heureDebut} - ${busy.heureFin}.`,
@@ -205,13 +263,25 @@ export class OccurrencesService {
       if (!dto.roomId) {
         throw new UnprocessableEntityException('Indiquez la nouvelle salle.');
       }
-      const room = await this.prisma.room.findUnique({ where: { id: dto.roomId } });
+      const room = await this.prisma.room.findUnique({
+        where: { id: dto.roomId },
+      });
       if (!room) throw new NotFoundException('Salle introuvable.');
-      if (!room.actif) throw new ConflictException('Cette salle est désactivée.');
+      if (!room.actif)
+        throw new ConflictException('Cette salle est désactivée.');
       if (room.id === entry.roomId) {
-        throw new UnprocessableEntityException('Cette séance a déjà lieu dans cette salle.');
+        throw new UnprocessableEntityException(
+          'Cette séance a déjà lieu dans cette salle.',
+        );
       }
-      const busy = await this.busyWith(dto.date, entry.heureDebut, entry.heureFin, entry.id, 'roomId', room.id);
+      const busy = await this.busyWith(
+        dto.date,
+        entry.heureDebut,
+        entry.heureFin,
+        entry.id,
+        'roomId',
+        room.id,
+      );
       if (busy) {
         throw new ConflictException(
           `La salle ${room.nom} est déjà occupée à ce moment : ${busy.className}, ${busy.subjectName}, ${busy.heureDebut} - ${busy.heureFin}.`,
@@ -276,7 +346,9 @@ export class OccurrencesService {
   }
 
   async deleteException(id: string, userId: string) {
-    const before = await this.prisma.timetableException.findUnique({ where: { id } });
+    const before = await this.prisma.timetableException.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Changement ponctuel introuvable.');
     }

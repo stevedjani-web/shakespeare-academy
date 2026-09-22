@@ -1,4 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { CancelPaymentDto } from './dto/cancel-payment.dto';
@@ -23,9 +31,13 @@ export class PaymentsController {
   }
 
   @Get()
-  findAll(@Query('studentId') studentId?: string, @Query('invoiceLineId') invoiceLineId?: string) {
+  findAll(
+    @Query('studentId') studentId?: string,
+    @Query('invoiceLineId') invoiceLineId?: string,
+  ) {
     if (studentId) return this.paymentsService.findAllForStudent(studentId);
-    if (invoiceLineId) return this.paymentsService.findAllForInvoiceLine(invoiceLineId);
+    if (invoiceLineId)
+      return this.paymentsService.findAllForInvoiceLine(invoiceLineId);
     throw new BadRequestException('Fournir studentId ou invoiceLineId.');
   }
 

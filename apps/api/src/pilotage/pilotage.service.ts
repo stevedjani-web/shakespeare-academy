@@ -17,7 +17,7 @@ import {
   justificationDeadline,
 } from '../attendance/attendance.util';
 import { timeInTimezone } from '../teacher-checkins/checkin.util';
-import { toCsv } from '../common/csv.util';
+import { toCsv, type CsvCellValue } from '../common/csv.util';
 
 /** Plus longue période analysable d'un coup : au-delà, le calcul séance par séance devient trop lourd. */
 export const MAX_PERIOD_DAYS = 92;
@@ -515,7 +515,7 @@ export class PilotageService {
       const isClass = kind === 'assiduite-classes';
       const rows = (
         isClass ? d.assiduite.parClasse : d.assiduite.parJour
-      ) as Array<Record<string, unknown>>;
+      ) as Array<Record<string, CsvCellValue>>;
       csv = toCsv(rows, [
         isClass
           ? { key: 'classe', label: 'Classe' }
@@ -533,7 +533,7 @@ export class PilotageService {
       ]);
     } else if (kind === 'enseignants') {
       csv = toCsv(
-        d.enseignants.lignes as unknown as Array<Record<string, unknown>>,
+        d.enseignants.lignes as unknown as Array<Record<string, CsvCellValue>>,
         [
           { key: 'enseignant', label: 'Enseignant' },
           { key: 'unite', label: 'Unité' },
@@ -555,7 +555,7 @@ export class PilotageService {
         );
       }
       csv = toCsv(
-        d.alertes.eleves as unknown as Array<Record<string, unknown>>,
+        d.alertes.eleves as unknown as Array<Record<string, CsvCellValue>>,
         [
           { key: 'eleve', label: 'Élève' },
           { key: 'matricule', label: 'Matricule' },

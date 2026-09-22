@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { DocumentType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -6,9 +11,15 @@ import { SchoolService } from '../school/school.service';
 import { NumberSequenceService } from '../common/number-sequence.service';
 
 /** Inscription qui donne droit à un document : active, dans l'année scolaire active. */
-const CURRENT_ENROLLMENT = { statut: 'ACTIVE', academicYear: { statut: 'ACTIVE' } } as const;
+const CURRENT_ENROLLMENT = {
+  statut: 'ACTIVE',
+  academicYear: { statut: 'ACTIVE' },
+} as const;
 
-const PREFIX: Record<DocumentType, string> = { ATTESTATION_SCOLARITE: 'ATT', CARTE_ELEVE: 'CAR' };
+const PREFIX: Record<DocumentType, string> = {
+  ATTESTATION_SCOLARITE: 'ATT',
+  CARTE_ELEVE: 'CAR',
+};
 
 /** Cartes d'une classe en une fois : au-delà, on procède autrement (une classe dépasse rarement 60 élèves). */
 export const CLASS_CARDS_MAX = 200;
@@ -20,18 +31,37 @@ export interface IssueActor {
 
 /** Contenu figé d'un document : ce que la réimpression restituera à l'identique. */
 export interface DocumentSnapshot {
-  eleve: { nom: string; prenom: string; sexe: 'M' | 'F'; dateNaissance: string; lieuNaissance: string | null; matricule: string };
+  eleve: {
+    nom: string;
+    prenom: string;
+    sexe: 'M' | 'F';
+    dateNaissance: string;
+    lieuNaissance: string | null;
+    matricule: string;
+  };
   classe: string;
   annee: { libelle: string; debut: string; fin: string };
-  ecole: { nom: string; adresse: string | null; telephone: string | null; logoUrl: string | null };
-  directeur: { nom: string | null; titre: string; ville: string | null; signatureUrl: string | null };
+  ecole: {
+    nom: string;
+    adresse: string | null;
+    telephone: string | null;
+    logoUrl: string | null;
+  };
+  directeur: {
+    nom: string | null;
+    titre: string;
+    ville: string | null;
+    signatureUrl: string | null;
+  };
   echeance: string;
 }
 
 type DocumentRow = Prisma.IssuedDocumentGetPayload<object>;
 type SchoolRow = Awaited<ReturnType<SchoolService['getDefault']>>;
 type StudentRow = Prisma.StudentGetPayload<object>;
-type EnrollmentRow = Prisma.EnrollmentGetPayload<{ include: { class: true; academicYear: true } }>;
+type EnrollmentRow = Prisma.EnrollmentGetPayload<{
+  include: { class: true; academicYear: true };
+}>;
 
 function toView(d: DocumentRow) {
   return {
@@ -64,16 +94,32 @@ export class DocumentsService {
     private readonly numbers: NumberSequenceService,
   ) {}
 
-  async issue(studentId: string, type: DocumentType, actor: IssueActor, opts: { renouveler?: boolean } = {}) {
+  async issue(
+    studentId: string,
+    type: DocumentType,
+    actor: IssueActor,
+    opts: { renouveler?: boolean } = {},
+  ) {
     const school = await this.schoolService.getDefault();
-    const student = await this.prisma.student.findFirst({ where: { id: studentId, schoolId: school.id } });
+    const student = await this.prisma.student.findFirst({
+      where: { id: studentId, schoolId: school.id },
+    });
     if (!student) throw new NotFoundException('Élève introuvable.');
     const enrollment = await this.prisma.enrollment.findFirst({
       where: { studentId, ...CURRENT_ENROLLMENT },
       include: { class: true, academicYear: true },
       orderBy: { dateInscription: 'desc' },
     });
-    return toView(await this.issueForEnrollment(school, student, enrollment, type, actor, opts.renouveler === true));
+    return toView(
+      await this.issueForEnrollment(
+        school,
+        student,
+        enrollment,
+        type,
+        actor,
+        opts.renouveler === true,
+      ),
+    );
   }
 
   private async issueForEnrollment(
@@ -85,12 +131,19 @@ export class DocumentsService {
     renouveler: boolean,
   ): Promise<DocumentRow> {
     if (student.statut !== 'ACTIF') {
-      throw new UnprocessableEntityException('Le dossier de cet élève est inactif : aucun document ne peut être émis.');
+      throw new UnprocessableEntityException(
+        'Le dossier de cet élève est inactif : aucun document ne peut être émis.',
+      );
     }
     if (!enrollment) {
-      throw new UnprocessableEntityException("Cet élève n'a pas d'inscription active dans l'année scolaire en cours.");
+      throw new UnprocessableEntityException(
+        "Cet élève n'a pas d'inscription active dans l'année scolaire en cours.",
+      );
     }
-    if (type === 'ATTESTATION_SCOLARITE' && (!school.directeurNom?.trim() || !school.ville?.trim())) {
+    if (
+      type === 'ATTESTATION_SCOLARITE' &&
+      (!school.directeurNom?.trim() || !school.ville?.trim())
+    ) {
       throw new UnprocessableEntityException(
         actor.type === 'PARENT'
           ? "Ce document n'est pas encore disponible : contactez le secrétariat de l'école."
@@ -98,7 +151,12 @@ export class DocumentsService {
       );
     }
 
-    const where = { studentId: student.id, type, academicYearId: enrollment.academicYearId, annuleLe: null };
+    const where = {
+      studentId: student.id,
+      type,
+      academicYearId: enrollment.academicYearId,
+      annuleLe: null,
+    };
     if (!renouveler) {
       const existing = await this.prisma.issuedDocument.findFirst({ where });
       if (existing) return existing;
@@ -119,7 +177,12 @@ export class DocumentsService {
         debut: isoDate(enrollment.academicYear.dateDebut),
         fin: isoDate(enrollment.academicYear.dateFin),
       },
-      ecole: { nom: school.nom, adresse: school.adresse, telephone: school.telephone, logoUrl: school.logoUrl },
+      ecole: {
+        nom: school.nom,
+        adresse: school.adresse,
+        telephone: school.telephone,
+        logoUrl: school.logoUrl,
+      },
       directeur: {
         nom: school.directeurNom,
         titre: school.directeurTitre,
@@ -147,7 +210,11 @@ export class DocumentsService {
         });
       }
       const year = new Date().getFullYear();
-      const n = await this.numbers.next(school.id, `DOC_${PREFIX[type]}`, String(year));
+      const n = await this.numbers.next(
+        school.id,
+        `DOC_${PREFIX[type]}`,
+        String(year),
+      );
       const row = await tx.issuedDocument.create({
         data: {
           schoolId: school.id,
@@ -170,7 +237,14 @@ export class DocumentsService {
         action: 'DOCUMENT_ISSUE',
         entite: 'IssuedDocument',
         entiteId: doc.id,
-        nouvelleValeur: { type, numero: doc.numero, studentId: student.id, emisParType: actor.type, emisParId: actor.id, renouveler },
+        nouvelleValeur: {
+          type,
+          numero: doc.numero,
+          studentId: student.id,
+          emisParType: actor.type,
+          emisParId: actor.id,
+          renouveler,
+        },
       });
     }
     return doc;
@@ -178,20 +252,33 @@ export class DocumentsService {
 
   async listForStudent(studentId: string) {
     const schoolId = await this.schoolService.getDefaultId();
-    const student = await this.prisma.student.findFirst({ where: { id: studentId, schoolId }, select: { id: true } });
+    const student = await this.prisma.student.findFirst({
+      where: { id: studentId, schoolId },
+      select: { id: true },
+    });
     if (!student) throw new NotFoundException('Élève introuvable.');
-    const docs = await this.prisma.issuedDocument.findMany({ where: { studentId }, orderBy: { dateEmission: 'desc' } });
+    const docs = await this.prisma.issuedDocument.findMany({
+      where: { studentId },
+      orderBy: { dateEmission: 'desc' },
+    });
     return docs.map(toView);
   }
 
   async cancel(id: string, motif: string, userId: string) {
     const schoolId = await this.schoolService.getDefaultId();
-    const doc = await this.prisma.issuedDocument.findFirst({ where: { id, schoolId } });
+    const doc = await this.prisma.issuedDocument.findFirst({
+      where: { id, schoolId },
+    });
     if (!doc) throw new NotFoundException('Document introuvable.');
-    if (doc.annuleLe) throw new ConflictException('Ce document est déjà annulé.');
+    if (doc.annuleLe)
+      throw new ConflictException('Ce document est déjà annulé.');
     const updated = await this.prisma.issuedDocument.update({
       where: { id },
-      data: { annuleLe: new Date(), motifAnnulation: motif.trim(), annuleParUserId: userId },
+      data: {
+        annuleLe: new Date(),
+        motifAnnulation: motif.trim(),
+        annuleParUserId: userId,
+      },
     });
     await this.audit.log({
       schoolId,
@@ -199,7 +286,11 @@ export class DocumentsService {
       action: 'DOCUMENT_CANCEL',
       entite: 'IssuedDocument',
       entiteId: id,
-      nouvelleValeur: { numero: doc.numero, type: doc.type, motif: motif.trim() },
+      nouvelleValeur: {
+        numero: doc.numero,
+        type: doc.type,
+        motif: motif.trim(),
+      },
     });
     return toView(updated);
   }
@@ -216,7 +307,9 @@ export class DocumentsService {
     });
     if (!klass) throw new NotFoundException('Classe introuvable.');
     if (klass.academicYear.statut !== 'ACTIVE') {
-      throw new UnprocessableEntityException("Cette classe n'appartient pas à l'année scolaire active.");
+      throw new UnprocessableEntityException(
+        "Cette classe n'appartient pas à l'année scolaire active.",
+      );
     }
     const enrollments = await this.prisma.enrollment.findMany({
       where: { classId, statut: 'ACTIVE', student: { statut: 'ACTIF' } },
@@ -233,10 +326,22 @@ export class DocumentsService {
     let crees = 0;
     for (const e of enrollments) {
       const before = await this.prisma.issuedDocument.findFirst({
-        where: { studentId: e.studentId, type: 'CARTE_ELEVE', academicYearId: e.academicYearId, annuleLe: null },
+        where: {
+          studentId: e.studentId,
+          type: 'CARTE_ELEVE',
+          academicYearId: e.academicYearId,
+          annuleLe: null,
+        },
         select: { id: true },
       });
-      const doc = await this.issueForEnrollment(school, e.student, e, 'CARTE_ELEVE', actor, false);
+      const doc = await this.issueForEnrollment(
+        school,
+        e.student,
+        e,
+        'CARTE_ELEVE',
+        actor,
+        false,
+      );
       if (!before) crees += 1;
       documents.push(toView(doc));
     }
@@ -246,7 +351,11 @@ export class DocumentsService {
       action: 'DOCUMENT_CARDS_BULK',
       entite: 'Class',
       entiteId: classId,
-      nouvelleValeur: { classe: klass.nom, eleves: enrollments.length, cartesCreees: crees },
+      nouvelleValeur: {
+        classe: klass.nom,
+        eleves: enrollments.length,
+        cartesCreees: crees,
+      },
     });
     return { classe: klass.nom, documents, cartesCreees: crees };
   }
@@ -256,8 +365,11 @@ export class DocumentsService {
    * l'adresse, le matricule, les responsables ni la photo.
    */
   async verify(token: string) {
-    const doc = await this.prisma.issuedDocument.findFirst({ where: { verificationToken: token } });
-    if (!doc) throw new NotFoundException('Document introuvable ou jeton invalide.');
+    const doc = await this.prisma.issuedDocument.findFirst({
+      where: { verificationToken: token },
+    });
+    if (!doc)
+      throw new NotFoundException('Document introuvable ou jeton invalide.');
     const snap = doc.snapshot as unknown as DocumentSnapshot;
     return {
       type: doc.type,

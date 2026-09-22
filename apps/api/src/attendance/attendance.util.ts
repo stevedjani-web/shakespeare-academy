@@ -14,7 +14,10 @@ export function dayInTimezone(instant: Date, timeZone: string): string {
  * Statut d'un élève d'après les minutes de retard (RV05, D57) : rien = présent, jusqu'au seuil = en
  * retard, au-delà = absent de la séance. Le seuil vient des paramètres, jamais du code.
  */
-export function statusForDelay(minutes: number, retardMaxMinutes: number): 'PRESENT' | 'RETARD' | 'ABSENT' {
+export function statusForDelay(
+  minutes: number,
+  retardMaxMinutes: number,
+): 'PRESENT' | 'RETARD' | 'ABSENT' {
   if (minutes <= 0) return 'PRESENT';
   return minutes <= retardMaxMinutes ? 'RETARD' : 'ABSENT';
 }

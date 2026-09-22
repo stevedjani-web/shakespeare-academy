@@ -60,10 +60,14 @@ export class DiscountsService {
       throw new NotFoundException('Ligne de facture introuvable.');
     }
     if (line.invoice.statut === 'ANNULEE') {
-      throw new ConflictException('Cette facture est annulée, aucune remise ne peut y être demandée.');
+      throw new ConflictException(
+        'Cette facture est annulée, aucune remise ne peut y être demandée.',
+      );
     }
     if (dto.type === 'POURCENTAGE' && dto.valeur > 100) {
-      throw new BadRequestException('Un pourcentage de remise ne peut pas dépasser 100.');
+      throw new BadRequestException(
+        'Un pourcentage de remise ne peut pas dépasser 100.',
+      );
     }
 
     const discount = await this.prisma.discount.create({
@@ -92,7 +96,9 @@ export class DiscountsService {
   async approve(id: string, actingUserId: string) {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Seule une remise en attente peut être approuvée.');
+      throw new ConflictException(
+        'Seule une remise en attente peut être approuvée.',
+      );
     }
     // RG06 : la personne qui a demandé la remise ne l'approuve jamais elle-même, même si son rôle le permettrait.
     if (before.auteurId === actingUserId) {
@@ -103,7 +109,11 @@ export class DiscountsService {
 
     const discount = await this.prisma.discount.update({
       where: { id },
-      data: { statut: 'APPROUVEE', approbateurId: actingUserId, dateDecision: new Date() },
+      data: {
+        statut: 'APPROUVEE',
+        approbateurId: actingUserId,
+        dateDecision: new Date(),
+      },
       include: DISCOUNT_INCLUDE,
     });
 
@@ -124,7 +134,9 @@ export class DiscountsService {
   async reject(id: string, dto: RejectDiscountDto, actingUserId: string) {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Seule une remise en attente peut être rejetée.');
+      throw new ConflictException(
+        'Seule une remise en attente peut être rejetée.',
+      );
     }
 
     const discount = await this.prisma.discount.update({

@@ -24,7 +24,8 @@ import { ActivateDto } from './dto/parent.dto';
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 const GENERIC_LOGIN_ERROR = 'Numéro ou mot de passe incorrect.';
-const GENERIC_CODE_ERROR = 'Numéro ou code d’activation incorrect, ou code expiré. Demandez un nouveau code au secrétariat.';
+const GENERIC_CODE_ERROR =
+  'Numéro ou code d’activation incorrect, ou code expiré. Demandez un nouveau code au secrétariat.';
 
 export interface ParentSession {
   accessToken: string;
@@ -46,7 +47,11 @@ export class ParentAuthService {
     private readonly school: SchoolService,
   ) {}
 
-  private async log(action: string, entiteId: string, nouvelleValeur?: unknown) {
+  private async log(
+    action: string,
+    entiteId: string,
+    nouvelleValeur?: unknown,
+  ) {
     await this.audit.log({
       schoolId: await this.school.getDefaultId(),
       userId: null,
@@ -58,7 +63,9 @@ export class ParentAuthService {
   }
 
   private async guardiansWithPhone(telephone: string) {
-    const all = await this.prisma.guardian.findMany({ select: { id: true, nom: true, prenom: true, telephone: true } });
+    const all = await this.prisma.guardian.findMany({
+      select: { id: true, nom: true, prenom: true, telephone: true },
+    });
     return all.filter((g) => samePhone(g.telephone, telephone));
   }
 
@@ -75,10 +82,14 @@ export class ParentAuthService {
    */
   async activate(dto: ActivateDto): Promise<ParentSession> {
     if (!dto.consentement) {
-      throw new BadRequestException('Vous devez accepter la politique de confidentialité pour activer votre compte.');
+      throw new BadRequestException(
+        'Vous devez accepter la politique de confidentialité pour activer votre compte.',
+      );
     }
     if (dto.versionPolitique !== CONSENT_VERSION) {
-      throw new BadRequestException('La politique de confidentialité a changé : rechargez la page et relisez-la.');
+      throw new BadRequestException(
+        'La politique de confidentialité a changé : rechargez la page et relisez-la.',
+      );
     }
     const guardians = await this.guardiansWithPhone(dto.telephone);
     const codes = guardians.length
@@ -104,17 +115,26 @@ export class ParentAuthService {
     }
 
     const guardian = guardians.find((g) => g.id === match.guardianId)!;
-    const motDePasseHash = await argon2.hash(dto.motDePasse, { type: argon2.argon2id });
+    const motDePasseHash = await argon2.hash(dto.motDePasse, {
+      type: argon2.argon2id,
+    });
     const account = await this.prisma.$transaction(async (tx) => {
       // Le code se consomme et ceux qui restaient pour ce responsable tombent avec lui.
-      await tx.parentActivationCode.update({ where: { id: match.id }, data: { usedAt: new Date() } });
+      await tx.parentActivationCode.update({
+        where: { id: match.id },
+        data: { usedAt: new Date() },
+      });
       await tx.parentActivationCode.updateMany({
         where: { guardianId: guardian.id, usedAt: null },
         data: { expiresAt: new Date() },
       });
       const saved = await tx.parentAccount.upsert({
         where: { guardianId: guardian.id },
-        create: { guardianId: guardian.id, motDePasseHash, dernierLoginAt: new Date() },
+        create: {
+          guardianId: guardian.id,
+          motDePasseHash,
+          dernierLoginAt: new Date(),
+        },
         update: {
           motDePasseHash,
           statut: 'ACTIF',
@@ -124,11 +144,19 @@ export class ParentAuthService {
         },
       });
       // Un nouveau mot de passe ferme toutes les sessions ouvertes avec l'ancien.
-      await tx.parentRefreshToken.updateMany({ where: { accountId: saved.id, revokedAt: null }, data: { revokedAt: new Date() } });
-      await tx.parentConsent.create({ data: { accountId: saved.id, version: dto.versionPolitique } });
+      await tx.parentRefreshToken.updateMany({
+        where: { accountId: saved.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await tx.parentConsent.create({
+        data: { accountId: saved.id, version: dto.versionPolitique },
+      });
       return saved;
     });
-    await this.log('PARENT_ACCOUNT_ACTIVATE', account.id, { guardianId: guardian.id, consentement: dto.versionPolitique });
+    await this.log('PARENT_ACCOUNT_ACTIVATE', account.id, {
+      guardianId: guardian.id,
+      consentement: dto.versionPolitique,
+    });
     return this.openSession(account.id, guardian);
   }
 
@@ -137,7 +165,9 @@ export class ParentAuthService {
   async login(telephone: string, motDePasse: string): Promise<ParentSession> {
     const guardians = await this.guardiansWithPhone(telephone);
     const accounts = guardians.length
-      ? await this.prisma.parentAccount.findMany({ where: { guardianId: { in: guardians.map((g) => g.id) } } })
+      ? await this.prisma.parentAccount.findMany({
+          where: { guardianId: { in: guardians.map((g) => g.id) } },
+        })
       : [];
     const account = accounts[0];
     if (!account) {
@@ -149,7 +179,9 @@ export class ParentAuthService {
       );
     }
     if (account.statut !== 'ACTIF') {
-      throw new ForbiddenException("Ce compte est désactivé. Contactez le secrétariat de l'école.");
+      throw new ForbiddenException(
+        "Ce compte est désactivé. Contactez le secrétariat de l'école.",
+      );
     }
     if (!(await argon2.verify(account.motDePasseHash, motDePasse))) {
       const attempts = account.tentativesEchecsConnexion + 1;
@@ -158,30 +190,50 @@ export class ParentAuthService {
         where: { id: account.id },
         data: {
           tentativesEchecsConnexion: lock ? 0 : attempts,
-          verrouilleJusqua: lock ? new Date(Date.now() + LOCK_MINUTES * 60_000) : null,
+          verrouilleJusqua: lock
+            ? new Date(Date.now() + LOCK_MINUTES * 60_000)
+            : null,
         },
       });
       throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
     }
     await this.prisma.parentAccount.update({
       where: { id: account.id },
-      data: { tentativesEchecsConnexion: 0, verrouilleJusqua: null, dernierLoginAt: new Date() },
+      data: {
+        tentativesEchecsConnexion: 0,
+        verrouilleJusqua: null,
+        dernierLoginAt: new Date(),
+      },
     });
     await this.log('PARENT_LOGIN_SUCCESS', account.id);
-    return this.openSession(account.id, guardians.find((g) => g.id === account.guardianId)!);
+    return this.openSession(
+      account.id,
+      guardians.find((g) => g.id === account.guardianId)!,
+    );
   }
 
   async refresh(rawRefreshToken: string) {
     const tokenHash = this.hashToken(rawRefreshToken);
-    const stored = await this.prisma.parentRefreshToken.findUnique({ where: { tokenHash } });
+    const stored = await this.prisma.parentRefreshToken.findUnique({
+      where: { tokenHash },
+    });
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException('Session expirée, veuillez vous reconnecter.');
+      throw new UnauthorizedException(
+        'Session expirée, veuillez vous reconnecter.',
+      );
     }
-    const account = await this.prisma.parentAccount.findUnique({ where: { id: stored.accountId } });
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { id: stored.accountId },
+    });
     if (!account || account.statut !== 'ACTIF') {
-      throw new UnauthorizedException('Session expirée, veuillez vous reconnecter.');
+      throw new UnauthorizedException(
+        'Session expirée, veuillez vous reconnecter.',
+      );
     }
-    await this.prisma.parentRefreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
+    await this.prisma.parentRefreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
     const accessToken = await this.signAccessToken(stored.accountId);
     return { accessToken, ...(await this.issueRefreshToken(stored.accountId)) };
   }
@@ -194,16 +246,22 @@ export class ParentAuthService {
   }
 
   async changePassword(accountId: string, ancien: string, nouveau: string) {
-    const account = await this.prisma.parentAccount.findUniqueOrThrow({ where: { id: accountId } });
+    const account = await this.prisma.parentAccount.findUniqueOrThrow({
+      where: { id: accountId },
+    });
     if (!(await argon2.verify(account.motDePasseHash, ancien))) {
       throw new UnauthorizedException('Ancien mot de passe incorrect.');
     }
     if (ancien === nouveau) {
-      throw new ForbiddenException("Le nouveau mot de passe doit être différent de l'ancien.");
+      throw new ForbiddenException(
+        "Le nouveau mot de passe doit être différent de l'ancien.",
+      );
     }
     await this.prisma.parentAccount.update({
       where: { id: accountId },
-      data: { motDePasseHash: await argon2.hash(nouveau, { type: argon2.argon2id }) },
+      data: {
+        motDePasseHash: await argon2.hash(nouveau, { type: argon2.argon2id }),
+      },
     });
     await this.log('PARENT_PASSWORD_CHANGE', accountId);
   }
@@ -211,17 +269,24 @@ export class ParentAuthService {
   // ------------------------------------------------------------------------- Jetons
 
   /** Vérifie un jeton d'accès de parent et renvoie l'identité, ou refuse. */
-  async verifyAccessToken(token: string): Promise<{ accountId: string; guardianId: string }> {
+  async verifyAccessToken(
+    token: string,
+  ): Promise<{ accountId: string; guardianId: string }> {
     let payload: { sub?: string; typ?: string };
     try {
-      payload = await this.jwt.verifyAsync<{ sub?: string; typ?: string }>(token, { secret: parentTokenSecret() });
+      payload = await this.jwt.verifyAsync<{ sub?: string; typ?: string }>(
+        token,
+        { secret: parentTokenSecret() },
+      );
     } catch {
       throw new UnauthorizedException('Session invalide ou expirée.');
     }
     if (payload.typ !== 'parent' || !payload.sub) {
       throw new UnauthorizedException('Session invalide ou expirée.');
     }
-    const account = await this.prisma.parentAccount.findUnique({ where: { id: payload.sub } });
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { id: payload.sub },
+    });
     if (!account || account.statut !== 'ACTIF') {
       throw new UnauthorizedException('Compte introuvable ou désactivé.');
     }
@@ -235,18 +300,30 @@ export class ParentAuthService {
     return {
       accessToken: await this.signAccessToken(accountId),
       ...(await this.issueRefreshToken(accountId)),
-      parent: { id: accountId, nom: guardian.nom, prenom: guardian.prenom, telephone: guardian.telephone },
+      parent: {
+        id: accountId,
+        nom: guardian.nom,
+        prenom: guardian.prenom,
+        telephone: guardian.telephone,
+      },
     };
   }
 
   private async signAccessToken(accountId: string): Promise<string> {
-    const ttlSeconds = Math.floor(ms(process.env.JWT_ACCESS_TTL ?? '15m') / 1000);
-    return this.jwt.signAsync({ sub: accountId, typ: 'parent' }, { secret: parentTokenSecret(), expiresIn: ttlSeconds });
+    const ttlSeconds = Math.floor(
+      ms(process.env.JWT_ACCESS_TTL ?? '15m') / 1000,
+    );
+    return this.jwt.signAsync(
+      { sub: accountId, typ: 'parent' },
+      { secret: parentTokenSecret(), expiresIn: ttlSeconds },
+    );
   }
 
   private async issueRefreshToken(accountId: string) {
     const rawToken = randomBytes(48).toString('hex');
-    const expiresAt = new Date(Date.now() + ms(process.env.JWT_REFRESH_TTL ?? '7d'));
+    const expiresAt = new Date(
+      Date.now() + ms(process.env.JWT_REFRESH_TTL ?? '7d'),
+    );
     await this.prisma.parentRefreshToken.create({
       data: { accountId, tokenHash: this.hashToken(rawToken), expiresAt },
     });

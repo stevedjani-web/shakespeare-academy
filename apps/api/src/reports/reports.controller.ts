@@ -47,7 +47,10 @@ export class ReportsController {
   @Get('export/insolvent-students')
   @RequirePermission('FINANCE_READ')
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  @Header('Content-Disposition', 'attachment; filename="eleves-insolvables.csv"')
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="eleves-insolvables.csv"',
+  )
   exportInsolventStudents() {
     return this.reportsService.exportInsolventStudents();
   }

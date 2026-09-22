@@ -1,4 +1,10 @@
-import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { FeeApplicability } from '@prisma/client';
 
 export class CreateFeeTypeDto {

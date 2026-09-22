@@ -45,18 +45,31 @@ export class ParentPortalService {
     return this.prisma.enrollment.findFirst({
       where: { studentId, statut: 'ACTIVE' },
       orderBy: { academicYear: { dateDebut: 'desc' } },
-      include: { class: { select: { id: true, nom: true } }, academicYear: { select: { libelle: true } } },
+      include: {
+        class: { select: { id: true, nom: true } },
+        academicYear: { select: { libelle: true } },
+      },
     });
   }
 
   async me(guardianId: string) {
-    const guardian = await this.prisma.guardian.findUniqueOrThrow({ where: { id: guardianId } });
+    const guardian = await this.prisma.guardian.findUniqueOrThrow({
+      where: { id: guardianId },
+    });
     const links = await this.prisma.studentGuardian.findMany({
       where: { guardianId, accesPortail: true },
       include: { student: true },
       orderBy: { student: { nom: 'asc' } },
     });
-    const enfants: Array<{ id: string; nom: string; prenom: string; matricule: string; lien: string; classe: string | null; anneeScolaire: string | null }> = [];
+    const enfants: Array<{
+      id: string;
+      nom: string;
+      prenom: string;
+      matricule: string;
+      lien: string;
+      classe: string | null;
+      anneeScolaire: string | null;
+    }> = [];
     for (const l of links) {
       const enrollment = await this.currentEnrollment(l.studentId);
       enfants.push({
@@ -69,19 +82,30 @@ export class ParentPortalService {
         anneeScolaire: enrollment?.academicYear.libelle ?? null,
       });
     }
-    return { responsable: { nom: guardian.nom, prenom: guardian.prenom, telephone: guardian.telephone }, enfants };
+    return {
+      responsable: {
+        nom: guardian.nom,
+        prenom: guardian.prenom,
+        telephone: guardian.telephone,
+      },
+      enfants,
+    };
   }
 
   /** Emploi du temps de la semaine de la classe de l'enfant (version en vigueur, changements ponctuels compris). */
   async timetable(guardianId: string, studentId: string, date?: string) {
     await this.assertChild(guardianId, studentId);
     const enrollment = await this.currentEnrollment(studentId);
-    const school = await this.prisma.school.findFirstOrThrow({ select: { fuseauHoraire: true } });
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { fuseauHoraire: true },
+    });
     const day = date ?? dayInTimezone(new Date(), school.fuseauHoraire);
     if (!enrollment) {
       return { classe: null, debut: day, fin: day, jours: [] };
     }
-    const week = await this.occurrences.week(day, { classId: enrollment.classId });
+    const week = await this.occurrences.week(day, {
+      classId: enrollment.classId,
+    });
     return {
       classe: enrollment.class.nom,
       debut: week.debut,
@@ -108,9 +132,17 @@ export class ParentPortalService {
     return this.discipline.portalView(studentId);
   }
 
-  async acknowledgeConvocation(guardianId: string, studentId: string, convocationId: string) {
+  async acknowledgeConvocation(
+    guardianId: string,
+    studentId: string,
+    convocationId: string,
+  ) {
     await this.assertChild(guardianId, studentId);
-    return this.discipline.acknowledgeConvocation(guardianId, studentId, convocationId);
+    return this.discipline.acknowledgeConvocation(
+      guardianId,
+      studentId,
+      convocationId,
+    );
   }
 
   /**
@@ -119,7 +151,10 @@ export class ParentPortalService {
    */
   async attestationOf(guardianId: string, studentId: string) {
     await this.assertChild(guardianId, studentId);
-    return this.documents.issue(studentId, 'ATTESTATION_SCOLARITE', { type: 'PARENT', id: guardianId });
+    return this.documents.issue(studentId, 'ATTESTATION_SCOLARITE', {
+      type: 'PARENT',
+      id: guardianId,
+    });
   }
 
   /** Cahier de textes de la classe de l'enfant : devoirs à rendre d'abord, puis les 14 derniers jours (lecture seule). */
@@ -153,7 +188,11 @@ export class ParentPortalService {
         minutesRetard: l.minutesRetard,
         // Ni les corrections internes ni le nom de l'enseignant ne sortent d'ici.
         justificatif: l.justification
-          ? { statut: l.justification.statut, motif: l.justification.motif, commentaire: l.justification.commentaire }
+          ? {
+              statut: l.justification.statut,
+              motif: l.justification.motif,
+              commentaire: l.justification.commentaire,
+            }
           : null,
       })),
     };
@@ -179,7 +218,11 @@ export class ParentPortalService {
         montantExigible: status.montantExigible,
         montantAEchoir: status.montantAEchoir,
         prochaineEcheance: status.prochaineEcheance,
-        lignesEnRetard: status.lignesEnRetard.map((l) => ({ libelle: l.libelle, montant: l.montant, dateLimite: l.dateLimite })),
+        lignesEnRetard: status.lignesEnRetard.map((l) => ({
+          libelle: l.libelle,
+          montant: l.montant,
+          dateLimite: l.dateLimite,
+        })),
       },
       paiements: payments.map((p) => ({
         id: p.id,
@@ -194,7 +237,11 @@ export class ParentPortalService {
   }
 
   /** Lance le paiement d'une tranche de l'enfant (Mobile Money). */
-  async payTranche(guardianId: string, studentId: string, dto: InitiateOnlinePaymentDto) {
+  async payTranche(
+    guardianId: string,
+    studentId: string,
+    dto: InitiateOnlinePaymentDto,
+  ) {
     await this.assertChild(guardianId, studentId);
     return this.onlinePayments.initiate(guardianId, studentId, dto);
   }

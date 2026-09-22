@@ -47,40 +47,52 @@ export class ReportsService {
     const dayStart = startOfDay(date);
     const dayEnd = nextDay(dayStart);
 
-    const [payments, expenses, allPaymentsAgg, allExpensesAgg] = await Promise.all([
-      this.prisma.payment.findMany({
-        where: { schoolId, statut: 'VALIDE', datePaiement: { gte: dayStart, lt: dayEnd } },
-        include: {
-          invoiceLine: {
-            include: {
-              invoice: { include: { enrollment: { include: { student: true } } } },
-            },
+    const [payments, expenses, allPaymentsAgg, allExpensesAgg] =
+      await Promise.all([
+        this.prisma.payment.findMany({
+          where: {
+            schoolId,
+            statut: 'VALIDE',
+            datePaiement: { gte: dayStart, lt: dayEnd },
           },
-          recuParUser: { select: { nom: true, prenom: true } },
-        },
-        orderBy: { datePaiement: 'asc' },
-      }),
-      this.prisma.expense.findMany({
-        where: { schoolId, statut: 'APPROUVEE', dateDepense: { gte: dayStart, lt: dayEnd } },
-        include: { effectuePar: { select: { nom: true, prenom: true } } },
-        orderBy: { dateDepense: 'asc' },
-      }),
-      this.prisma.payment.aggregate({
-        where: { schoolId, statut: 'VALIDE', datePaiement: { lt: dayEnd } },
-        _sum: { montant: true },
-      }),
-      this.prisma.expense.aggregate({
-        where: { schoolId, statut: 'APPROUVEE', dateDepense: { lt: dayEnd } },
-        _sum: { montant: true },
-      }),
-    ]);
+          include: {
+            invoiceLine: {
+              include: {
+                invoice: {
+                  include: { enrollment: { include: { student: true } } },
+                },
+              },
+            },
+            recuParUser: { select: { nom: true, prenom: true } },
+          },
+          orderBy: { datePaiement: 'asc' },
+        }),
+        this.prisma.expense.findMany({
+          where: {
+            schoolId,
+            statut: 'APPROUVEE',
+            dateDepense: { gte: dayStart, lt: dayEnd },
+          },
+          include: { effectuePar: { select: { nom: true, prenom: true } } },
+          orderBy: { dateDepense: 'asc' },
+        }),
+        this.prisma.payment.aggregate({
+          where: { schoolId, statut: 'VALIDE', datePaiement: { lt: dayEnd } },
+          _sum: { montant: true },
+        }),
+        this.prisma.expense.aggregate({
+          where: { schoolId, statut: 'APPROUVEE', dateDepense: { lt: dayEnd } },
+          _sum: { montant: true },
+        }),
+      ]);
 
     const totalEntrees = payments.reduce((sum, p) => sum + p.montant, 0);
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
     const parMode = { ESPECES: 0, MOBILE_MONEY: 0 };
     for (const p of payments) parMode[p.modePaiement] += p.montant;
     const parCategorie: Record<string, number> = {};
-    for (const e of expenses) parCategorie[e.categorie] = (parCategorie[e.categorie] ?? 0) + e.montant;
+    for (const e of expenses)
+      parCategorie[e.categorie] = (parCategorie[e.categorie] ?? 0) + e.montant;
 
     return {
       date,
@@ -98,7 +110,9 @@ export class ReportsService {
           eleve: p.invoiceLine.invoice.enrollment.student
             ? `${p.invoiceLine.invoice.enrollment.student.prenom} ${p.invoiceLine.invoice.enrollment.student.nom}`
             : null,
-          recuPar: p.recuParUser ? `${p.recuParUser.prenom} ${p.recuParUser.nom}` : "Paiement en ligne",
+          recuPar: p.recuParUser
+            ? `${p.recuParUser.prenom} ${p.recuParUser.nom}`
+            : 'Paiement en ligne',
         })),
       },
       sorties: {
@@ -115,7 +129,8 @@ export class ReportsService {
         })),
       },
       soldeJour: totalEntrees - totalSorties,
-      soldeCumule: (allPaymentsAgg._sum.montant ?? 0) - (allExpensesAgg._sum.montant ?? 0),
+      soldeCumule:
+        (allPaymentsAgg._sum.montant ?? 0) - (allExpensesAgg._sum.montant ?? 0),
     };
   }
 
@@ -131,11 +146,16 @@ export class ReportsService {
       include: {
         enrollments: {
           where: { statut: 'ACTIVE' },
-          include: { class: { select: { nom: true } }, academicYear: { select: { libelle: true } } },
+          include: {
+            class: { select: { nom: true } },
+            academicYear: { select: { libelle: true } },
+          },
         },
         studentGuardians: {
           where: { prioritaire: true },
-          include: { guardian: { select: { nom: true, prenom: true, telephone: true } } },
+          include: {
+            guardian: { select: { nom: true, prenom: true, telephone: true } },
+          },
           take: 1,
         },
       },
@@ -151,14 +171,29 @@ export class ReportsService {
       prochaineEcheance: unknown;
     }> = [];
     for (const student of students) {
-      const status = await this.financialStatusService.getForStudent(student.id);
-      if (status.statut !== 'EN_RETARD' && status.statut !== 'IMPAYE_CRITIQUE') continue;
+      const status = await this.financialStatusService.getForStudent(
+        student.id,
+      );
+      if (status.statut !== 'EN_RETARD' && status.statut !== 'IMPAYE_CRITIQUE')
+        continue;
       const enrollment = student.enrollments[0];
       const guardian = student.studentGuardians[0]?.guardian;
       results.push({
-        student: { id: student.id, nom: student.nom, prenom: student.prenom, matricule: student.matricule },
-        classe: enrollment ? `${enrollment.class.nom} (${enrollment.academicYear.libelle})` : null,
-        guardian: guardian ? { nom: `${guardian.prenom} ${guardian.nom}`, telephone: guardian.telephone } : null,
+        student: {
+          id: student.id,
+          nom: student.nom,
+          prenom: student.prenom,
+          matricule: student.matricule,
+        },
+        classe: enrollment
+          ? `${enrollment.class.nom} (${enrollment.academicYear.libelle})`
+          : null,
+        guardian: guardian
+          ? {
+              nom: `${guardian.prenom} ${guardian.nom}`,
+              telephone: guardian.telephone,
+            }
+          : null,
         statut: status.statut,
         montantExigible: status.montantExigible,
         montantRestant: status.montantRestant,
@@ -182,24 +217,37 @@ export class ReportsService {
   async getDashboardStats() {
     const schoolId = await this.schoolService.getDefaultId();
 
-    const [academicYears, students, expensesApprouveesAgg, expensesEnAttente, discountCounts, cashClosing, insolvents] =
-      await Promise.all([
-        this.prisma.academicYear.findMany({ where: { schoolId } }),
-        this.prisma.student.findMany({ where: { schoolId }, select: { sexe: true, statut: true } }),
-        this.prisma.expense.aggregate({ where: { schoolId, statut: 'APPROUVEE' }, _sum: { montant: true } }),
-        this.prisma.expense.aggregate({
-          where: { schoolId, statut: 'EN_ATTENTE' },
-          _sum: { montant: true },
-          _count: true,
-        }),
-        this.prisma.discount.groupBy({
-          by: ['statut'],
-          where: { invoiceLine: { invoice: { schoolId } } },
-          _count: true,
-        }),
-        this.getCashClosing(new Date().toISOString().slice(0, 10)),
-        this.getInsolventStudents(),
-      ]);
+    const [
+      academicYears,
+      students,
+      expensesApprouveesAgg,
+      expensesEnAttente,
+      discountCounts,
+      cashClosing,
+      insolvents,
+    ] = await Promise.all([
+      this.prisma.academicYear.findMany({ where: { schoolId } }),
+      this.prisma.student.findMany({
+        where: { schoolId },
+        select: { sexe: true, statut: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: { schoolId, statut: 'APPROUVEE' },
+        _sum: { montant: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: { schoolId, statut: 'EN_ATTENTE' },
+        _sum: { montant: true },
+        _count: true,
+      }),
+      this.prisma.discount.groupBy({
+        by: ['statut'],
+        where: { invoiceLine: { invoice: { schoolId } } },
+        _count: true,
+      }),
+      this.getCashClosing(new Date().toISOString().slice(0, 10)),
+      this.getInsolventStudents(),
+    ]);
 
     const activeYear = academicYears.find((y) => y.statut === 'ACTIVE') ?? null;
 
@@ -208,14 +256,24 @@ export class ReportsService {
       actifs: students.filter((s) => s.statut === 'ACTIF').length,
       inactifs: students.filter((s) => s.statut !== 'ACTIF').length,
       parSexe: {
-        M: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'M').length,
-        F: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'F').length,
+        M: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'M')
+          .length,
+        F: students.filter((s) => s.statut === 'ACTIF' && s.sexe === 'F')
+          .length,
       },
     };
 
-    let repartition = { parSection: [] as Array<{ nom: string; effectif: number }>, parClasse: [] as Array<{ nom: string; cycle: string; section: string; effectif: number }> };
-    let inscriptions = { nouvelles: 0, reinscriptions: 0, annulees: 0 };
-    let financier = {
+    let repartition = {
+      parSection: [] as Array<{ nom: string; effectif: number }>,
+      parClasse: [] as Array<{
+        nom: string;
+        cycle: string;
+        section: string;
+        effectif: number;
+      }>,
+    };
+    const inscriptions = { nouvelles: 0, reinscriptions: 0, annulees: 0 };
+    const financier = {
       totalFacture: 0,
       totalRemises: 0,
       totalEncaisse: 0,
@@ -223,23 +281,35 @@ export class ReportsService {
       tauxRecouvrement: null as number | null,
       soldeCaisseCumule: cashClosing.soldeCumule,
     };
-    let parModePaiement = { ESPECES: 0, MOBILE_MONEY: 0 };
+    const parModePaiement = { ESPECES: 0, MOBILE_MONEY: 0 };
 
     if (activeYear) {
       const enrollments = await this.prisma.enrollment.findMany({
         where: { schoolId, academicYearId: activeYear.id },
         include: {
-          class: { include: { level: { include: { cycle: { include: { section: true } } } } } },
+          class: {
+            include: {
+              level: { include: { cycle: { include: { section: true } } } },
+            },
+          },
           invoice: {
             include: {
-              lines: { include: { discounts: true, payments: { where: { statut: 'VALIDE' } } } },
+              lines: {
+                include: {
+                  discounts: true,
+                  payments: { where: { statut: 'VALIDE' } },
+                },
+              },
             },
           },
         },
       });
 
       const bySection = new Map<string, number>();
-      const byClasse = new Map<string, { nom: string; cycle: string; section: string; effectif: number }>();
+      const byClasse = new Map<
+        string,
+        { nom: string; cycle: string; section: string; effectif: number }
+      >();
 
       for (const e of enrollments) {
         if (e.statut === 'ANNULEE') {
@@ -265,7 +335,10 @@ export class ReportsService {
         if (e.invoice) {
           for (const line of e.invoice.lines) {
             financier.totalFacture += line.montant;
-            financier.totalRemises += computeApprovedDiscountAmount(line, line.discounts);
+            financier.totalRemises += computeApprovedDiscountAmount(
+              line,
+              line.discounts,
+            );
             for (const p of line.payments) {
               financier.totalEncaisse += p.montant;
               parModePaiement[p.modePaiement] += p.montant;
@@ -274,20 +347,32 @@ export class ReportsService {
         }
       }
 
-      financier.totalRestantDu = financier.totalFacture - financier.totalRemises - financier.totalEncaisse;
+      financier.totalRestantDu =
+        financier.totalFacture -
+        financier.totalRemises -
+        financier.totalEncaisse;
       const netAFacturer = financier.totalFacture - financier.totalRemises;
       financier.tauxRecouvrement =
-        netAFacturer > 0 ? Math.round((financier.totalEncaisse / netAFacturer) * 100) : null;
+        netAFacturer > 0
+          ? Math.round((financier.totalEncaisse / netAFacturer) * 100)
+          : null;
 
       repartition = {
-        parSection: Array.from(bySection, ([nom, effectif]) => ({ nom, effectif })),
-        parClasse: Array.from(byClasse.values()).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')),
+        parSection: Array.from(bySection, ([nom, effectif]) => ({
+          nom,
+          effectif,
+        })),
+        parClasse: Array.from(byClasse.values()).sort((a, b) =>
+          a.nom.localeCompare(b.nom, 'fr'),
+        ),
       };
     }
 
     const remises = {
-      enAttente: discountCounts.find((d) => d.statut === 'EN_ATTENTE')?._count ?? 0,
-      approuvees: discountCounts.find((d) => d.statut === 'APPROUVEE')?._count ?? 0,
+      enAttente:
+        discountCounts.find((d) => d.statut === 'EN_ATTENTE')?._count ?? 0,
+      approuvees:
+        discountCounts.find((d) => d.statut === 'APPROUVEE')?._count ?? 0,
       rejetees: discountCounts.find((d) => d.statut === 'REJETEE')?._count ?? 0,
     };
 
@@ -317,7 +402,11 @@ export class ReportsService {
         enrollments: {
           where: { statut: 'ACTIVE' },
           include: {
-            class: { include: { level: { include: { cycle: { include: { section: true } } } } } },
+            class: {
+              include: {
+                level: { include: { cycle: { include: { section: true } } } },
+              },
+            },
             academicYear: { select: { libelle: true } },
           },
           orderBy: { createdAt: 'desc' },
@@ -325,7 +414,9 @@ export class ReportsService {
         },
         studentGuardians: {
           where: { prioritaire: true },
-          include: { guardian: { select: { nom: true, prenom: true, telephone: true } } },
+          include: {
+            guardian: { select: { nom: true, prenom: true, telephone: true } },
+          },
           take: 1,
         },
       },
@@ -351,11 +442,12 @@ export class ReportsService {
       };
     });
 
-    rows.sort((a, b) =>
-      a.section.localeCompare(b.section, 'fr') ||
-      a.cycle.localeCompare(b.cycle, 'fr') ||
-      a.classe.localeCompare(b.classe, 'fr') ||
-      a.nom.localeCompare(b.nom, 'fr'),
+    rows.sort(
+      (a, b) =>
+        a.section.localeCompare(b.section, 'fr') ||
+        a.cycle.localeCompare(b.cycle, 'fr') ||
+        a.classe.localeCompare(b.classe, 'fr') ||
+        a.nom.localeCompare(b.nom, 'fr'),
     );
 
     return rows;

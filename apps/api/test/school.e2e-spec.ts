@@ -73,7 +73,11 @@ describe('Paramétrage établissement (e2e)', () => {
 
   it('POST /school/logo enregistre le logo et exige SETTINGS_MANAGE', async () => {
     const school = await prisma.school.findFirstOrThrow();
-    const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'SECRETAIRE_CAISSIER');
+    const { user, motDePasse } = await createUserWithRole(
+      prisma,
+      school.id,
+      'SECRETAIRE_CAISSIER',
+    );
     const login = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: user.email, motDePasse })

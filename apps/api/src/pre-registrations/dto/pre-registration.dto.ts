@@ -1,4 +1,13 @@
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Sexe, PreRegistrationStatus } from '@prisma/client';
 
 export class CreatePreRegistrationDto {
@@ -15,7 +24,9 @@ export class CreatePreRegistrationDto {
   @IsEnum(Sexe)
   sexe!: Sexe;
 
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'La date de naissance doit être au format AAAA-MM-JJ.' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'La date de naissance doit être au format AAAA-MM-JJ.',
+  })
   dateNaissance!: string;
 
   @IsOptional()
@@ -69,7 +80,9 @@ export class AcceptPreRegistrationDto {
 
 export class RejectPreRegistrationDto {
   @IsString()
-  @MinLength(3, { message: 'Indiquez le motif du refus (3 caractères au moins).' })
+  @MinLength(3, {
+    message: 'Indiquez le motif du refus (3 caractères au moins).',
+  })
   @MaxLength(300)
   motif!: string;
 }

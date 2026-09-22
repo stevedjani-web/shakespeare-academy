@@ -44,7 +44,10 @@ export class SchoolService {
 
   async updateLogo(logoUrl: string, userId: string) {
     const school = await this.getDefault();
-    const updated = await this.prisma.school.update({ where: { id: school.id }, data: { logoUrl } });
+    const updated = await this.prisma.school.update({
+      where: { id: school.id },
+      data: { logoUrl },
+    });
     await this.auditService.log({
       schoolId: school.id,
       userId,
@@ -59,7 +62,10 @@ export class SchoolService {
 
   async updateSignature(signatureUrl: string, userId: string) {
     const school = await this.getDefault();
-    const updated = await this.prisma.school.update({ where: { id: school.id }, data: { signatureUrl } });
+    const updated = await this.prisma.school.update({
+      where: { id: school.id },
+      data: { signatureUrl },
+    });
     await this.auditService.log({
       schoolId: school.id,
       userId,

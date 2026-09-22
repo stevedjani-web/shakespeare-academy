@@ -8,7 +8,13 @@ import { LevelsModule } from '../levels/levels.module';
 import { FeeTypesModule } from '../fee-types/fee-types.module';
 
 @Module({
-  imports: [AuditModule, SchoolModule, AcademicYearsModule, LevelsModule, FeeTypesModule],
+  imports: [
+    AuditModule,
+    SchoolModule,
+    AcademicYearsModule,
+    LevelsModule,
+    FeeTypesModule,
+  ],
   controllers: [FeeSchedulesController],
   providers: [FeeSchedulesService],
   exports: [FeeSchedulesService],

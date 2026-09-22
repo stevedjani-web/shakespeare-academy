@@ -11,7 +11,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { SchoolService } from './school.service';
 import { UpdateSchoolDto } from './dto/update-school.dto';
-import { schoolLogoMulterOptions, schoolSignatureMulterOptions } from './school-logo.storage';
+import {
+  schoolLogoMulterOptions,
+  schoolSignatureMulterOptions,
+} from './school-logo.storage';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
@@ -34,11 +37,17 @@ export class SchoolController {
   @Post('logo')
   @RequirePermission('SETTINGS_MANAGE')
   @UseInterceptors(FileInterceptor('file', schoolLogoMulterOptions))
-  uploadLogo(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: CurrentUserData) {
+  uploadLogo(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     if (!file) {
       throw new BadRequestException('Aucun fichier reçu.');
     }
-    return this.schoolService.updateLogo(`/uploads/school/${file.filename}`, user.id);
+    return this.schoolService.updateLogo(
+      `/uploads/school/${file.filename}`,
+      user.id,
+    );
   }
 
   // Image de la signature figurant sur les attestations (Lot 19). Comme le logo, elle est publique : aucune donnée
@@ -46,10 +55,16 @@ export class SchoolController {
   @Post('signature')
   @RequirePermission('SETTINGS_MANAGE')
   @UseInterceptors(FileInterceptor('file', schoolSignatureMulterOptions))
-  uploadSignature(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: CurrentUserData) {
+  uploadSignature(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     if (!file) {
       throw new BadRequestException('Aucun fichier reçu.');
     }
-    return this.schoolService.updateSignature(`/uploads/school/${file.filename}`, user.id);
+    return this.schoolService.updateSignature(
+      `/uploads/school/${file.filename}`,
+      user.id,
+    );
   }
 }

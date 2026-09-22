@@ -29,7 +29,15 @@ export type EntryWithRelations = Prisma.TimetableEntryGetPayload<{
   include: typeof ENTRY_INCLUDE;
 }>;
 
-const DAY_LABELS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const DAY_LABELS = [
+  'dimanche',
+  'lundi',
+  'mardi',
+  'mercredi',
+  'jeudi',
+  'vendredi',
+  'samedi',
+];
 
 /** Versions d'emploi du temps et séances hebdomadaires (RV01, RV02, RV03). */
 @Injectable()
@@ -140,7 +148,9 @@ export class TimetablesService {
           where: { id: dto.copyFromId, academicYearId: year.id },
         });
         if (!source) {
-          throw new NotFoundException('La version à copier est introuvable pour cette année.');
+          throw new NotFoundException(
+            'La version à copier est introuvable pour cette année.',
+          );
         }
       } else {
         source = await this.prisma.timetable.findFirst({
@@ -159,7 +169,9 @@ export class TimetablesService {
         data: { academicYearId: year.id, numero: (last?.numero ?? 0) + 1 },
       });
       if (source) {
-        const entries = await tx.timetableEntry.findMany({ where: { timetableId: source.id } });
+        const entries = await tx.timetableEntry.findMany({
+          where: { timetableId: source.id },
+        });
         if (entries.length > 0) {
           await tx.timetableEntry.createMany({
             data: entries.map((e) => ({
@@ -191,13 +203,23 @@ export class TimetablesService {
       this.prisma.timetableEntry.deleteMany({ where: { timetableId: id } }),
       this.prisma.timetable.delete({ where: { id } }),
     ]);
-    await this.log(userId, 'TIMETABLE_DELETE', 'Timetable', id, timetable, null);
+    await this.log(
+      userId,
+      'TIMETABLE_DELETE',
+      'Timetable',
+      id,
+      timetable,
+      null,
+    );
     return { id };
   }
 
   // ------------------------------------------------------------------- Séances
 
-  listEntries(timetableId: string, filters: { classId?: string; teacherId?: string; roomId?: string }) {
+  listEntries(
+    timetableId: string,
+    filters: { classId?: string; teacherId?: string; roomId?: string },
+  ) {
     return this.prisma.timetableEntry.findMany({
       where: {
         timetableId,
@@ -213,7 +235,13 @@ export class TimetablesService {
   /** Vérifie une séance et en déduit l'enseignant (celui de l'affectation) et les heures (celles du créneau). */
   private async prepareEntry(
     timetable: { academicYearId: string },
-    input: { classId: string; subjectId: string; timeSlotId: string; jourSemaine: number; roomId: string },
+    input: {
+      classId: string;
+      subjectId: string;
+      timeSlotId: string;
+      jourSemaine: number;
+      roomId: string;
+    },
   ) {
     const klass = await this.prisma.class.findUnique({
       where: { id: input.classId },
@@ -229,7 +257,9 @@ export class TimetablesService {
     }
 
     const assignment = await this.prisma.teachingAssignment.findUnique({
-      where: { classId_subjectId: { classId: klass.id, subjectId: input.subjectId } },
+      where: {
+        classId_subjectId: { classId: klass.id, subjectId: input.subjectId },
+      },
       include: { teacher: true, subject: true },
     });
     if (!assignment) {
@@ -243,30 +273,39 @@ export class TimetablesService {
       );
     }
 
-    const slot = await this.prisma.timeSlot.findUnique({ where: { id: input.timeSlotId } });
+    const slot = await this.prisma.timeSlot.findUnique({
+      where: { id: input.timeSlotId },
+    });
     if (!slot) {
       throw new NotFoundException('Créneau introuvable.');
     }
     if (slot.type !== 'COURS') {
-      throw new UnprocessableEntityException('Ce créneau est une pause : on n’y place pas de cours.');
+      throw new UnprocessableEntityException(
+        'Ce créneau est une pause : on n’y place pas de cours.',
+      );
     }
     const sectionId = klass.level.cycle.sectionId;
     const ownGrid = await this.prisma.timeSlot.count({ where: { sectionId } });
-    const inGrid = ownGrid > 0 ? slot.sectionId === sectionId : slot.sectionId === null;
+    const inGrid =
+      ownGrid > 0 ? slot.sectionId === sectionId : slot.sectionId === null;
     if (!inGrid) {
       throw new UnprocessableEntityException(
         'Ce créneau n’appartient pas à la grille horaire de la section de cette classe.',
       );
     }
 
-    const school = await this.prisma.school.findFirstOrThrow({ select: { joursClasse: true } });
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { joursClasse: true },
+    });
     if (!school.joursClasse.includes(input.jourSemaine)) {
       throw new UnprocessableEntityException(
         `Le ${DAY_LABELS[input.jourSemaine]} n’est pas un jour de classe.`,
       );
     }
 
-    const room = await this.prisma.room.findUnique({ where: { id: input.roomId } });
+    const room = await this.prisma.room.findUnique({
+      where: { id: input.roomId },
+    });
     if (!room) {
       throw new NotFoundException('Salle introuvable.');
     }
@@ -284,17 +323,31 @@ export class TimetablesService {
   /** Refuse une séance qui met la classe, l'enseignant ou la salle en double emploi (RV02). */
   private async assertNoConflict(
     timetableId: string,
-    x: { jourSemaine: number; heureDebut: string; heureFin: string; classId: string; teacherId: string; roomId: string },
+    x: {
+      jourSemaine: number;
+      heureDebut: string;
+      heureFin: string;
+      classId: string;
+      teacherId: string;
+      roomId: string;
+    },
     excludeId?: string,
   ) {
     const sameDay = await this.prisma.timetableEntry.findMany({
-      where: { timetableId, jourSemaine: x.jourSemaine, id: excludeId ? { not: excludeId } : undefined },
+      where: {
+        timetableId,
+        jourSemaine: x.jourSemaine,
+        id: excludeId ? { not: excludeId } : undefined,
+      },
       include: ENTRY_INCLUDE,
     });
     for (const e of sameDay) {
-      if (!overlaps(x.heureDebut, x.heureFin, e.heureDebut, e.heureFin)) continue;
+      if (!overlaps(x.heureDebut, x.heureFin, e.heureDebut, e.heureFin))
+        continue;
       if (e.classId === x.classId) {
-        throw new ConflictException(`Cette classe a déjà cours à ce moment : ${this.describe(e)}.`);
+        throw new ConflictException(
+          `Cette classe a déjà cours à ce moment : ${this.describe(e)}.`,
+        );
       }
       if (e.teacherId === x.teacherId) {
         throw new ConflictException(
@@ -302,7 +355,9 @@ export class TimetablesService {
         );
       }
       if (e.roomId === x.roomId) {
-        throw new ConflictException(`La salle ${e.room.nom} est déjà occupée à ce moment : ${this.describe(e)}.`);
+        throw new ConflictException(
+          `La salle ${e.room.nom} est déjà occupée à ce moment : ${this.describe(e)}.`,
+        );
       }
     }
   }
@@ -332,7 +387,14 @@ export class TimetablesService {
       },
       include: ENTRY_INCLUDE,
     });
-    await this.log(userId, 'TIMETABLE_ENTRY_CREATE', 'TimetableEntry', entry.id, null, entry);
+    await this.log(
+      userId,
+      'TIMETABLE_ENTRY_CREATE',
+      'TimetableEntry',
+      entry.id,
+      null,
+      entry,
+    );
     return entry;
   }
 
@@ -361,7 +423,10 @@ export class TimetablesService {
       jourSemaine: dto.jourSemaine ?? before.jourSemaine,
       roomId: dto.roomId ?? before.roomId,
     };
-    const { assignment, slot } = await this.prepareEntry(before.timetable, merged);
+    const { assignment, slot } = await this.prepareEntry(
+      before.timetable,
+      merged,
+    );
     await this.assertNoConflict(
       before.timetableId,
       {
@@ -387,14 +452,28 @@ export class TimetablesService {
       },
       include: ENTRY_INCLUDE,
     });
-    await this.log(userId, 'TIMETABLE_ENTRY_UPDATE', 'TimetableEntry', id, before, entry);
+    await this.log(
+      userId,
+      'TIMETABLE_ENTRY_UPDATE',
+      'TimetableEntry',
+      id,
+      before,
+      entry,
+    );
     return entry;
   }
 
   async deleteEntry(id: string, userId: string) {
     const before = await this.draftEntry(id);
     await this.prisma.timetableEntry.delete({ where: { id } });
-    await this.log(userId, 'TIMETABLE_ENTRY_DELETE', 'TimetableEntry', id, before, null);
+    await this.log(
+      userId,
+      'TIMETABLE_ENTRY_DELETE',
+      'TimetableEntry',
+      id,
+      before,
+      null,
+    );
     return { id };
   }
 
@@ -413,7 +492,9 @@ export class TimetablesService {
     const problemes: string[] = [];
     for (const e of entries) {
       const assignment = await this.prisma.teachingAssignment.findUnique({
-        where: { classId_subjectId: { classId: e.classId, subjectId: e.subjectId } },
+        where: {
+          classId_subjectId: { classId: e.classId, subjectId: e.subjectId },
+        },
       });
       if (!assignment) {
         problemes.push(`Plus d'affectation pour ${this.describe(e)}.`);
@@ -437,10 +518,16 @@ export class TimetablesService {
         problemes.push(`${this.describe(e)} : ${(err as Error).message}`);
         continue;
       }
-      await this.prisma.timetableEntry.update({ where: { id: e.id }, data: { teacherId: assignment.teacherId } });
+      await this.prisma.timetableEntry.update({
+        where: { id: e.id },
+        data: { teacherId: assignment.teacherId },
+      });
       misAJour += 1;
     }
-    await this.log(userId, 'TIMETABLE_RESYNC', 'Timetable', id, null, { misAJour, problemes: problemes.length });
+    await this.log(userId, 'TIMETABLE_RESYNC', 'Timetable', id, null, {
+      misAJour,
+      problemes: problemes.length,
+    });
     return { misAJour, problemes };
   }
 
@@ -464,11 +551,16 @@ export class TimetablesService {
     }
     await this.editableYear(timetable.academicYearId);
     if (timetable.entries.length === 0) {
-      throw new UnprocessableEntityException('Cet emploi du temps est vide : ajoutez au moins une séance.');
+      throw new UnprocessableEntityException(
+        'Cet emploi du temps est vide : ajoutez au moins une séance.',
+      );
     }
 
     const year = timetable.academicYear;
-    if (dto.dateEffet < isoDay(year.dateDebut) || dto.dateEffet > isoDay(year.dateFin)) {
+    if (
+      dto.dateEffet < isoDay(year.dateDebut) ||
+      dto.dateEffet > isoDay(year.dateFin)
+    ) {
       throw new UnprocessableEntityException(
         `La date d'effet doit être dans l'année scolaire ${year.libelle} (${isoDay(year.dateDebut)} au ${isoDay(year.dateFin)}).`,
       );
@@ -493,7 +585,10 @@ export class TimetablesService {
 
     const published = await this.prisma.$transaction(async (tx) => {
       if (previous) {
-        await tx.timetable.update({ where: { id: previous.id }, data: { statut: 'ARCHIVE' } });
+        await tx.timetable.update({
+          where: { id: previous.id },
+          data: { statut: 'ARCHIVE' },
+        });
       }
       return tx.timetable.update({
         where: { id },
@@ -505,33 +600,53 @@ export class TimetablesService {
         },
       });
     });
-    await this.log(userId, 'TIMETABLE_PUBLISH', 'Timetable', id, timetable.statut, {
-      ...published,
-      remplace: previous?.id ?? null,
-    });
+    await this.log(
+      userId,
+      'TIMETABLE_PUBLISH',
+      'Timetable',
+      id,
+      timetable.statut,
+      {
+        ...published,
+        remplace: previous?.id ?? null,
+      },
+    );
     // Lot 12 : les responsables des élèves inscrits sont prévenus (regroupé, sans détail sensible).
-    await this.notifications.notifyTimetablePublished(timetable.academicYearId, dto.dateEffet);
+    await this.notifications.notifyTimetablePublished(
+      timetable.academicYearId,
+      dto.dateEffet,
+    );
     return published;
   }
 
   /** Liste tous les problèmes bloquants d'un ensemble de séances (conflits, affectations, jours, ressources). */
   async verify(entries: EntryWithRelations[]): Promise<string[]> {
     const problemes: string[] = [];
-    const school = await this.prisma.school.findFirstOrThrow({ select: { joursClasse: true } });
+    const school = await this.prisma.school.findFirstOrThrow({
+      select: { joursClasse: true },
+    });
     const assignments = await this.prisma.teachingAssignment.findMany({
       where: { classId: { in: [...new Set(entries.map((e) => e.classId))] } },
     });
 
     for (const e of entries) {
       const who = this.describe(e);
-      const assignment = assignments.find((a) => a.classId === e.classId && a.subjectId === e.subjectId);
+      const assignment = assignments.find(
+        (a) => a.classId === e.classId && a.subjectId === e.subjectId,
+      );
       if (!assignment) {
-        problemes.push(`${who} : plus aucun enseignant n'est affecté à cette matière.`);
+        problemes.push(
+          `${who} : plus aucun enseignant n'est affecté à cette matière.`,
+        );
       } else if (assignment.teacherId !== e.teacherId) {
-        problemes.push(`${who} : l'enseignant a changé dans l'affectation (utilisez « Mettre à jour les enseignants »).`);
+        problemes.push(
+          `${who} : l'enseignant a changé dans l'affectation (utilisez « Mettre à jour les enseignants »).`,
+        );
       }
       if (e.teacher.statut !== 'ACTIF') {
-        problemes.push(`${who} : l'enseignant ${e.teacher.prenom} ${e.teacher.nom} est inactif.`);
+        problemes.push(
+          `${who} : l'enseignant ${e.teacher.prenom} ${e.teacher.nom} est inactif.`,
+        );
       }
       if (!e.room.actif) {
         problemes.push(`${who} : la salle ${e.room.nom} est désactivée.`);
@@ -547,9 +662,12 @@ export class TimetablesService {
         const a = entries[i];
         const b = entries[j];
         if (a.jourSemaine !== b.jourSemaine) continue;
-        if (!overlaps(a.heureDebut, a.heureFin, b.heureDebut, b.heureFin)) continue;
+        if (!overlaps(a.heureDebut, a.heureFin, b.heureDebut, b.heureFin))
+          continue;
         if (a.classId === b.classId) {
-          problemes.push(`Conflit de classe (${a.class.nom}) : ${this.describe(a)} et ${this.describe(b)}.`);
+          problemes.push(
+            `Conflit de classe (${a.class.nom}) : ${this.describe(a)} et ${this.describe(b)}.`,
+          );
         }
         if (a.teacherId === b.teacherId) {
           problemes.push(
@@ -557,7 +675,9 @@ export class TimetablesService {
           );
         }
         if (a.roomId === b.roomId) {
-          problemes.push(`Conflit de salle (${a.room.nom}) : ${this.describe(a)} et ${this.describe(b)}.`);
+          problemes.push(
+            `Conflit de salle (${a.room.nom}) : ${this.describe(a)} et ${this.describe(b)}.`,
+          );
         }
       }
     }
@@ -572,6 +692,10 @@ export class TimetablesService {
       include: ENTRY_INCLUDE,
     });
     const problemes = await this.verify(entries);
-    return { pret: entries.length > 0 && problemes.length === 0, seances: entries.length, problemes };
+    return {
+      pret: entries.length > 0 && problemes.length === 0,
+      seances: entries.length,
+      problemes,
+    };
   }
 }

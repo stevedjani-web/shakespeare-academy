@@ -21,11 +21,18 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
     const school = await seedBaseFixtures(prisma);
     const login = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'admin@shakespeareacademy.cg', motDePasse: 'ChangeMe123!' })
+      .send({
+        email: 'admin@shakespeareacademy.cg',
+        motDePasse: 'ChangeMe123!',
+      })
       .expect(201);
     adminToken = login.body.accessToken;
 
-    const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'DIRECTION');
+    const { user, motDePasse } = await createUserWithRole(
+      prisma,
+      school.id,
+      'DIRECTION',
+    );
     const dirLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: user.email, motDePasse })
@@ -45,32 +52,48 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
   }
 
   async function setupInvoiceLine() {
-    const section = await auth(request(app.getHttpServer()).post('/sections')).send({
+    const section = await auth(
+      request(app.getHttpServer()).post('/sections'),
+    ).send({
       code: 'FR',
       nom: 'Francophone',
     });
-    const cycle = await auth(request(app.getHttpServer()).post('/cycles')).send({
-      sectionId: section.body.id,
-      code: 'PRIMAIRE',
-      nom: 'Primaire',
-    });
-    const level = await auth(request(app.getHttpServer()).post('/levels')).send({
-      cycleId: cycle.body.id,
-      code: 'CM2',
-      nom: 'CM2',
-    });
-    const year = await auth(request(app.getHttpServer()).post('/academic-years')).send({
+    const cycle = await auth(request(app.getHttpServer()).post('/cycles')).send(
+      {
+        sectionId: section.body.id,
+        code: 'PRIMAIRE',
+        nom: 'Primaire',
+      },
+    );
+    const level = await auth(request(app.getHttpServer()).post('/levels')).send(
+      {
+        cycleId: cycle.body.id,
+        code: 'CM2',
+        nom: 'CM2',
+      },
+    );
+    const year = await auth(
+      request(app.getHttpServer()).post('/academic-years'),
+    ).send({
       libelle: '2026-2027',
       dateDebut: '2026-09-01',
       dateFin: '2027-07-15',
     });
-    await auth(request(app.getHttpServer()).post(`/academic-years/${year.body.id}/activate`));
-    const klass = await auth(request(app.getHttpServer()).post('/classes')).send({
+    await auth(
+      request(app.getHttpServer()).post(
+        `/academic-years/${year.body.id}/activate`,
+      ),
+    );
+    const klass = await auth(
+      request(app.getHttpServer()).post('/classes'),
+    ).send({
       levelId: level.body.id,
       academicYearId: year.body.id,
       nom: 'CM2 A',
     });
-    const feeType = await auth(request(app.getHttpServer()).post('/fee-types')).send({
+    const feeType = await auth(
+      request(app.getHttpServer()).post('/fee-types'),
+    ).send({
       code: 'INSCRIPTION',
       nom: "Frais d'inscription",
       obligatoire: true,
@@ -82,22 +105,36 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
       feeTypeId: feeType.body.id,
       montant: 45000,
     });
-    const student = await auth(request(app.getHttpServer()).post('/students')).send({
+    const student = await auth(
+      request(app.getHttpServer()).post('/students'),
+    ).send({
       nom: 'Moukala',
       prenom: 'Grace',
       sexe: 'F',
       dateNaissance: '2015-04-12',
-      responsable: { nom: 'Moukala', prenom: 'Jean', telephone: '242060000001', lien: 'Père' },
+      responsable: {
+        nom: 'Moukala',
+        prenom: 'Jean',
+        telephone: '242060000001',
+        lien: 'Père',
+      },
     });
-    const enrollment = await auth(request(app.getHttpServer()).post('/enrollments')).send({
+    const enrollment = await auth(
+      request(app.getHttpServer()).post('/enrollments'),
+    ).send({
       studentId: student.body.id,
       classId: klass.body.id,
       academicYearId: year.body.id,
     });
     const invoice = await auth(
-      request(app.getHttpServer()).get(`/invoices/by-enrollment/${enrollment.body.id}`),
+      request(app.getHttpServer()).get(
+        `/invoices/by-enrollment/${enrollment.body.id}`,
+      ),
     );
-    return { invoiceLineId: invoice.body.lines[0].id, studentId: student.body.id };
+    return {
+      invoiceLineId: invoice.body.lines[0].id,
+      studentId: student.body.id,
+    };
   }
 
   describe('Clôture de journée', () => {
@@ -108,15 +145,23 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
         montant: 20000,
       });
 
-      const expense = await auth(request(app.getHttpServer()).post('/expenses')).send({
+      const expense = await auth(
+        request(app.getHttpServer()).post('/expenses'),
+      ).send({
         categorie: 'ACHAT_MATERIEL',
         montant: 5000,
         description: 'Fournitures',
       });
-      await authDir(request(app.getHttpServer()).post(`/expenses/${expense.body.id}/approve`));
+      await authDir(
+        request(app.getHttpServer()).post(
+          `/expenses/${expense.body.id}/approve`,
+        ),
+      );
 
       const today = new Date().toISOString().slice(0, 10);
-      const closing = await auth(request(app.getHttpServer()).get(`/reports/cash-closing?date=${today}`));
+      const closing = await auth(
+        request(app.getHttpServer()).get(`/reports/cash-closing?date=${today}`),
+      );
       expect(closing.status).toBe(200);
       expect(closing.body.entrees.total).toBe(20000);
       expect(closing.body.sorties.total).toBe(5000);
@@ -131,13 +176,19 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
         description: 'Non approuvée',
       });
       const today = new Date().toISOString().slice(0, 10);
-      const closing = await auth(request(app.getHttpServer()).get(`/reports/cash-closing?date=${today}`));
+      const closing = await auth(
+        request(app.getHttpServer()).get(`/reports/cash-closing?date=${today}`),
+      );
       expect(closing.body.sorties.total).toBe(0);
     });
 
     it('refuse sans la permission CASH_CLOSE', async () => {
       const school = await prisma.school.findFirstOrThrow();
-      const { user, motDePasse } = await createUserWithRole(prisma, school.id, 'AUDITEUR');
+      const { user, motDePasse } = await createUserWithRole(
+        prisma,
+        school.id,
+        'AUDITEUR',
+      );
       const login = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: user.email, motDePasse });
@@ -151,7 +202,9 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
   describe('Élèves insolvables', () => {
     it('liste un élève avec un frais immédiatement exigible non couvert', async () => {
       await setupInvoiceLine();
-      const res = await auth(request(app.getHttpServer()).get('/reports/insolvent-students'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/insolvent-students'),
+      );
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(1);
       expect(res.body[0].statut).toBe('EN_RETARD');
@@ -165,7 +218,9 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
         invoiceLineId,
         montant: 45000,
       });
-      const res = await auth(request(app.getHttpServer()).get('/reports/insolvent-students'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/insolvent-students'),
+      );
       expect(res.body).toHaveLength(0);
     });
   });
@@ -174,20 +229,28 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
     it('calcule effectifs, finances et remises pour un élève partiellement payé avec remise', async () => {
       const { invoiceLineId } = await setupInvoiceLine();
 
-      const discount = await auth(request(app.getHttpServer()).post('/discounts')).send({
+      const discount = await auth(
+        request(app.getHttpServer()).post('/discounts'),
+      ).send({
         invoiceLineId,
         type: 'MONTANT_FIXE',
         valeur: 5000,
         motif: 'Fratrie',
       });
-      await authDir(request(app.getHttpServer()).post(`/discounts/${discount.body.id}/approve`));
+      await authDir(
+        request(app.getHttpServer()).post(
+          `/discounts/${discount.body.id}/approve`,
+        ),
+      );
 
       await auth(request(app.getHttpServer()).post('/payments')).send({
         invoiceLineId,
         montant: 20000,
       });
 
-      const res = await auth(request(app.getHttpServer()).get('/reports/dashboard'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/dashboard'),
+      );
       expect(res.status).toBe(200);
       expect(res.body.anneeActive).toBe('2026-2027');
       expect(res.body.effectifs.actifs).toBe(1);
@@ -207,7 +270,9 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
     });
 
     it('renvoie un taux de recouvrement nul quand aucune facture n’existe', async () => {
-      const res = await auth(request(app.getHttpServer()).get('/reports/dashboard'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/dashboard'),
+      );
       expect(res.status).toBe(200);
       expect(res.body.financier.tauxRecouvrement).toBeNull();
       expect(res.body.effectifs.total).toBe(0);
@@ -217,17 +282,23 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
   describe('Exports CSV', () => {
     it('exporte les élèves en CSV avec en-têtes de téléchargement', async () => {
       await setupInvoiceLine();
-      const res = await auth(request(app.getHttpServer()).get('/reports/export/students'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/export/students'),
+      );
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/csv');
-      expect(res.headers['content-disposition']).toContain('eleves-par-classe.csv');
+      expect(res.headers['content-disposition']).toContain(
+        'eleves-par-classe.csv',
+      );
       expect(res.text).toContain('Moukala');
       expect(res.text).toContain('CM2 A');
     });
 
     it('GET /reports/students-by-class renvoie la liste JSON avec classe, section et responsable', async () => {
       const { studentId } = await setupInvoiceLine();
-      const res = await auth(request(app.getHttpServer()).get('/reports/students-by-class'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/students-by-class'),
+      );
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(1);
       expect(res.body[0]).toMatchObject({
@@ -242,10 +313,14 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
 
     it('exporte les élèves insolvables en CSV', async () => {
       await setupInvoiceLine();
-      const res = await auth(request(app.getHttpServer()).get('/reports/export/insolvent-students'));
+      const res = await auth(
+        request(app.getHttpServer()).get('/reports/export/insolvent-students'),
+      );
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toContain('text/csv');
-      expect(res.headers['content-disposition']).toContain('eleves-insolvables.csv');
+      expect(res.headers['content-disposition']).toContain(
+        'eleves-insolvables.csv',
+      );
       expect(res.text).toContain('Moukala');
       expect(res.text).toContain('45000');
     });

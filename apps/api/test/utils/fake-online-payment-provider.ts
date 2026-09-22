@@ -31,14 +31,17 @@ export class FakeOnlinePaymentProvider implements OnlinePaymentProvider {
     return this.configured;
   }
 
-  async initiate(input: InitiateDepositInput) {
+  initiate(input: InitiateDepositInput): Promise<void> {
     if (this.refuseWith) throw new OnlinePaymentRefusedError(this.refuseWith);
     this.initiated.push(input);
+    return Promise.resolve();
   }
 
-  async getStatus(depositId: string) {
+  getStatus(depositId: string) {
     this.statusCalls.push(depositId);
     if (this.failStatusLookup) throw new Error('fournisseur injoignable');
-    return this.statuses.get(depositId) ?? { statut: 'PENDING' as const };
+    return Promise.resolve(
+      this.statuses.get(depositId) ?? { statut: 'PENDING' as const },
+    );
   }
 }

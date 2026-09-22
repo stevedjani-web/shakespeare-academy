@@ -50,13 +50,21 @@ export class PreRegistrationsController {
 
   @Post(':id/accepter')
   @RequirePermission('ENROLLMENT_MANAGE')
-  accept(@Param('id') id: string, @Body() dto: AcceptPreRegistrationDto, @CurrentUser() user: CurrentUserData) {
+  accept(
+    @Param('id') id: string,
+    @Body() dto: AcceptPreRegistrationDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.preRegistrations.accept(id, dto, user.id);
   }
 
   @Post(':id/rejeter')
   @RequirePermission('ENROLLMENT_MANAGE')
-  reject(@Param('id') id: string, @Body() dto: RejectPreRegistrationDto, @CurrentUser() user: CurrentUserData) {
+  reject(
+    @Param('id') id: string,
+    @Body() dto: RejectPreRegistrationDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.preRegistrations.reject(id, dto.motif, user.id);
   }
 }

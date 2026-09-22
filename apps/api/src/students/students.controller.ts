@@ -58,9 +58,15 @@ export class StudentsController {
 
   // Photo d'élève : jamais servie par le dossier public /uploads, uniquement ici, pour le personnel connecté.
   @Get(':id/photo')
-  async getPhoto(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+  async getPhoto(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const file = await this.studentsService.getPhotoFile(id);
-    res.set({ 'Content-Type': file.contentType, 'Cache-Control': 'private, no-store' });
+    res.set({
+      'Content-Type': file.contentType,
+      'Cache-Control': 'private, no-store',
+    });
     return new StreamableFile(createReadStream(file.path));
   }
 

@@ -2,7 +2,7 @@
 // (online-payments.e2e-spec.ts) — jamais une vraie clé PawaPay, ne sert qu'à
 // signer/vérifier des callbacks simulés en local. Committée comme fixture,
 // comme prévu par le plan approuvé.
-export const PAWAPAY_TEST_KEY_ID = "HTTP_EC_P256_KEY:test";
+export const PAWAPAY_TEST_KEY_ID = 'HTTP_EC_P256_KEY:test';
 
 export const PAWAPAY_TEST_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEYfUyFL/souq/b5n3K6lBDKDFNBr8

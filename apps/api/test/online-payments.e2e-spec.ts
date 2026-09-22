@@ -31,8 +31,10 @@ async function signBody(
       key: {
         id: PAWAPAY_TEST_KEY_ID,
         alg: 'ecdsa-p256-sha256',
-        async sign(data: Buffer) {
-          return createSign('SHA256').update(data).sign(privateKey);
+        sign(data: Buffer) {
+          return Promise.resolve(
+            createSign('SHA256').update(data).sign(privateKey),
+          );
         },
       },
       name: 'sig-pp',
@@ -53,7 +55,7 @@ async function signBody(
       },
     },
   );
-  return signed.headers as Record<string, string>;
+  return signed.headers;
 }
 
 /**

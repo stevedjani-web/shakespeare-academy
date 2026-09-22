@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { DisciplineNature } from '@prisma/client';
 import { DisciplineService } from './discipline.service';
 import {
@@ -15,7 +23,10 @@ import {
   UpdateCatalogueDto,
   UpdateRecordDto,
 } from './dto/discipline.dto';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/require-permission.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
@@ -23,7 +34,12 @@ import type { CurrentUserData } from '../auth/types/current-user.interface';
 // DISCIPLINE_CONVOKE. Décider, publier, annuler une sanction, corriger un signalement : DISCIPLINE_DECIDE (Direction).
 // Les catalogues se gèrent avec PEDAGOGY_MANAGE.
 const READERS = ['DISCIPLINE_READ', 'DISCIPLINE_DECIDE'] as const;
-const ANY_DISCIPLINE = ['DISCIPLINE_REPORT', 'DISCIPLINE_READ', 'DISCIPLINE_CONVOKE', 'DISCIPLINE_DECIDE'] as const;
+const ANY_DISCIPLINE = [
+  'DISCIPLINE_REPORT',
+  'DISCIPLINE_READ',
+  'DISCIPLINE_CONVOKE',
+  'DISCIPLINE_DECIDE',
+] as const;
 
 @Controller('discipline')
 export class DisciplineController {
@@ -33,32 +49,50 @@ export class DisciplineController {
 
   @Post('records')
   @RequirePermission('DISCIPLINE_REPORT')
-  createRecord(@Body() dto: CreateRecordDto, @CurrentUser() user: CurrentUserData) {
+  createRecord(
+    @Body() dto: CreateRecordDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.createRecord(dto, user);
   }
 
   // La portée (un enseignant ne voit que les siens) est appliquée par le service.
   @Get('records')
   @RequireAnyPermission('DISCIPLINE_REPORT', ...READERS)
-  listRecords(@Query() query: ListRecordsQueryDto, @CurrentUser() user: CurrentUserData) {
+  listRecords(
+    @Query() query: ListRecordsQueryDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.listRecords(query, user);
   }
 
   @Patch('records/:id')
   @RequireAnyPermission('DISCIPLINE_REPORT', 'DISCIPLINE_DECIDE')
-  updateRecord(@Param('id') id: string, @Body() dto: UpdateRecordDto, @CurrentUser() user: CurrentUserData) {
+  updateRecord(
+    @Param('id') id: string,
+    @Body() dto: UpdateRecordDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.updateRecord(id, dto, user);
   }
 
   @Post('records/:id/annuler')
   @RequirePermission('DISCIPLINE_DECIDE')
-  cancelRecord(@Param('id') id: string, @Body() dto: MotifDto, @CurrentUser() user: CurrentUserData) {
+  cancelRecord(
+    @Param('id') id: string,
+    @Body() dto: MotifDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.cancelRecord(id, dto.motif, user);
   }
 
   @Post('records/:id/classer')
   @RequirePermission('DISCIPLINE_DECIDE')
-  closeRecord(@Param('id') id: string, @Body() dto: MotifDto, @CurrentUser() user: CurrentUserData) {
+  closeRecord(
+    @Param('id') id: string,
+    @Body() dto: MotifDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.closeWithoutAction(id, dto.motif, user);
   }
 
@@ -66,7 +100,11 @@ export class DisciplineController {
 
   @Post('records/:id/sanctions')
   @RequirePermission('DISCIPLINE_DECIDE')
-  decideSanction(@Param('id') id: string, @Body() dto: DecideSanctionDto, @CurrentUser() user: CurrentUserData) {
+  decideSanction(
+    @Param('id') id: string,
+    @Body() dto: DecideSanctionDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.decideSanction(id, dto, user);
   }
 
@@ -78,13 +116,20 @@ export class DisciplineController {
 
   @Post('sanctions/:id/publier')
   @RequirePermission('DISCIPLINE_DECIDE')
-  publishSanction(@Param('id') id: string, @CurrentUser() user: CurrentUserData) {
+  publishSanction(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.publishSanction(id, user);
   }
 
   @Post('sanctions/:id/annuler')
   @RequirePermission('DISCIPLINE_DECIDE')
-  cancelSanction(@Param('id') id: string, @Body() dto: MotifDto, @CurrentUser() user: CurrentUserData) {
+  cancelSanction(
+    @Param('id') id: string,
+    @Body() dto: MotifDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.cancelSanction(id, dto.motif, user);
   }
 
@@ -92,7 +137,10 @@ export class DisciplineController {
 
   @Post('convocations')
   @RequirePermission('DISCIPLINE_CONVOKE')
-  createConvocation(@Body() dto: CreateConvocationDto, @CurrentUser() user: CurrentUserData) {
+  createConvocation(
+    @Body() dto: CreateConvocationDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.createConvocation(dto, user);
   }
 
@@ -104,13 +152,21 @@ export class DisciplineController {
 
   @Post('convocations/:id/annuler')
   @RequirePermission('DISCIPLINE_CONVOKE')
-  cancelConvocation(@Param('id') id: string, @Body() dto: MotifDto, @CurrentUser() user: CurrentUserData) {
+  cancelConvocation(
+    @Param('id') id: string,
+    @Body() dto: MotifDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.cancelConvocation(id, dto.motif, user);
   }
 
   @Post('convocations/:id/issue')
   @RequirePermission('DISCIPLINE_CONVOKE')
-  setIssue(@Param('id') id: string, @Body() dto: ConvocationIssueDto, @CurrentUser() user: CurrentUserData) {
+  setIssue(
+    @Param('id') id: string,
+    @Body() dto: ConvocationIssueDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.setConvocationIssue(id, dto.issue, user);
   }
 
@@ -118,7 +174,10 @@ export class DisciplineController {
 
   @Get('students/:id/history')
   @RequireAnyPermission(...READERS)
-  studentHistory(@Param('id') id: string, @CurrentUser() user: CurrentUserData) {
+  studentHistory(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.studentHistory(id, user);
   }
 
@@ -144,13 +203,20 @@ export class DisciplineController {
 
   @Post('types')
   @RequirePermission('PEDAGOGY_MANAGE')
-  createType(@Body() dto: CreateDisciplineTypeDto, @CurrentUser() user: CurrentUserData) {
+  createType(
+    @Body() dto: CreateDisciplineTypeDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.createType(dto, user);
   }
 
   @Patch('types/:id')
   @RequirePermission('PEDAGOGY_MANAGE')
-  updateType(@Param('id') id: string, @Body() dto: UpdateCatalogueDto, @CurrentUser() user: CurrentUserData) {
+  updateType(
+    @Param('id') id: string,
+    @Body() dto: UpdateCatalogueDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.updateType(id, dto, user);
   }
 
@@ -162,13 +228,20 @@ export class DisciplineController {
 
   @Post('sanction-types')
   @RequirePermission('PEDAGOGY_MANAGE')
-  createSanctionType(@Body() dto: CreateSanctionTypeDto, @CurrentUser() user: CurrentUserData) {
+  createSanctionType(
+    @Body() dto: CreateSanctionTypeDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.createSanctionType(dto, user);
   }
 
   @Patch('sanction-types/:id')
   @RequirePermission('PEDAGOGY_MANAGE')
-  updateSanctionType(@Param('id') id: string, @Body() dto: UpdateCatalogueDto, @CurrentUser() user: CurrentUserData) {
+  updateSanctionType(
+    @Param('id') id: string,
+    @Body() dto: UpdateCatalogueDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.discipline.updateSanctionType(id, dto, user);
   }
 }

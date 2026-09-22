@@ -11,7 +11,9 @@ export class FakePawaPayPublicKeyProvider implements PawaPayPublicKeyProvider {
     PAWAPAY_TEST_PUBLIC_KEY_PEM,
   );
 
-  async getPublicKey(keyId: string): Promise<KeyObject | null> {
-    return keyId === PAWAPAY_TEST_KEY_ID ? this.publicKey : null;
+  getPublicKey(keyId: string): Promise<KeyObject | null> {
+    return Promise.resolve(
+      keyId === PAWAPAY_TEST_KEY_ID ? this.publicKey : null,
+    );
   }
 }

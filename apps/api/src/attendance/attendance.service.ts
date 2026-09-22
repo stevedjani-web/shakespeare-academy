@@ -10,8 +10,14 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
-import { NotificationsService, type AttendanceItem } from '../notifications/notifications.service';
-import { OccurrencesService, type Occurrence } from '../timetable/occurrences.service';
+import {
+  NotificationsService,
+  type AttendanceItem,
+} from '../notifications/notifications.service';
+import {
+  OccurrencesService,
+  type Occurrence,
+} from '../timetable/occurrences.service';
 import { toMinutes } from '../timetable/timetable.util';
 import { isoDay, toDateOnly } from '../pedagogy/pedagogy.util';
 import { dayInTimezone, statusForDelay } from './attendance.util';
@@ -36,11 +42,54 @@ export interface Actor {
   scope?: AttendanceScope;
 }
 
-type State = { statut: 'PRESENT' | 'RETARD' | 'ABSENT'; minutesRetard: number | null };
+type State = {
+  statut: 'PRESENT' | 'RETARD' | 'ABSENT';
+  minutesRetard: number | null;
+};
+
+/**
+ * Forme du retour de `sheet()`, annotée explicitement (comme celle de `saveCall()`, qui s'y résout
+ * toujours in fine, y compris par son propre rejeu récursif sur conflit) : sans cette annotation,
+ * TypeScript ne peut pas résoudre l'auto-référence de `saveCall` et retombe sur `any`, qui se propage
+ * jusqu'au contrôleur (détecté par `@typescript-eslint/no-unsafe-return`).
+ */
+export interface AttendanceSheetResult {
+  seance: Occurrence;
+  date: string;
+  aujourdhui: string;
+  verrouille: boolean;
+  parametres: { retardMaxMinutes: number };
+  appel: {
+    id: string;
+    par: { id: string; nom: string };
+    pris: Date;
+    horsLigne: boolean;
+  } | null;
+  eleves: Array<{
+    studentId: string;
+    matricule: string;
+    nom: string;
+    prenom: string;
+    recordId: string | null;
+    statut: 'PRESENT' | 'RETARD' | 'ABSENT';
+    minutesRetard: number | null;
+    justification: {
+      id: string;
+      statut: string;
+      motif: string | null;
+      commentaire: string | null;
+      horsDelai: boolean;
+    } | null;
+    corrections: number;
+  }>;
+}
 
 const RECORD_INCLUDE = {
   justification: { include: { reason: true } },
-  corrections: { include: { user: { select: { nom: true, prenom: true } } }, orderBy: { createdAt: 'asc' } },
+  corrections: {
+    include: { user: { select: { nom: true, prenom: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
 } satisfies Prisma.AttendanceRecordInclude;
 
 /**
@@ -60,9 +109,18 @@ export class AttendanceService {
 
   private async context() {
     const school = await this.prisma.school.findFirstOrThrow({
-      select: { id: true, fuseauHoraire: true, retardMaxMinutes: true, delaiJustificatifJours: true, joursClasse: true },
+      select: {
+        id: true,
+        fuseauHoraire: true,
+        retardMaxMinutes: true,
+        delaiJustificatifJours: true,
+        joursClasse: true,
+      },
     });
-    return { ...school, today: dayInTimezone(new Date(), school.fuseauHoraire) };
+    return {
+      ...school,
+      today: dayInTimezone(new Date(), school.fuseauHoraire),
+    };
   }
 
   private async log(
@@ -102,9 +160,14 @@ export class AttendanceService {
     return { teacherId: teacher.id };
   }
 
-  private assertInScope(seance: Occurrence, scope: AttendanceScope | undefined) {
+  private assertInScope(
+    seance: Occurrence,
+    scope: AttendanceScope | undefined,
+  ) {
     if (scope && seance.teacherId !== scope.teacherId) {
-      throw new ForbiddenException("Cette séance n'est pas la vôtre : vous ne pouvez faire l'appel que de vos séances.");
+      throw new ForbiddenException(
+        "Cette séance n'est pas la vôtre : vous ne pouvez faire l'appel que de vos séances.",
+      );
     }
   }
 
@@ -113,9 +176,15 @@ export class AttendanceService {
   /** Séances d'un jour avec l'état de leur appel (à faire, fait par qui, combien d'absents). */
   async day(date: string, classId?: string, scope?: AttendanceScope) {
     const ctx = await this.context();
-    const resolved = await this.occurrences.resolveDay(date, { classId, teacherId: scope?.teacherId });
+    const resolved = await this.occurrences.resolveDay(date, {
+      classId,
+      teacherId: scope?.teacherId,
+    });
     const calls = await this.prisma.attendanceCall.findMany({
-      where: { date: toDateOnly(date), entryId: { in: resolved.seances.map((s) => s.entryId) } },
+      where: {
+        date: toDateOnly(date),
+        entryId: { in: resolved.seances.map((s) => s.entryId) },
+      },
       include: {
         takenBy: { select: { nom: true, prenom: true } },
         records: { select: { statut: true } },
@@ -136,8 +205,10 @@ export class AttendanceService {
             ? {
                 id: call.id,
                 par: `${call.takenBy.prenom} ${call.takenBy.nom}`,
-                absents: call.records.filter((r) => r.statut === 'ABSENT').length,
-                retards: call.records.filter((r) => r.statut === 'RETARD').length,
+                absents: call.records.filter((r) => r.statut === 'ABSENT')
+                  .length,
+                retards: call.records.filter((r) => r.statut === 'RETARD')
+                  .length,
                 eleves: call.records.length,
                 horsLigne: call.saisieHorsLigneAt !== null,
               }
@@ -147,7 +218,10 @@ export class AttendanceService {
     };
   }
 
-  private async findOccurrence(entryId: string, date: string): Promise<Occurrence> {
+  private async findOccurrence(
+    entryId: string,
+    date: string,
+  ): Promise<Occurrence> {
     const resolved = await this.occurrences.resolveDay(date);
     const seance = resolved.seances.find((s) => s.entryId === entryId);
     if (!seance) {
@@ -168,11 +242,19 @@ export class AttendanceService {
     });
     return enrollments
       .map((e) => e.student)
-      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr') || a.prenom.localeCompare(b.prenom, 'fr'));
+      .sort(
+        (a, b) =>
+          a.nom.localeCompare(b.nom, 'fr') ||
+          a.prenom.localeCompare(b.prenom, 'fr'),
+      );
   }
 
   /** Feuille d'appel : l'appel existant, ou tout le monde présent par défaut (D60). */
-  async sheet(entryId: string, date: string, scope?: AttendanceScope) {
+  async sheet(
+    entryId: string,
+    date: string,
+    scope?: AttendanceScope,
+  ): Promise<AttendanceSheetResult> {
     const ctx = await this.context();
     const seance = await this.findOccurrence(entryId, date);
     this.assertInScope(seance, scope);
@@ -185,12 +267,16 @@ export class AttendanceService {
       },
     });
 
-    const recordByStudent = new Map((call?.records ?? []).map((r) => [r.studentId, r]));
+    const recordByStudent = new Map(
+      (call?.records ?? []).map((r) => [r.studentId, r]),
+    );
     const rosterIds = new Set(roster.map((s) => s.id));
     // Un élève qui a quitté la classe depuis l'appel garde sa ligne ; un nouvel inscrit apparaît présent.
     const students = [
       ...roster,
-      ...(call?.records ?? []).filter((r) => !rosterIds.has(r.studentId)).map((r) => r.student),
+      ...(call?.records ?? [])
+        .filter((r) => !rosterIds.has(r.studentId))
+        .map((r) => r.student),
     ];
 
     return {
@@ -202,7 +288,10 @@ export class AttendanceService {
       appel: call
         ? {
             id: call.id,
-            par: { id: call.takenBy.id, nom: `${call.takenBy.prenom} ${call.takenBy.nom}` },
+            par: {
+              id: call.takenBy.id,
+              nom: `${call.takenBy.prenom} ${call.takenBy.nom}`,
+            },
             pris: call.takenAt,
             horsLigne: call.saisieHorsLigneAt !== null,
           }
@@ -244,39 +333,60 @@ export class AttendanceService {
       throw new BadRequestException("L'heure de saisie est dans le futur.");
     }
     if (at.getTime() < now - OFFLINE_MAX_AGE_MS) {
-      throw new BadRequestException("L'heure de saisie est trop ancienne (plus de 45 jours).");
+      throw new BadRequestException(
+        "L'heure de saisie est trop ancienne (plus de 45 jours).",
+      );
     }
     return at;
   }
 
-  async saveCall(dto: SaveCallDto, actor: Actor) {
+  async saveCall(
+    dto: SaveCallDto,
+    actor: Actor,
+  ): Promise<AttendanceSheetResult> {
     const ctx = await this.context();
     if (dto.date > ctx.today) {
-      throw new UnprocessableEntityException("Impossible de faire l'appel d'une séance qui n'a pas encore eu lieu.");
+      throw new UnprocessableEntityException(
+        "Impossible de faire l'appel d'une séance qui n'a pas encore eu lieu.",
+      );
     }
     const seance = await this.findOccurrence(dto.entryId, dto.date);
     this.assertInScope(seance, actor.scope);
     if (seance.statut === 'ANNULEE') {
-      throw new UnprocessableEntityException('Cette séance est annulée : il n’y a pas d’appel à faire.');
+      throw new UnprocessableEntityException(
+        'Cette séance est annulée : il n’y a pas d’appel à faire.',
+      );
     }
 
     const roster = await this.roster(seance.classId);
     const existing = await this.prisma.attendanceCall.findUnique({
-      where: { entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) } },
-      include: { records: true, takenBy: { select: { nom: true, prenom: true } } },
+      where: {
+        entryId_date: { entryId: dto.entryId, date: toDateOnly(dto.date) },
+      },
+      include: {
+        records: true,
+        takenBy: { select: { nom: true, prenom: true } },
+      },
     });
     // Un élève déjà appelé qui a quitté la classe depuis reste valide dans une correction.
-    const knownIds = new Set([...roster.map((s) => s.id), ...(existing?.records ?? []).map((r) => r.studentId)]);
+    const knownIds = new Set([
+      ...roster.map((s) => s.id),
+      ...(existing?.records ?? []).map((r) => r.studentId),
+    ]);
 
     // Statut de chaque élève d'après les seuils (RV05). Absent de la liste = présent (D60).
     const duration = toMinutes(seance.heureFin) - toMinutes(seance.heureDebut);
     const wanted = new Map<string, State>();
     for (const item of dto.absences) {
       if (!knownIds.has(item.studentId)) {
-        throw new UnprocessableEntityException("Un élève de la liste n'est pas inscrit dans la classe de cette séance.");
+        throw new UnprocessableEntityException(
+          "Un élève de la liste n'est pas inscrit dans la classe de cette séance.",
+        );
       }
       if (wanted.has(item.studentId)) {
-        throw new BadRequestException('Un élève figure deux fois dans la liste.');
+        throw new BadRequestException(
+          'Un élève figure deux fois dans la liste.',
+        );
       }
       if (item.absent) {
         wanted.set(item.studentId, { statut: 'ABSENT', minutesRetard: null });
@@ -291,12 +401,15 @@ export class AttendanceService {
           minutesRetard: item.minutesRetard,
         });
       } else {
-        throw new BadRequestException('Indiquez « absent » ou un nombre de minutes de retard pour chaque élève listé.');
+        throw new BadRequestException(
+          'Indiquez « absent » ou un nombre de minutes de retard pour chaque élève listé.',
+        );
       }
     }
 
     const stamp = this.checkOfflineStamp(dto.saisiLe);
-    const stampOnTheDay = stamp !== null && dayInTimezone(stamp, ctx.fuseauHoraire) === dto.date;
+    const stampOnTheDay =
+      stamp !== null && dayInTimezone(stamp, ctx.fuseauHoraire) === dto.date;
     const locked = dto.date < ctx.today;
     const motif = dto.motif?.trim() ?? '';
 
@@ -310,7 +423,9 @@ export class AttendanceService {
           );
         }
         if (!motif) {
-          throw new UnprocessableEntityException('Un appel saisi après coup exige un motif.');
+          throw new UnprocessableEntityException(
+            'Un appel saisi après coup exige un motif.',
+          );
         }
         correction = true;
       }
@@ -326,18 +441,24 @@ export class AttendanceService {
       } else if (locked && !stampOnTheDay) {
         if (!actor.canCorrect) {
           throw new ForbiddenException(
-            "Cet appel est verrouillé depuis la fin de la journée : la correction revient à la vie scolaire ou à la Direction.",
+            'Cet appel est verrouillé depuis la fin de la journée : la correction revient à la vie scolaire ou à la Direction.',
           );
         }
         correction = true;
       }
       if (correction && !motif) {
-        throw new UnprocessableEntityException('Une correction exige un motif.');
+        throw new UnprocessableEntityException(
+          'Une correction exige un motif.',
+        );
       }
     }
 
-    const stateOf = (studentId: string): State => wanted.get(studentId) ?? { statut: 'PRESENT', minutesRetard: null };
-    const idsToWrite = new Set([...roster.map((s) => s.id), ...(existing?.records ?? []).map((r) => r.studentId)]);
+    const stateOf = (studentId: string): State =>
+      wanted.get(studentId) ?? { statut: 'PRESENT', minutesRetard: null };
+    const idsToWrite = new Set([
+      ...roster.map((s) => s.id),
+      ...(existing?.records ?? []).map((r) => r.studentId),
+    ]);
 
     let callId: string;
     try {
@@ -355,7 +476,10 @@ export class AttendanceService {
               takenById: actor.id,
               saisieHorsLigneAt: stamp ?? undefined,
               records: {
-                create: [...idsToWrite].map((studentId) => ({ studentId, ...stateOf(studentId) })),
+                create: [...idsToWrite].map((studentId) => ({
+                  studentId,
+                  ...stateOf(studentId),
+                })),
               },
             },
             include: { records: true },
@@ -385,11 +509,20 @@ export class AttendanceService {
           const next = stateOf(studentId);
           const prev = before.get(studentId);
           if (!prev) {
-            await tx.attendanceRecord.create({ data: { callId: existing.id, studentId, ...next } });
+            await tx.attendanceRecord.create({
+              data: { callId: existing.id, studentId, ...next },
+            });
             continue;
           }
-          if (prev.statut === next.statut && prev.minutesRetard === next.minutesRetard) continue;
-          await tx.attendanceRecord.update({ where: { id: prev.id }, data: next });
+          if (
+            prev.statut === next.statut &&
+            prev.minutesRetard === next.minutesRetard
+          )
+            continue;
+          await tx.attendanceRecord.update({
+            where: { id: prev.id },
+            data: next,
+          });
           if (correction) {
             await tx.attendanceCorrection.create({
               data: {
@@ -404,12 +537,19 @@ export class AttendanceService {
             });
           }
         }
-        await tx.attendanceCall.update({ where: { id: existing.id }, data: { updatedAt: new Date() } });
+        await tx.attendanceCall.update({
+          where: { id: existing.id },
+          data: { updatedAt: new Date() },
+        });
         return existing.id;
       });
     } catch (err) {
       // Deux appareils ont créé le même appel en même temps : le second rejoue sur l'appel du premier.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' && !existing) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002' &&
+        !existing
+      ) {
         return this.saveCall(dto, actor);
       }
       throw err;
@@ -422,16 +562,28 @@ export class AttendanceService {
     };
     await this.log(
       actor.id,
-      correction ? 'ATTENDANCE_CALL_CORRECT' : existing ? 'ATTENDANCE_CALL_UPDATE' : 'ATTENDANCE_CALL_CREATE',
+      correction
+        ? 'ATTENDANCE_CALL_CORRECT'
+        : existing
+          ? 'ATTENDANCE_CALL_UPDATE'
+          : 'ATTENDANCE_CALL_CREATE',
       'AttendanceCall',
       callId,
       existing
         ? {
-            absents: existing.records.filter((r) => r.statut === 'ABSENT').length,
-            retards: existing.records.filter((r) => r.statut === 'RETARD').length,
+            absents: existing.records.filter((r) => r.statut === 'ABSENT')
+              .length,
+            retards: existing.records.filter((r) => r.statut === 'RETARD')
+              .length,
           }
         : null,
-      { ...summary, date: dto.date, entryId: dto.entryId, ...(correction ? { motif } : {}), horsLigne: stamp !== null },
+      {
+        ...summary,
+        date: dto.date,
+        entryId: dto.entryId,
+        ...(correction ? { motif } : {}),
+        horsLigne: stamp !== null,
+      },
     );
 
     // Lot 12 : on ne prévient les responsables que de ce qui vient de CHANGER (un appel renvoyé à
@@ -441,7 +593,9 @@ export class AttendanceService {
     for (const studentId of idsToWrite) {
       const next = stateOf(studentId);
       if (next.statut === 'PRESENT') continue;
-      const before = existing?.records.find((r) => r.studentId === studentId)?.statut ?? 'PRESENT';
+      const before =
+        existing?.records.find((r) => r.studentId === studentId)?.statut ??
+        'PRESENT';
       if (before === next.statut) continue;
       changes.push({
         studentId,
@@ -539,7 +693,9 @@ export class AttendanceService {
 
   /** Historique d'un élève : ses absences et retards, avec les compteurs de la période. */
   async studentHistory(studentId: string, from?: string, to?: string) {
-    const student = await this.prisma.student.findUnique({ where: { id: studentId } });
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+    });
     if (!student) {
       throw new NotFoundException('Élève introuvable.');
     }
@@ -548,11 +704,22 @@ export class AttendanceService {
     if (from) dateFilter.gte = toDateOnly(from);
     if (to) dateFilter.lte = toDateOnly(to);
     const seancesAppelees = await this.prisma.attendanceRecord.count({
-      where: { studentId, call: { date: Object.keys(dateFilter).length > 0 ? dateFilter : undefined } },
+      where: {
+        studentId,
+        call: {
+          date: Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+        },
+      },
     });
-    const excused = (l: (typeof lignes)[number]) => l.justification?.statut === 'ACCEPTEE';
+    const excused = (l: (typeof lignes)[number]) =>
+      l.justification?.statut === 'ACCEPTEE';
     return {
-      eleve: { id: student.id, nom: student.nom, prenom: student.prenom, matricule: student.matricule },
+      eleve: {
+        id: student.id,
+        nom: student.nom,
+        prenom: student.prenom,
+        matricule: student.matricule,
+      },
       compteurs: {
         seancesAppelees,
         absences: lignes.filter((l) => l.statut === 'ABSENT').length,

@@ -1,4 +1,14 @@
-import { IsBoolean, IsEmail, IsInt, IsOptional, Max, MaxLength, Min, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsOptional,
+  Max,
+  MaxLength,
+  Min,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateSchoolDto {
   @IsOptional()

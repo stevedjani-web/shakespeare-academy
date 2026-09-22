@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
@@ -39,7 +44,10 @@ export class ExpensesService {
 
   async findOne(id: string) {
     const schoolId = await this.schoolService.getDefaultId();
-    const expense = await this.prisma.expense.findFirst({ where: { id, schoolId }, include: EXPENSE_INCLUDE });
+    const expense = await this.prisma.expense.findFirst({
+      where: { id, schoolId },
+      include: EXPENSE_INCLUDE,
+    });
     if (!expense) {
       throw new NotFoundException('Sortie financière introuvable.');
     }
@@ -76,7 +84,9 @@ export class ExpensesService {
   async approve(id: string, actingUserId: string) {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Seule une sortie en attente peut être approuvée.');
+      throw new ConflictException(
+        'Seule une sortie en attente peut être approuvée.',
+      );
     }
     // D25 : celui qui enregistre une sortie ne l'approuve jamais lui-même.
     if (before.effectueParId === actingUserId) {
@@ -87,7 +97,11 @@ export class ExpensesService {
 
     const expense = await this.prisma.expense.update({
       where: { id },
-      data: { statut: 'APPROUVEE', approbateurId: actingUserId, dateDecision: new Date() },
+      data: {
+        statut: 'APPROUVEE',
+        approbateurId: actingUserId,
+        dateDecision: new Date(),
+      },
       include: EXPENSE_INCLUDE,
     });
 
@@ -108,7 +122,9 @@ export class ExpensesService {
   async reject(id: string, dto: RejectExpenseDto, actingUserId: string) {
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Seule une sortie en attente peut être rejetée.');
+      throw new ConflictException(
+        'Seule une sortie en attente peut être rejetée.',
+      );
     }
 
     const expense = await this.prisma.expense.update({

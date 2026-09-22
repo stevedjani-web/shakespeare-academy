@@ -12,8 +12,17 @@ export class DocumentsController {
 
   @Post('students/:id/documents')
   @RequirePermission('DOCUMENT_ISSUE')
-  issue(@Param('id') id: string, @Body() dto: IssueDocumentDto, @CurrentUser() user: CurrentUserData) {
-    return this.documents.issue(id, dto.type, { type: 'STAFF', id: user.id }, { renouveler: dto.renouveler });
+  issue(
+    @Param('id') id: string,
+    @Body() dto: IssueDocumentDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.documents.issue(
+      id,
+      dto.type,
+      { type: 'STAFF', id: user.id },
+      { renouveler: dto.renouveler },
+    );
   }
 
   @Get('students/:id/documents')
@@ -24,13 +33,20 @@ export class DocumentsController {
 
   @Post('documents/class-cards/:classId')
   @RequirePermission('DOCUMENT_ISSUE')
-  classCards(@Param('classId') classId: string, @CurrentUser() user: CurrentUserData) {
+  classCards(
+    @Param('classId') classId: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.documents.issueClassCards(classId, user.id);
   }
 
   @Post('documents/:id/annuler')
   @RequirePermission('DOCUMENT_CANCEL')
-  cancel(@Param('id') id: string, @Body() dto: CancelDocumentDto, @CurrentUser() user: CurrentUserData) {
+  cancel(
+    @Param('id') id: string,
+    @Body() dto: CancelDocumentDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
     return this.documents.cancel(id, dto.motif, user.id);
   }
 

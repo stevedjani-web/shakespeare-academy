@@ -75,7 +75,9 @@ export class FeeSchedulesService {
       }
       const ordres = new Set(installments.map((i) => i.ordre));
       if (ordres.size !== installments.length) {
-        throw new BadRequestException('Les tranches doivent avoir des ordres distincts.');
+        throw new BadRequestException(
+          'Les tranches doivent avoir des ordres distincts.',
+        );
       }
     } else {
       if (montant === undefined) {
@@ -97,7 +99,11 @@ export class FeeSchedulesService {
     await this.levelsService.findOne(dto.levelId);
     const feeType = await this.feeTypesService.findOne(dto.feeTypeId);
 
-    this.assertConsistentWithFeeType(feeType.avecTranches, dto.montant, dto.installments);
+    this.assertConsistentWithFeeType(
+      feeType.avecTranches,
+      dto.montant,
+      dto.installments,
+    );
 
     const existing = await this.prisma.feeSchedule.findFirst({
       where: {
@@ -148,11 +154,17 @@ export class FeeSchedulesService {
 
   async update(id: string, dto: UpdateFeeScheduleDto, actingUserId: string) {
     const before = await this.findOne(id);
-    this.assertConsistentWithFeeType(before.feeType.avecTranches, dto.montant, dto.installments);
+    this.assertConsistentWithFeeType(
+      before.feeType.avecTranches,
+      dto.montant,
+      dto.installments,
+    );
 
     const feeSchedule = await this.prisma.$transaction(async (tx) => {
       if (dto.installments) {
-        await tx.installmentSchedule.deleteMany({ where: { feeScheduleId: id } });
+        await tx.installmentSchedule.deleteMany({
+          where: { feeScheduleId: id },
+        });
       }
       return tx.feeSchedule.update({
         where: { id },

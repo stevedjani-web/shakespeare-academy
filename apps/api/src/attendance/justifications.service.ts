@@ -52,7 +52,9 @@ export class JustificationsService {
 
   private async assertReasonFree(libelle: string, excludeId?: string) {
     const all = await this.prisma.absenceReason.findMany();
-    const clash = all.find((r) => r.id !== excludeId && normalize(r.libelle) === normalize(libelle));
+    const clash = all.find(
+      (r) => r.id !== excludeId && normalize(r.libelle) === normalize(libelle),
+    );
     if (clash) {
       throw new ConflictException(`Le motif « ${clash.libelle} » existe déjà.`);
     }
@@ -60,13 +62,24 @@ export class JustificationsService {
 
   async createReason(dto: CreateReasonDto, userId: string) {
     await this.assertReasonFree(dto.libelle);
-    const reason = await this.prisma.absenceReason.create({ data: { libelle: dto.libelle.trim() } });
-    await this.log(userId, 'ABSENCE_REASON_CREATE', 'AbsenceReason', reason.id, null, reason);
+    const reason = await this.prisma.absenceReason.create({
+      data: { libelle: dto.libelle.trim() },
+    });
+    await this.log(
+      userId,
+      'ABSENCE_REASON_CREATE',
+      'AbsenceReason',
+      reason.id,
+      null,
+      reason,
+    );
     return reason;
   }
 
   async updateReason(id: string, dto: UpdateReasonDto, userId: string) {
-    const before = await this.prisma.absenceReason.findUnique({ where: { id } });
+    const before = await this.prisma.absenceReason.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Motif introuvable.');
     }
@@ -75,7 +88,14 @@ export class JustificationsService {
       where: { id },
       data: { libelle: dto.libelle?.trim(), actif: dto.actif },
     });
-    await this.log(userId, 'ABSENCE_REASON_UPDATE', 'AbsenceReason', id, before, reason);
+    await this.log(
+      userId,
+      'ABSENCE_REASON_UPDATE',
+      'AbsenceReason',
+      id,
+      before,
+      reason,
+    );
     return reason;
   }
 
@@ -88,10 +108,19 @@ export class JustificationsService {
       throw new NotFoundException('Motif introuvable.');
     }
     if (before._count.justifications > 0) {
-      throw new ConflictException('Ce motif sert dans des justificatifs : désactivez-le plutôt que de le supprimer.');
+      throw new ConflictException(
+        'Ce motif sert dans des justificatifs : désactivez-le plutôt que de le supprimer.',
+      );
     }
     await this.prisma.absenceReason.delete({ where: { id } });
-    await this.log(userId, 'ABSENCE_REASON_DELETE', 'AbsenceReason', id, before, null);
+    await this.log(
+      userId,
+      'ABSENCE_REASON_DELETE',
+      'AbsenceReason',
+      id,
+      before,
+      null,
+    );
     return { id };
   }
 
@@ -111,23 +140,33 @@ export class JustificationsService {
       throw new NotFoundException('Absence introuvable.');
     }
     if (record.statut === 'PRESENT') {
-      throw new UnprocessableEntityException('Cet élève était présent : il n’y a rien à justifier.');
+      throw new UnprocessableEntityException(
+        'Cet élève était présent : il n’y a rien à justifier.',
+      );
     }
     if (record.justification) {
       throw new ConflictException('Cette absence a déjà un justificatif.');
     }
     const commentaire = dto.commentaire?.trim() || undefined;
     if (!dto.reasonId && !commentaire) {
-      throw new UnprocessableEntityException('Indiquez un motif ou un commentaire.');
+      throw new UnprocessableEntityException(
+        'Indiquez un motif ou un commentaire.',
+      );
     }
     if (dto.reasonId) {
-      const reason = await this.prisma.absenceReason.findUnique({ where: { id: dto.reasonId } });
+      const reason = await this.prisma.absenceReason.findUnique({
+        where: { id: dto.reasonId },
+      });
       if (!reason) throw new NotFoundException('Motif introuvable.');
       if (!reason.actif) throw new ConflictException('Ce motif est désactivé.');
     }
 
     const school = await this.prisma.school.findFirstOrThrow({
-      select: { fuseauHoraire: true, delaiJustificatifJours: true, joursClasse: true },
+      select: {
+        fuseauHoraire: true,
+        delaiJustificatifJours: true,
+        joursClasse: true,
+      },
     });
     const events = await this.prisma.calendarEvent.findMany({
       where: { dateFin: { gte: record.call.date } },
@@ -137,9 +176,13 @@ export class JustificationsService {
       isoDay(record.call.date),
       school.delaiJustificatifJours,
       school.joursClasse,
-      events.map((e) => ({ debut: isoDay(e.dateDebut), fin: isoDay(e.dateFin) })),
+      events.map((e) => ({
+        debut: isoDay(e.dateDebut),
+        fin: isoDay(e.dateFin),
+      })),
     );
-    const horsDelai = dayInTimezone(new Date(), school.fuseauHoraire) > deadline;
+    const horsDelai =
+      dayInTimezone(new Date(), school.fuseauHoraire) > deadline;
 
     const justification = await this.prisma.absenceJustification.create({
       data: {
@@ -151,21 +194,32 @@ export class JustificationsService {
       },
       include: { reason: true },
     });
-    await this.log(userId, 'ATTENDANCE_JUSTIFICATION_CREATE', 'AbsenceJustification', justification.id, null, {
-      recordId,
-      motif: justification.reason?.libelle ?? null,
-      horsDelai,
-    });
+    await this.log(
+      userId,
+      'ATTENDANCE_JUSTIFICATION_CREATE',
+      'AbsenceJustification',
+      justification.id,
+      null,
+      {
+        recordId,
+        motif: justification.reason?.libelle ?? null,
+        horsDelai,
+      },
+    );
     return justification;
   }
 
   async decide(id: string, dto: DecideJustificationDto, userId: string) {
-    const before = await this.prisma.absenceJustification.findUnique({ where: { id } });
+    const before = await this.prisma.absenceJustification.findUnique({
+      where: { id },
+    });
     if (!before) {
       throw new NotFoundException('Justificatif introuvable.');
     }
     if (before.statut !== 'EN_ATTENTE') {
-      throw new ConflictException('Ce justificatif a déjà fait l’objet d’une décision.');
+      throw new ConflictException(
+        'Ce justificatif a déjà fait l’objet d’une décision.',
+      );
     }
     const decided = await this.prisma.absenceJustification.update({
       where: { id },
@@ -177,10 +231,17 @@ export class JustificationsService {
       },
       include: { reason: true },
     });
-    await this.log(userId, 'ATTENDANCE_JUSTIFICATION_DECIDE', 'AbsenceJustification', id, before.statut, {
-      statut: decided.statut,
-      commentaire: decided.decisionCommentaire,
-    });
+    await this.log(
+      userId,
+      'ATTENDANCE_JUSTIFICATION_DECIDE',
+      'AbsenceJustification',
+      id,
+      before.statut,
+      {
+        statut: decided.statut,
+        commentaire: decided.decisionCommentaire,
+      },
+    );
     return decided;
   }
 }

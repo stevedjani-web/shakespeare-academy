@@ -29,7 +29,9 @@ const PAYMENT_INCLUDE = {
         include: {
           enrollment: {
             include: {
-              student: { select: { id: true, nom: true, prenom: true, matricule: true } },
+              student: {
+                select: { id: true, nom: true, prenom: true, matricule: true },
+              },
               class: { select: { id: true, nom: true } },
               academicYear: { select: { id: true, libelle: true } },
             },
@@ -79,7 +81,9 @@ export class PaymentsService {
       throw new NotFoundException('Reçu introuvable ou jeton invalide.');
     }
     const schoolId = await this.schoolService.getDefaultId();
-    const school = await this.prisma.school.findUnique({ where: { id: schoolId } });
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+    });
     return {
       numeroRecu: payment.numeroRecu,
       montant: payment.montant,
@@ -97,7 +101,10 @@ export class PaymentsService {
   async findAllForStudent(studentId: string) {
     const schoolId = await this.schoolService.getDefaultId();
     return this.prisma.payment.findMany({
-      where: { schoolId, invoiceLine: { invoice: { enrollment: { studentId } } } },
+      where: {
+        schoolId,
+        invoiceLine: { invoice: { enrollment: { studentId } } },
+      },
       include: PAYMENT_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
@@ -113,7 +120,9 @@ export class PaymentsService {
   }
 
   /** Solde restant d'une ligne : montant - remises approuvées - paiements VALIDE déjà encaissés. */
-  private computeSoldeRestant(line: InvoiceLine & { discounts: Discount[]; payments: Payment[] }): number {
+  private computeSoldeRestant(
+    line: InvoiceLine & { discounts: Discount[]; payments: Payment[] },
+  ): number {
     const remise = computeApprovedDiscountAmount(line, line.discounts);
     const paye = line.payments.reduce((sum, p) => sum + p.montant, 0);
     return Math.max(0, line.montant - remise - paye);
@@ -129,7 +138,9 @@ export class PaymentsService {
 
     let saisieHorsLigneAt: Date | undefined;
     if (dto.dateSaisie && !dto.numeroProvisoire) {
-      throw new BadRequestException("dateSaisie n'est acceptée qu'avec un numeroProvisoire (saisie hors ligne).");
+      throw new BadRequestException(
+        "dateSaisie n'est acceptée qu'avec un numeroProvisoire (saisie hors ligne).",
+      );
     }
     if (dto.numeroProvisoire) {
       // Renvoi d'une saisie déjà synchronisée (réponse perdue, deuxième appareil...) : même reçu, jamais deux paiements.
@@ -138,8 +149,13 @@ export class PaymentsService {
         include: PAYMENT_INCLUDE,
       });
       if (already) {
-        if (already.invoiceLineId !== dto.invoiceLineId || already.montant !== dto.montant) {
-          throw new ConflictException('Ce numéro de reçu provisoire correspond déjà à un autre encaissement.');
+        if (
+          already.invoiceLineId !== dto.invoiceLineId ||
+          already.montant !== dto.montant
+        ) {
+          throw new ConflictException(
+            'Ce numéro de reçu provisoire correspond déjà à un autre encaissement.',
+          );
         }
         return already;
       }
@@ -150,20 +166,28 @@ export class PaymentsService {
           throw new BadRequestException('La date de saisie est dans le futur.');
         }
         if (saisieHorsLigneAt.getTime() < now - OFFLINE_MAX_AGE_MS) {
-          throw new BadRequestException('La date de saisie est trop ancienne (plus de 45 jours).');
+          throw new BadRequestException(
+            'La date de saisie est trop ancienne (plus de 45 jours).',
+          );
         }
       }
     }
 
     const line = await this.prisma.invoiceLine.findFirst({
       where: { id: dto.invoiceLineId, invoice: { schoolId } },
-      include: { invoice: true, discounts: true, payments: { where: { statut: 'VALIDE' } } },
+      include: {
+        invoice: true,
+        discounts: true,
+        payments: { where: { statut: 'VALIDE' } },
+      },
     });
     if (!line) {
       throw new NotFoundException('Ligne de facture introuvable.');
     }
     if (line.invoice.statut === 'ANNULEE') {
-      throw new ConflictException('Cette facture est annulée, aucun paiement ne peut y être encaissé.');
+      throw new ConflictException(
+        'Cette facture est annulée, aucun paiement ne peut y être encaissé.',
+      );
     }
 
     const soldeRestant = this.computeSoldeRestant(line);
@@ -176,7 +200,10 @@ export class PaymentsService {
       );
     }
 
-    const sequenceNumber = await this.numberSequenceService.next(schoolId, 'RECEIPT');
+    const sequenceNumber = await this.numberSequenceService.next(
+      schoolId,
+      'RECEIPT',
+    );
     const numeroRecu = `REC-${String(sequenceNumber).padStart(RECEIPT_NUMERO_DIGITS, '0')}`;
 
     const payment = await this.prisma.payment.create({
@@ -221,7 +248,11 @@ export class PaymentsService {
 
     const payment = await this.prisma.payment.update({
       where: { id },
-      data: { statut: 'ANNULE', motifAnnulation: dto.motif, annuleParUserId: actingUserId },
+      data: {
+        statut: 'ANNULE',
+        motifAnnulation: dto.motif,
+        annuleParUserId: actingUserId,
+      },
       include: PAYMENT_INCLUDE,
     });
 

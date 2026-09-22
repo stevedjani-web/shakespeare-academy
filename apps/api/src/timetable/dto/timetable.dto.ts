@@ -12,7 +12,11 @@ import {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export const EXCEPTION_TYPES = ['ANNULEE', 'REMPLACEE', 'SALLE_MODIFIEE'] as const;
+export const EXCEPTION_TYPES = [
+  'ANNULEE',
+  'REMPLACEE',
+  'SALLE_MODIFIEE',
+] as const;
 
 export class CreateTimetableDto {
   @IsString()
