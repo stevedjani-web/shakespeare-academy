@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { formatDocDate } from "@/lib/documents";
 import { Spinner } from "@/components/ui";
+import { CopyrightFooter } from "@/components/copyright-footer";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 
 interface VerifiedDocument {
@@ -93,6 +94,7 @@ export default function VerifyDocumentPage() {
           <span className="mt-1 block italic">Compare this information with the document you hold. It comes directly from the school&apos;s server.</span>
         </p>
       </div>
+      <CopyrightFooter />
     </div>
   );
 }

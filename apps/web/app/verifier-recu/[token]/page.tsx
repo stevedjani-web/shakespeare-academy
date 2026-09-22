@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { API_URL } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
 import { Spinner } from "@/components/ui";
+import { CopyrightFooter } from "@/components/copyright-footer";
 import { ExpandButton, useExpanded } from "@/components/expand";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 
@@ -93,6 +94,7 @@ export default function VerifyReceiptPage() {
           </div>
         )}
       </div>
+      <CopyrightFooter />
     </div>
   );
 }

@@ -33,10 +33,12 @@ import {
   ShieldAlert,
   UserPlus,
 } from "lucide-react";
+import { Link2, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
 import { OfflineStatus } from "@/components/offline-status";
+import { CopyrightFooter } from "@/components/copyright-footer";
 import { useOutbox } from "@/lib/outbox";
 
 interface NavLink {
@@ -76,6 +78,8 @@ const LINKS: NavLink[] = [
   { href: "/parametres/etablissement", label: "Établissement", icon: Building2, requiredPermission: "SETTINGS_READ" },
   { href: "/hors-ligne", label: "Synchronisation", icon: RefreshCw },
   { href: "/audit", label: "Journal d'audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
+  { href: "/liens-utiles", label: "Liens utiles", icon: Link2 },
+  { href: "/guide", label: "Guide d'utilisation", icon: LifeBuoy },
 ];
 
 function Brand() {
@@ -213,6 +217,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <OfflineStatus />
         <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <footer className="px-4 pb-4 sm:px-6">
+          <CopyrightFooter />
+        </footer>
       </div>
     </div>
   );

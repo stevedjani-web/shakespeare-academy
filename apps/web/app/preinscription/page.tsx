@@ -5,6 +5,7 @@ import Link from "next/link";
 import { API_URL } from "@/lib/api";
 import { Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import type { SectionNode } from "@/lib/pre-registrations";
+import { CopyrightFooter } from "@/components/copyright-footer";
 
 interface Form {
   nom: string;
@@ -108,6 +109,9 @@ export default function PreRegistrationPage() {
             Suivre ma demande
           </Link>
         </div>
+        <div className="mt-4">
+          <CopyrightFooter />
+        </div>
       </div>
     );
   }
@@ -197,6 +201,9 @@ export default function PreRegistrationPage() {
           Suivre son statut
         </Link>
       </p>
+      <div className="mt-6">
+        <CopyrightFooter />
+      </div>
     </div>
   );
 }

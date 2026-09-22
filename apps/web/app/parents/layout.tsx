@@ -7,6 +7,7 @@ import { Bell, LogOut, MessageSquare } from "lucide-react";
 import { ParentProvider, useParent } from "@/contexts/parent-context";
 import { portalApi } from "@/lib/portal-api";
 import { Button } from "@/components/ui";
+import { CopyrightFooter } from "@/components/copyright-footer";
 
 /** Icône de la messagerie avec le nombre de messages non lus. */
 function MessagesLink() {
@@ -97,10 +98,11 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</main>
-      <footer className="mx-auto w-full max-w-3xl px-4 pb-8 text-center text-xs text-ink-muted">
+      <footer className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-8 text-center text-xs text-ink-muted">
         <Link href="/parents/confidentialite" className="underline">
           Politique de confidentialité
         </Link>
+        <CopyrightFooter />
       </footer>
     </div>
   );

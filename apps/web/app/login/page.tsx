@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
+import { CopyrightFooter } from "@/components/copyright-footer";
 import { ExpandButton, useExpanded } from "@/components/expand";
 
 export default function LoginPage() {
@@ -125,6 +126,9 @@ export default function LoginPage() {
                 <InstallAppButton />
               </div>
             )}
+          </div>
+          <div className="mt-8">
+            <CopyrightFooter />
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { API_URL } from "@/lib/api";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
 import { STATUT_COLOR, STATUT_LABEL, dayLabel, type PreRegistrationStatus } from "@/lib/pre-registrations";
+import { CopyrightFooter } from "@/components/copyright-footer";
 
 interface Tracking {
   reference: string;
@@ -96,6 +97,9 @@ export default function PreRegistrationTrackingPage() {
           Déposer une nouvelle demande
         </Link>
       </p>
+      <div className="mt-6">
+        <CopyrightFooter />
+      </div>
     </div>
   );
 }
