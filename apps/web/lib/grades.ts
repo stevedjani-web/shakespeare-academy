@@ -189,3 +189,17 @@ export function rankLabel(rang: number | null | undefined, effectif?: number): s
   const suffix = rang === 1 ? "er" : "e";
   return effectif ? `${rang}${suffix} sur ${effectif}` : `${rang}${suffix}`;
 }
+
+// Dossier élève, vue 360° (GET /students/:id/bulletins, GRADE_READ) : tous les bulletins de l'élève,
+// quel que soit leur statut — un VALIDE (pas encore publié) reste visible au personnel, jamais aux parents.
+export interface StudentBulletinRow {
+  id: string;
+  trimestre: string;
+  classe: string;
+  annee: string;
+  statut: PeriodStatus;
+  moyenneGenerale: number | null;
+  rang: number | null;
+  effectif: number;
+  publieAt: string | null;
+}

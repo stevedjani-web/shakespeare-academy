@@ -9,14 +9,18 @@ import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { useOnOutboxChange } from "@/lib/outbox";
 import { ExpandButton, useExpanded } from "@/components/expand";
-import type { Class, Enrollment, Student, StudentDossier } from "@/lib/types";
+import type { Class, Enrollment, FinancialStatus, School, Student, StudentAttendanceHistory, StudentDossier } from "@/lib/types";
+import type { StudentBulletinRow } from "@/lib/grades";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
 import { AttendanceHistoryCard } from "@/components/attendance-history-card";
 import { StudentDocumentsCard } from "@/components/documents/student-documents-card";
 import { StudentPhoto } from "@/components/documents/student-photo";
 import { StudentDisciplineCard } from "@/components/discipline/student-discipline-card";
-import { ArrowLeft, CalendarDays, IdCard, Pencil, UserPlus, Users } from "lucide-react";
+import { StudentGradesCard } from "@/components/notes/student-grades-card";
+import { StudentSummaryStrip } from "@/components/student-summary-strip";
+import { downloadStudentSummaryPdf } from "@/lib/student-summary-pdf";
+import { ArrowLeft, CalendarDays, Download, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
 const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
 
@@ -32,7 +36,7 @@ const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | 
 export default function StudentDossierPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canManage = hasPermission("ENROLLMENT_MANAGE");
 
   const [student, setStudent] = useState<StudentDossier | null>(null);
@@ -44,6 +48,7 @@ export default function StudentDossierPage() {
   const [studentError, setStudentError] = useState<string | null>(null);
   const [savingStudent, setSavingStudent] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [downloadingSummary, setDownloadingSummary] = useState(false);
   // Situation financière ouverte au départ : c'est là que se fait l'encaissement.
   const expand = useExpanded(["finance"]);
 
@@ -165,6 +170,56 @@ export default function StudentDossierPage() {
   // Quand des saisies hors ligne partent au serveur, on relit le dossier réel.
   useOnOutboxChange(() => void load().catch(() => {}));
 
+  // Fiche de synthèse (PDF) : toujours des données fraîches au moment du clic, jamais celles déjà
+  // affichées à l'écran (qui peuvent être périmées). La discipline en est volontairement absente
+  // (voir student-summary-pdf.ts) : jamais une lecture forcée du dossier de vie scolaire en silence.
+  async function handleDownloadSummary() {
+    if (!student) return;
+    setDownloadingSummary(true);
+    try {
+      const activeEnr = student.enrollments.find((e) => e.statut === "ACTIVE");
+      const [ecole, finance, assiduite, bulletins] = await Promise.all([
+        api.get<School>("/school"),
+        hasPermission("FINANCE_READ")
+          ? api.get<FinancialStatus>(`/students/${student.id}/financial-status`).catch(() => null)
+          : Promise.resolve(null),
+        hasPermission("ATTENDANCE_READ")
+          ? api.get<StudentAttendanceHistory>(`/attendance/students/${student.id}/history`).catch(() => null)
+          : Promise.resolve(null),
+        hasPermission("GRADE_READ")
+          ? api.get<StudentBulletinRow[]>(`/students/${student.id}/bulletins`).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      await downloadStudentSummaryPdf({
+        ecole: { nom: ecole.nom, adresse: ecole.adresse, telephone: ecole.telephone, logoUrl: ecole.logoUrl },
+        eleve: {
+          nom: student.nom,
+          prenom: student.prenom,
+          matricule: student.matricule,
+          sexe: student.sexe,
+          dateNaissance: student.dateNaissance,
+          lieuNaissance: student.lieuNaissance ?? null,
+          nationalite: student.nationalite ?? null,
+        },
+        classe: activeEnr?.class.nom ?? null,
+        responsables: student.studentGuardians.map((sg) => ({
+          nom: sg.guardian.nom,
+          prenom: sg.guardian.prenom,
+          telephone: sg.guardian.telephone,
+          lien: sg.lien,
+        })),
+        finance,
+        assiduite,
+        bulletins,
+        editePar: user ? `${user.prenom} ${user.nom}` : "Personnel de l'école",
+      });
+    } catch (err) {
+      alert(describeError(err));
+    } finally {
+      setDownloadingSummary(false);
+    }
+  }
+
   if (!student) return null;
 
   const activeEnrollment = student.enrollments.find((e) => e.statut === "ACTIVE");
@@ -184,14 +239,21 @@ export default function StudentDossierPage() {
             {student.prenom} {student.nom}
           </PageTitle>
         </div>
-        {canManage && (
-          <Button onClick={() => router.push(`/eleves/inscription?studentId=${student.id}`)}>
-            Inscrire pour une nouvelle année
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => void handleDownloadSummary()} disabled={downloadingSummary}>
+            <Download size={15} /> {downloadingSummary ? "Génération…" : "Fiche de synthèse (PDF)"}
           </Button>
-        )}
+          {canManage && (
+            <Button onClick={() => router.push(`/eleves/inscription?studentId=${student.id}`)}>
+              Inscrire pour une nouvelle année
+            </Button>
+          )}
+        </div>
       </div>
 
       {notice && <p className="mb-4 rounded-xl bg-info-soft px-3 py-2 text-sm text-info">{notice}</p>}
+
+      <StudentSummaryStrip studentId={student.id} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
@@ -396,6 +458,8 @@ export default function StudentDossierPage() {
             onToggle={() => expand.toggle("documents")}
           />
         )}
+
+        {hasPermission("GRADE_READ") && <StudentGradesCard studentId={student.id} />}
 
         <Card className="lg:col-span-3">
           <h2 className={`flex items-center gap-2 text-sm font-semibold text-ink ${expand.isOpen("parcours") ? "mb-3" : ""}`}>

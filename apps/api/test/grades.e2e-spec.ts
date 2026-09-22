@@ -1448,4 +1448,84 @@ describe('Notes, évaluations et bulletins (e2e, Lot 15)', () => {
       });
     });
   });
+
+  // ------------------------------------------------------------------ Vue 360° du dossier élève (22 septembre 2026)
+
+  describe('vue 360° du dossier élève : GET /students/:id/bulletins', () => {
+    it('vide avant toute validation, montre un bulletin VALIDE (pas encore publié) au personnel — jamais au parent', async () => {
+      const s = await setup();
+      await fillNotes(s);
+      const before = (
+        await get(`/students/${s.alice.id}/bulletins`, s.direction.token).expect(200)
+      ).body;
+      expect(before).toEqual([]);
+
+      await post('/grades/period/validate', s.direction.token, ref(s)).expect(201);
+      const afterValidate = (
+        await get(`/students/${s.alice.id}/bulletins`, s.direction.token).expect(200)
+      ).body;
+      expect(afterValidate).toHaveLength(1);
+      expect(afterValidate[0]).toMatchObject({
+        trimestre: 'Trimestre 1',
+        classe: 'CM2 A',
+        statut: 'VALIDE',
+        moyenneGenerale: 13.11,
+        rang: 3,
+        effectif: 4,
+      });
+
+      // Le personnel voit déjà le bulletin VALIDE ; le parent, lui, ne voit rien tant qu'il n'est pas publié.
+      const code = (
+        await post(
+          `/parent-accounts/guardians/${s.moukala.id}/activation-code`,
+          admin,
+        ).expect(201)
+      ).body.code;
+      const parentToken = (
+        await request(app.getHttpServer())
+          .post('/portal/activate')
+          .send({
+            telephone: PHONE_MOUKALA,
+            code,
+            motDePasse: 'MotDePasse123',
+            consentement: true,
+            versionPolitique: '2026-09-v6',
+          })
+          .expect(201)
+      ).body.accessToken;
+      const portalBulletins = (
+        await request(app.getHttpServer())
+          .get(`/portal/children/${s.alice.id}/bulletins`)
+          .set('Authorization', `Bearer ${parentToken}`)
+          .expect(200)
+      ).body;
+      expect(portalBulletins).toEqual([]);
+
+      await post('/grades/period/publish', s.direction.token, ref(s)).expect(201);
+      const afterPublish = (
+        await get(`/students/${s.alice.id}/bulletins`, s.direction.token).expect(200)
+      ).body;
+      expect(afterPublish[0].statut).toBe('PUBLIE');
+    });
+
+    it('refuse sans GRADE_READ (secrétariat, surveillant) ; Administrateur et Direction voient', async () => {
+      const s = await setup();
+      await fillNotes(s);
+      await post('/grades/period/validate', s.direction.token, ref(s)).expect(201);
+
+      const secretaire = (await account('SECRETAIRE_CAISSIER', 'sec-360@test.local')).token;
+      const surveillant = (await account('SURVEILLANT', 'surv-360@test.local')).token;
+      await get(`/students/${s.alice.id}/bulletins`, secretaire).expect(403);
+      await get(`/students/${s.alice.id}/bulletins`, surveillant).expect(403);
+      await get(`/students/${s.alice.id}/bulletins`, admin).expect(200);
+      await get(`/students/${s.alice.id}/bulletins`, s.direction.token).expect(200);
+    });
+
+    it('renvoie une liste vide pour un élève sans aucun bulletin, jamais une erreur', async () => {
+      const s = await setup();
+      const res = await get(`/students/${s.diane.id}/bulletins`, s.direction.token);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+  });
 });

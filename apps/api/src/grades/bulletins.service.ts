@@ -423,6 +423,37 @@ export class BulletinsService {
     return this.payload(bulletin, true);
   }
 
+  // ---------------------------------------------------------------------------------------------- Personnel (vue 360°)
+
+  /**
+   * Tous les bulletins d'un élève, quel que soit leur statut (VALIDE ou PUBLIE — un `Bulletin` n'existe qu'à
+   * partir de la validation, jamais avant), pour le dossier élève (GRADE_READ : Direction, Administrateur).
+   * Contrairement à `publishedForStudent` (parents), un bulletin encore VALIDE (pas publié) est visible ici :
+   * utile au personnel pour suivre l'avancement, jamais montré à une famille avant publication (RG cadrage §18).
+   */
+  async forStudent(studentId: string) {
+    const bulletins = await this.prisma.bulletin.findMany({
+      where: { studentId },
+      include: {
+        period: {
+          include: { term: true, class: { include: { academicYear: true } } },
+        },
+      },
+      orderBy: { period: { term: { dateDebut: 'desc' } } },
+    });
+    return bulletins.map((b) => ({
+      id: b.id,
+      trimestre: b.period.term.libelle,
+      classe: b.period.class.nom,
+      annee: b.period.class.academicYear.libelle,
+      statut: b.period.statut,
+      moyenneGenerale: num(b.moyenneGenerale),
+      rang: b.rang,
+      effectif: b.effectif,
+      publieAt: b.period.publieAt,
+    }));
+  }
+
   // ---------------------------------------------------------------------------------------------- Parents
 
   /** Bulletins PUBLIÉS d'un enfant (le contrôle d'accès à l'enfant est fait par le portail avant cet appel). */

@@ -6,9 +6,16 @@ import { SchoolModule } from '../school/school.module';
 import { NumberSequenceModule } from '../common/number-sequence.module';
 import { FinancialStatusService } from '../financial-status/financial-status.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { GradesModule } from '../grades/grades.module';
 
 @Module({
-  imports: [AuditModule, SchoolModule, NumberSequenceModule, PrismaModule],
+  imports: [
+    AuditModule,
+    SchoolModule,
+    NumberSequenceModule,
+    PrismaModule,
+    GradesModule,
+  ],
   controllers: [StudentsController],
   providers: [StudentsService, FinancialStatusService],
   exports: [StudentsService, FinancialStatusService],

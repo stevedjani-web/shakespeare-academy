@@ -19,6 +19,7 @@ import { createReadStream } from 'fs';
 import { studentPhotoMulterOptions } from './student-photo.storage';
 import { StudentsService } from './students.service';
 import { FinancialStatusService } from '../financial-status/financial-status.service';
+import { BulletinsService } from '../grades/bulletins.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { AttachGuardianDto } from './dto/attach-guardian.dto';
@@ -34,6 +35,7 @@ export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
     private readonly financialStatusService: FinancialStatusService,
+    private readonly bulletinsService: BulletinsService,
   ) {}
 
   @Get()
@@ -88,6 +90,14 @@ export class StudentsController {
   @RequirePermission('FINANCE_READ')
   getFinancialStatus(@Param('id') id: string) {
     return this.financialStatusService.getForStudent(id);
+  }
+
+  // Vue 360° du dossier élève : tous les bulletins (VALIDE ou PUBLIE), pas seulement publiés (contrairement
+  // au portail parent) — utile au personnel pour suivre l'avancement d'un trimestre encore non publié.
+  @Get(':id/bulletins')
+  @RequirePermission('GRADE_READ')
+  getBulletins(@Param('id') id: string) {
+    return this.bulletinsService.forStudent(id);
   }
 
   @Post()

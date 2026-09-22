@@ -48,7 +48,8 @@ function computeSoldeRestant(line: InvoiceLine): number {
   return Math.max(0, line.montant - Math.min(remise, line.montant) - paye);
 }
 
-const STATUS_META: Record<SolvencyStatus, { label: string; color: "green" | "blue" | "orange" | "red" | "slate"; icon: React.ReactNode }> = {
+// Exporté pour StudentSummaryStrip (vue 360° du dossier élève), même badge que sur cette carte.
+export const STATUS_META: Record<SolvencyStatus, { label: string; color: "green" | "blue" | "orange" | "red" | "slate"; icon: React.ReactNode }> = {
   SOLVABLE: { label: "Solvable", color: "green", icon: <CheckCircle2 size={16} /> },
   A_ECHOIR: { label: "À échoir", color: "blue", icon: <Clock size={16} /> },
   EN_RETARD: { label: "En retard", color: "orange", icon: <AlertTriangle size={16} /> },
