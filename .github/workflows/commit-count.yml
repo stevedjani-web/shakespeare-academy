@@ -1,0 +1,40 @@
+name: Commit count
+
+# Aucun badge natif shields.io n'existe pour ça (github/commit-count répond « 404 : badge not found » —
+# vérifié avant de coder). `git rev-list --count HEAD` fait autorité, jamais un chiffre inventé.
+# Uniquement sur push : ce nombre ne change jamais sans un commit, même patron que les badges de nombre
+# de fichiers et de lignes de code.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  commit-count:
+    name: Nombre de commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 obligatoire : actions/checkout fait un clone superficiel (profondeur 1) par
+          # défaut, qui aurait donné un total de 1 au lieu du vrai nombre de commits.
+          fetch-depth: 0
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/generate-commit-count-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/commit-count.svg; then
+            git add docs/badges/commit-count.svg
+            git commit -m "Badge de nombre de commits : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de nombre de commits inchangé, rien à committer."
+          fi
