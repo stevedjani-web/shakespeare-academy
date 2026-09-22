@@ -1,0 +1,44 @@
+name: Outdated dependencies
+
+# Pas de service tiers (David-DM fermé fin 2021, Libraries.io peu fiable pour ce dépôt — vérifié avant de
+# coder) : `npm outdated` (apps/api + apps/web) fait autorité, jamais un chiffre inventé. Sur un calendrier
+# hebdomadaire en plus des push sur master : les dépendances peuvent devenir obsolètes sans aucun commit.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 6 * * 1' # chaque lundi 06:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  outdated:
+    name: Dépendances obsolètes (api + web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: apps/api
+      - run: npm ci
+        working-directory: apps/web
+      - run: node scripts/generate-outdated-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/outdated.svg; then
+            git add docs/badges/outdated.svg
+            git commit -m "Badge de dépendances obsolètes : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de dépendances obsolètes inchangé, rien à committer."
+          fi
