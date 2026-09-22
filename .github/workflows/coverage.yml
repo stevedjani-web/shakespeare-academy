@@ -28,7 +28,12 @@ jobs:
           POSTGRES_PASSWORD: shakespeare
           POSTGRES_DB: shakespeare_academy_test
         ports:
-          - 5432:5432
+          # 5544, pas le 5432 par défaut : apps/api/.env.test (committé, lu par test/setup-env.ts avec
+          # `override: true`) écrase toute variable DATABASE_URL déjà présente dans l'environnement —
+          # trouvé en vérifiant le premier essai de ce workflow, qui échouait avec « Can't reach
+          # database server at localhost:5544 » alors que le service tournait sur 5432. Aligner le port
+          # du service sur .env.test plutôt que de contourner ce fichier partagé par le reste du projet.
+          - 5544:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -38,13 +43,9 @@ jobs:
       run:
         working-directory: apps/api
     env:
-      # Base de test isolée du service ci-dessus (jamais la base de dev) — mêmes identifiants que
-      # docker/init-test-db.sql, adaptés au port par défaut d'un service GitHub Actions (5432).
-      DATABASE_URL: postgresql://shakespeare:shakespeare@localhost:5432/shakespeare_academy_test?schema=public
-      JWT_ACCESS_SECRET: ci-access-secret-not-a-real-value
-      JWT_ACCESS_TTL: 15m
-      JWT_REFRESH_SECRET: ci-refresh-secret-not-a-real-value
-      JWT_REFRESH_TTL: 7d
+      # Nécessaire pour `prisma migrate deploy`, qui ne lit pas .env.test (seul Jest le fait, via
+      # test/setup-env.ts) — même valeur que ce fichier committé, pour que les deux restent cohérents.
+      DATABASE_URL: postgresql://shakespeare:shakespeare@localhost:5544/shakespeare_academy_test?schema=public
     steps:
       - uses: actions/checkout@v4
         with:
