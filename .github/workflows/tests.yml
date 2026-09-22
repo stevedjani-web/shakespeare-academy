@@ -1,0 +1,30 @@
+name: Tests
+
+# Tests unitaires seulement (décision explicite) : rapide, aucune base de données nécessaire.
+# La suite e2e (506 tests, RG09/R7/etc.) exigerait un service Postgres dédié dans ce workflow —
+# volontairement hors périmètre de ce badge, distinct du workflow CI (build + lint).
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  unit:
+    name: API — tests unitaires
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      # Le code source importe @prisma/client : sans cette étape, Jest échoue à transpiler
+      # les fichiers testés, même pour des tests qui ne touchent aucune base de données.
+      - run: npx prisma generate
+      - run: npm run test

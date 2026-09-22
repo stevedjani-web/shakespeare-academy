@@ -1,6 +1,7 @@
 # Shakespeare Academy — logiciel de gestion scolaire
 
 [![CI](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/ci.yml/badge.svg)](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/ci.yml)
+[![Tests](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/tests.yml/badge.svg)](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/tests.yml)
 
 Monolithe modulaire Next.js (`apps/web`) + NestJS (`apps/api`) + PostgreSQL/Prisma.
 Contexte projet complet : voir [`CLAUDE.md`](./CLAUDE.md) et [`DECISIONS_PENDING.md`](./DECISIONS_PENDING.md).
