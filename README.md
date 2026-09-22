@@ -13,6 +13,7 @@
 [![Stars](https://img.shields.io/github/stars/stevedjani-web/shakespeare-academy)](https://github.com/stevedjani-web/shakespeare-academy/stargazers)
 [![Latest release](https://img.shields.io/github/v/release/stevedjani-web/shakespeare-academy)](https://github.com/stevedjani-web/shakespeare-academy/releases/latest)
 [![Top language](https://img.shields.io/github/languages/top/stevedjani-web/shakespeare-academy)](https://github.com/stevedjani-web/shakespeare-academy)
+[![Code size](https://img.shields.io/github/languages/code-size/stevedjani-web/shakespeare-academy)](https://github.com/stevedjani-web/shakespeare-academy)
 
 Monolithe modulaire Next.js (`apps/web`) + NestJS (`apps/api`) + PostgreSQL/Prisma.
 Contexte projet complet : voir [`CLAUDE.md`](./CLAUDE.md) et [`DECISIONS_PENDING.md`](./DECISIONS_PENDING.md).
