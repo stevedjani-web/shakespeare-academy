@@ -1,0 +1,37 @@
+name: File count
+
+# Le badge natif shields.io/github/directory-file-count ne compte que les éléments de la racine (12 :
+# .github, apps, docs...), jamais le vrai total du projet — vérifié avant de choisir cette approche.
+# `git ls-files` fait autorité, jamais un chiffre inventé. Uniquement sur push : ce nombre ne change
+# jamais sans un commit, contrairement à la couverture, aux dépendances obsolètes ou aux vulnérabilités.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  file-count:
+    name: Nombre de fichiers du dépôt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/generate-file-count-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/file-count.svg; then
+            git add docs/badges/file-count.svg
+            git commit -m "Badge de nombre de fichiers : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de nombre de fichiers inchangé, rien à committer."
+          fi

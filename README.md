@@ -19,6 +19,7 @@
 [![Vulnerabilities](./docs/badges/vulnerabilities.svg)](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/vulnerabilities.yml)
 [![PostgreSQL 16](https://img.shields.io/badge/postgresql-16-blue.svg)](docker-compose.yml)
 [![README format: Markdown](https://img.shields.io/badge/readme-Markdown-informational.svg)](README.md)
+[![File count](./docs/badges/file-count.svg)](https://github.com/stevedjani-web/shakespeare-academy/actions/workflows/file-count.yml)
 
 Monolithe modulaire Next.js (`apps/web`) + NestJS (`apps/api`) + PostgreSQL/Prisma.
 Contexte projet complet : voir [`CLAUDE.md`](./CLAUDE.md) et [`DECISIONS_PENDING.md`](./DECISIONS_PENDING.md).
