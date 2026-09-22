@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, isOfflineError } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { useOnOutboxChange } from "@/lib/outbox";
@@ -60,12 +61,19 @@ export default function StudentDossierPage() {
     e.preventDefault();
     setError(null);
     try {
+      // Tous facultatifs (22 septembre 2026) : un champ vide est omis plutôt qu'envoyé en chaîne vide
+      // (rejetée par l'API, qui exige soit une vraie valeur, soit rien du tout).
       const res = await submitOrQueue({
         kind: "guardian",
         method: "POST",
         path: `/students/${params.id}/guardians`,
-        body: guardianForm,
-        label: `${guardianForm.prenom} ${guardianForm.nom} (${guardianForm.lien}) pour ${student?.prenom ?? ""} ${student?.nom ?? ""}`.trim(),
+        body: {
+          nom: guardianForm.nom || undefined,
+          prenom: guardianForm.prenom || undefined,
+          telephone: guardianForm.telephone || undefined,
+          lien: guardianForm.lien || undefined,
+        },
+        label: `${guardianForm.prenom} ${guardianForm.nom}${guardianForm.lien ? ` (${guardianForm.lien})` : ""} pour ${student?.prenom ?? ""} ${student?.nom ?? ""}`.trim(),
         studentId: params.id,
       });
       setGuardianForm({ nom: "", prenom: "", telephone: "", lien: "" });
@@ -93,7 +101,7 @@ export default function StudentDossierPage() {
       nom: student.nom,
       prenom: student.prenom,
       sexe: student.sexe,
-      dateNaissance: student.dateNaissance.slice(0, 10),
+      dateNaissance: student.dateNaissance?.slice(0, 10) ?? "",
       lieuNaissance: student.lieuNaissance ?? "",
       nationalite: student.nationalite ?? "",
     });
@@ -107,11 +115,13 @@ export default function StudentDossierPage() {
     setStudentError(null);
     setSavingStudent(true);
     try {
+      // Date de naissance facultative (22 septembre 2026) : une valeur vide est omise plutôt qu'envoyée
+      // telle quelle (une chaîne vide n'est pas une date valide, rejetée par l'API).
       const res = await submitOrQueue({
         kind: "student-update",
         method: "PATCH",
         path: `/students/${params.id}`,
-        body: studentForm,
+        body: { ...studentForm, dateNaissance: studentForm.dateNaissance || undefined },
         label: `Correction de ${studentForm.prenom} ${studentForm.nom}`,
         studentId: params.id,
       });
@@ -119,7 +129,18 @@ export default function StudentDossierPage() {
       if (res.queued) {
         setNotice("Correction enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
         // Affichage immédiat de ce qui a été saisi ; le serveur reste la référence à la synchronisation.
-        setStudent((s) => (s ? { ...s, ...studentForm, sexe: studentForm.sexe as Student["sexe"], lieuNaissance: studentForm.lieuNaissance || null, nationalite: studentForm.nationalite || null } : s));
+        setStudent((s) =>
+          s
+            ? {
+                ...s,
+                ...studentForm,
+                sexe: studentForm.sexe as Student["sexe"],
+                dateNaissance: studentForm.dateNaissance || s.dateNaissance,
+                lieuNaissance: studentForm.lieuNaissance || null,
+                nationalite: studentForm.nationalite || null,
+              }
+            : s,
+        );
       } else {
         await load();
       }
@@ -180,7 +201,7 @@ export default function StudentDossierPage() {
               <IdCard size={16} className="text-primary" /> Identité
               {!expand.isOpen("identite") && (
                 <span className="font-normal text-ink-muted">
-                  {SEXE_LABEL[student.sexe]}, né(e) le {new Date(student.dateNaissance).toLocaleDateString("fr-FR")}
+                  {SEXE_LABEL[student.sexe]}, né(e) le {formatDate(student.dateNaissance)}
                 </span>
               )}
             </h2>
@@ -218,10 +239,9 @@ export default function StudentDossierPage() {
                     <option value="F">Féminin</option>
                   </Select>
                 </Field>
-                <Field label="Date de naissance">
+                <Field label="Date de naissance (facultatif)">
                   <Input
                     type="date"
-                    required
                     value={studentForm.dateNaissance}
                     onChange={(e) => setStudentForm({ ...studentForm, dateNaissance: e.target.value })}
                   />
@@ -252,7 +272,7 @@ export default function StudentDossierPage() {
           ) : (
             <dl className="space-y-2 text-sm">
               <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
-              <Row label="Date de naissance" value={new Date(student.dateNaissance).toLocaleDateString("fr-FR")} />
+              <Row label="Date de naissance" value={formatDate(student.dateNaissance)} />
               <Row label="Lieu de naissance" value={student.lieuNaissance ?? "—"} />
               <Row label="Nationalité" value={student.nationalite ?? "—"} />
               <Row
@@ -291,10 +311,10 @@ export default function StudentDossierPage() {
               <li key={sg.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
                 <div>
                   <span className="font-medium text-ink">
-                    {sg.guardian.prenom} {sg.guardian.nom}
+                    {sg.guardian.prenom || sg.guardian.nom ? `${sg.guardian.prenom ?? ""} ${sg.guardian.nom ?? ""}`.trim() : "Responsable sans nom"}
                   </span>{" "}
                   <span className="text-ink-muted">
-                    — {sg.lien} · {sg.guardian.telephone}
+                    — {sg.lien ?? "lien non précisé"} · {sg.guardian.telephone ?? "téléphone non renseigné"}
                   </span>
                   {sg.prioritaire && (
                     <span className="ml-2">
@@ -316,17 +336,16 @@ export default function StudentDossierPage() {
           )}
           {showGuardianForm && (
             <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-border pt-4">
+              <p className="text-xs text-ink-muted">Tous ces champs sont facultatifs (à compléter plus tard si inconnus).</p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Nom">
                   <Input
-                    required
                     value={guardianForm.nom}
                     onChange={(e) => setGuardianForm({ ...guardianForm, nom: e.target.value })}
                   />
                 </Field>
                 <Field label="Prénom">
                   <Input
-                    required
                     value={guardianForm.prenom}
                     onChange={(e) => setGuardianForm({ ...guardianForm, prenom: e.target.value })}
                   />
@@ -335,14 +354,12 @@ export default function StudentDossierPage() {
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Téléphone">
                   <Input
-                    required
                     value={guardianForm.telephone}
                     onChange={(e) => setGuardianForm({ ...guardianForm, telephone: e.target.value })}
                   />
                 </Field>
                 <Field label="Lien (Père, Mère, Tuteur…)">
                   <Input
-                    required
                     value={guardianForm.lien}
                     onChange={(e) => setGuardianForm({ ...guardianForm, lien: e.target.value })}
                   />

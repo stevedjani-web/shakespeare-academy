@@ -96,7 +96,12 @@ describe('Mise en service des parents (e2e, Lot 18)', () => {
     validiteJours: number;
     expireLe: string;
     generes: Letter[];
-    ignores: { avecCompte: number; codeEnAttente: number; sansAcces: number };
+    ignores: {
+      avecCompte: number;
+      codeEnAttente: number;
+      sansAcces: number;
+      sansTelephone: number;
+    };
   }
 
   const PHONE = {
@@ -361,7 +366,68 @@ describe('Mise en service des parents (e2e, Lot 18)', () => {
         avecCompte: 0,
         codeEnAttente: 0,
         sansAcces: 1,
+        sansTelephone: 0,
       });
+    });
+
+    it('exclut un responsable sans téléphone (facultatif, 22 septembre 2026) : un code généré serait inutilisable', async () => {
+      const section = (
+        await post('/sections', admin, { code: 'FR', nom: 'Francophone' })
+      ).body;
+      const cycle = (
+        await post('/cycles', admin, {
+          sectionId: section.id,
+          code: 'PRIM',
+          nom: 'Primaire',
+        })
+      ).body;
+      const level = (
+        await post('/levels', admin, {
+          cycleId: cycle.id,
+          code: 'CM2',
+          nom: 'CM2',
+        })
+      ).body;
+      const year = (
+        await post('/academic-years', admin, {
+          libelle: '2026-2027',
+          dateDebut: addDays(today, -120),
+          dateFin: addDays(today, 200),
+        })
+      ).body;
+      await post(`/academic-years/${year.id}/activate`, admin).expect(201);
+      const klass = (
+        await post('/classes', admin, {
+          levelId: level.id,
+          academicYearId: year.id,
+          nom: 'CM2 A',
+        })
+      ).body;
+      const student = (
+        await post('/students', admin, {
+          nom: 'SansTel',
+          prenom: 'Enfant',
+          sexe: 'F',
+          dateNaissance: '2015-04-12',
+          // Responsable facultatif sans téléphone (22 septembre 2026) : ne peut jamais activer de compte.
+          responsable: { nom: 'SansTel', prenom: 'Parent', lien: 'Parent' },
+        }).expect(201)
+      ).body;
+      await post('/enrollments', admin, {
+        studentId: student.id,
+        classId: klass.id,
+        academicYearId: year.id,
+      }).expect(201);
+
+      const r = (await bulk({}).expect(201)).body as Bulk;
+      expect(r.generes).toHaveLength(0);
+      expect(r.ignores).toEqual({
+        avecCompte: 0,
+        codeEnAttente: 0,
+        sansAcces: 0,
+        sansTelephone: 1,
+      });
+      expect(await prisma.parentActivationCode.count()).toBe(0);
     });
 
     it('le code remis active réellement le compte, et seule son empreinte est conservée', async () => {
@@ -444,6 +510,7 @@ describe('Mise en service des parents (e2e, Lot 18)', () => {
         avecCompte: 1,
         codeEnAttente: 1,
         sansAcces: 1,
+        sansTelephone: 0,
       });
       // Le code déjà remis à Bakala n'a pas été annulé.
       await activate(PHONE.bakala, bakalaCode).expect(201);

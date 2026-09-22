@@ -501,7 +501,11 @@ export class BulletinsService {
         nom: student.nom,
         prenom: student.prenom,
         matricule: student.matricule,
-        dateNaissance: isoDay(student.dateNaissance),
+        // Facultative (22 septembre 2026) : le bulletin s'imprime quand même, contrairement à un
+        // document officiel (attestation, carte), simplement sans cette ligne.
+        dateNaissance: student.dateNaissance
+          ? isoDay(student.dateNaissance)
+          : null,
       },
       classe: {
         nom: period.class.nom,

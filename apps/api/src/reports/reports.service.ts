@@ -164,7 +164,7 @@ export class ReportsService {
     const results: Array<{
       student: { id: string; nom: string; prenom: string; matricule: string };
       classe: string | null;
-      guardian: { nom: string; telephone: string } | null;
+      guardian: { nom: string; telephone: string | null } | null;
       statut: string;
       montantExigible: number;
       montantRestant: number;
@@ -190,7 +190,11 @@ export class ReportsService {
           : null,
         guardian: guardian
           ? {
-              nom: `${guardian.prenom} ${guardian.nom}`,
+              // Nom/prénom facultatifs (22 septembre 2026) : jamais littéralement "null" affiché.
+              nom:
+                [guardian.prenom, guardian.nom]
+                  .filter((v): v is string => !!v?.trim())
+                  .join(' ') || 'Responsable',
               telephone: guardian.telephone,
             }
           : null,
@@ -435,7 +439,9 @@ export class ReportsService {
         nom: s.nom,
         prenom: s.prenom,
         sexe: s.sexe,
-        dateNaissance: s.dateNaissance.toISOString().slice(0, 10),
+        dateNaissance: s.dateNaissance
+          ? s.dateNaissance.toISOString().slice(0, 10)
+          : '',
         statut: s.statut,
         responsable: guardian ? `${guardian.prenom} ${guardian.nom}` : '',
         telephoneResponsable: guardian?.telephone ?? '',

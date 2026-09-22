@@ -4,6 +4,9 @@ export function formatMontant(amount: number, devise = "FCFA"): string {
   return `${amount.toLocaleString("fr-FR")} ${devise}`;
 }
 
-export function formatDate(value: string | Date): string {
+// value peut être absente (ex. Student.dateNaissance, facultative depuis le 22 septembre 2026) :
+// jamais new Date(null) (renverrait le 1er janvier 1970, une date fausse et jamais signalée comme telle).
+export function formatDate(value: string | Date | null | undefined): string {
+  if (!value) return "Non renseignée";
   return new Date(value).toLocaleDateString("fr-FR");
 }

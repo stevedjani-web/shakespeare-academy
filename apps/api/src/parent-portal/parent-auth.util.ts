@@ -35,7 +35,10 @@ export function phoneDigits(phone: string): string {
  * Deux numéros désignent-ils la même ligne ? Égalité des chiffres, ou l'un est l'autre précédé d'un indicatif
  * de pays (le plus court doit garder au moins 8 chiffres pour ne pas confondre deux numéros différents).
  */
-export function samePhone(a: string, b: string): boolean {
+export function samePhone(a: string | null, b: string): boolean {
+  // Un responsable sans téléphone (facultatif, 22 septembre 2026) ne correspond jamais à une saisie —
+  // sans numéro, aucun rapprochement fiable n'est possible.
+  if (!a) return false;
   const x = phoneDigits(a);
   const y = phoneDigits(b);
   if (!x || !y) return false;

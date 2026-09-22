@@ -6,6 +6,10 @@ import { cleanDatabase } from './utils/clean-database';
 import { seedBaseFixtures } from './utils/fixtures';
 
 describe('Rôles et permissions (e2e)', () => {
+  // Sur une machine chargée (plusieurs suites e2e enchaînées), le beforeEach (nettoyage + seed + login)
+  // dépasse parfois les 5 s par défaut de Jest — même correctif déjà appliqué à pilotage/messaging.
+  jest.setTimeout(30000);
+
   let app: INestApplication;
   let prisma: PrismaService;
   let adminToken: string;

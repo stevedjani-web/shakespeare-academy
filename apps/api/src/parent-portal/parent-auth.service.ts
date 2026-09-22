@@ -31,7 +31,15 @@ export interface ParentSession {
   accessToken: string;
   refreshToken: string;
   refreshTokenExpiresAt: Date;
-  parent: { id: string; nom: string; prenom: string; telephone: string };
+  // nom/prenom facultatifs depuis le 22 septembre 2026 (Guardian) : un compte peut exister avec un
+  // nom encore incomplet. telephone reste requis ici : la session n'existe que pour un responsable
+  // retrouvé par ce numéro (samePhone), donc toujours renseigné à ce stade.
+  parent: {
+    id: string;
+    nom: string | null;
+    prenom: string | null;
+    telephone: string;
+  };
 }
 
 /**
@@ -295,8 +303,19 @@ export class ParentAuthService {
 
   private async openSession(
     accountId: string,
-    guardian: { id: string; nom: string; prenom: string; telephone: string },
+    guardian: {
+      id: string;
+      nom: string | null;
+      prenom: string | null;
+      telephone: string | null;
+    },
   ): Promise<ParentSession> {
+    // Invariant : ce responsable n'a été retrouvé que par correspondance de téléphone (samePhone),
+    // qui refuse toujours un téléphone absent — jamais atteint en pratique, gardé pour ne jamais
+    // mentir sur le type de ParentSession.parent.telephone.
+    if (!guardian.telephone) {
+      throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+    }
     return {
       accessToken: await this.signAccessToken(accountId),
       ...(await this.issueRefreshToken(accountId)),

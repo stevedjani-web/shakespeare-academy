@@ -126,11 +126,13 @@ export interface AuditLogEntry {
 export type Sexe = "M" | "F";
 export type StudentStatus = "ACTIF" | "INACTIF";
 
+// nom/prenom/telephone facultatifs depuis le 22 septembre 2026 (pour faciliter l'enregistrement) :
+// un responsable peut exister avec des champs encore vides, à compléter plus tard.
 export interface Guardian {
   id: string;
-  nom: string;
-  prenom: string;
-  telephone: string;
+  nom: string | null;
+  prenom: string | null;
+  telephone: string | null;
   email: string | null;
   profession: string | null;
   adresse: string | null;
@@ -139,7 +141,7 @@ export interface Guardian {
 export interface StudentGuardianLink {
   id: string;
   guardianId: string;
-  lien: string;
+  lien: string | null;
   prioritaire: boolean;
   guardian: Guardian;
 }
@@ -150,7 +152,9 @@ export interface Student {
   nom: string;
   prenom: string;
   sexe: Sexe;
-  dateNaissance: string;
+  // Facultative depuis le 22 septembre 2026 (pour faciliter l'enregistrement) : formatDate()/le
+  // formulaire de correction gèrent déjà l'absence, un document officiel la redemande avant émission.
+  dateNaissance: string | null;
   lieuNaissance?: string | null;
   nationalite: string | null;
   // Référence de la photo (jamais une adresse publique : la photo se lit avec le jeton, voir StudentPhoto).

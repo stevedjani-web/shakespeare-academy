@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { basename, extname, join } from 'path';
+import { Prisma } from '@prisma/client';
 import { CONTENT_TYPES, STUDENT_PHOTO_DIR } from './student-photo.storage';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -32,6 +33,44 @@ const STUDENT_INCLUDE = {
 } as const;
 
 const MATRICULE_DIGITS = 6;
+
+interface GuardianIdentity {
+  nom?: string;
+  prenom?: string;
+  telephone?: string;
+  email?: string;
+  profession?: string;
+  adresse?: string;
+}
+
+/**
+ * Retrouve-ou-crée un responsable (R9-like) — utilisé aussi bien dans la transaction de création d'un
+ * élève que par attachGuardian, jamais dupliqué. Le téléphone est désormais facultatif (22 septembre
+ * 2026) : sans lui, aucun rapprochement fiable n'est possible (deux responsables sans numéro pourraient
+ * être deux personnes différentes), donc toujours un nouveau `Guardian`, jamais un upsert.
+ */
+async function upsertOrCreateGuardian(
+  client: PrismaService | Prisma.TransactionClient,
+  schoolId: string,
+  data: GuardianIdentity,
+) {
+  const base = {
+    schoolId,
+    nom: data.nom,
+    prenom: data.prenom,
+    email: data.email,
+    profession: data.profession,
+    adresse: data.adresse,
+  };
+  if (!data.telephone) {
+    return client.guardian.create({ data: base });
+  }
+  return client.guardian.upsert({
+    where: { schoolId_telephone: { schoolId, telephone: data.telephone } },
+    update: {},
+    create: { ...base, telephone: data.telephone },
+  });
+}
 
 @Injectable()
 export class StudentsService {
@@ -98,7 +137,9 @@ export class StudentsService {
         normalizeText(s.nom).includes(normalized) ||
         normalizeText(s.prenom).includes(normalized) ||
         normalizeText(s.matricule).includes(normalized) ||
-        s.studentGuardians.some((sg) => sg.guardian.telephone.includes(query)),
+        // Téléphone facultatif (Guardian.telephone) : un responsable sans numéro ne matche jamais ici,
+        // jamais une erreur sur `.includes` d'une valeur null.
+        s.studentGuardians.some((sg) => sg.guardian.telephone?.includes(query)),
     );
   }
 
@@ -140,14 +181,21 @@ export class StudentsService {
 
   async create(dto: CreateStudentDto, actingUserId: string) {
     const schoolId = await this.schoolService.getDefaultId();
-    const dateNaissance = new Date(dto.dateNaissance);
+    // Facultative (demande explicite, 22 septembre 2026) : sans date de naissance, aucune comparaison
+    // fiable n'est possible — la détection D33 (nom+prénom+date) est alors simplement sautée, jamais
+    // remplacée par un rapprochement sur le seul nom (trop de faux positifs dans une école).
+    const dateNaissance = dto.dateNaissance
+      ? new Date(dto.dateNaissance)
+      : null;
 
-    const duplicate = await this.findPotentialDuplicate(
-      schoolId,
-      dto.nom,
-      dto.prenom,
-      dateNaissance,
-    );
+    const duplicate = dateNaissance
+      ? await this.findPotentialDuplicate(
+          schoolId,
+          dto.nom,
+          dto.prenom,
+          dateNaissance,
+        )
+      : undefined;
     if (duplicate && !dto.forcerCreation) {
       throw new ConflictException({
         message:
@@ -187,24 +235,11 @@ export class StudentsService {
       });
 
       if (dto.responsable) {
-        const guardian = await tx.guardian.upsert({
-          where: {
-            schoolId_telephone: {
-              schoolId,
-              telephone: dto.responsable.telephone,
-            },
-          },
-          update: {},
-          create: {
-            schoolId,
-            nom: dto.responsable.nom,
-            prenom: dto.responsable.prenom,
-            telephone: dto.responsable.telephone,
-            email: dto.responsable.email,
-            profession: dto.responsable.profession,
-            adresse: dto.responsable.adresse,
-          },
-        });
+        const guardian = await upsertOrCreateGuardian(
+          tx,
+          schoolId,
+          dto.responsable,
+        );
 
         await tx.studentGuardian.create({
           data: {
@@ -333,24 +368,11 @@ export class StudentsService {
   ) {
     const student = await this.findOne(studentId);
 
-    const guardian = await this.prisma.guardian.upsert({
-      where: {
-        schoolId_telephone: {
-          schoolId: student.schoolId,
-          telephone: dto.telephone,
-        },
-      },
-      update: {},
-      create: {
-        schoolId: student.schoolId,
-        nom: dto.nom,
-        prenom: dto.prenom,
-        telephone: dto.telephone,
-        email: dto.email,
-        profession: dto.profession,
-        adresse: dto.adresse,
-      },
-    });
+    const guardian = await upsertOrCreateGuardian(
+      this.prisma,
+      student.schoolId,
+      dto,
+    );
 
     const existingLink = await this.prisma.studentGuardian.findUnique({
       where: { studentId_guardianId: { studentId, guardianId: guardian.id } },

@@ -23,7 +23,12 @@ export interface Actor {
 const SCHOOL_LABEL = "L'école";
 const THREAD_MESSAGES_LIMIT = 300;
 
-const fullName = (p: { prenom: string; nom: string }) => `${p.prenom} ${p.nom}`;
+// Le responsable (Guardian) a un nom/prénom facultatifs depuis le 22 septembre 2026 (contrairement à
+// un compte du personnel, User, toujours renseigné) : repli sur « Responsable » si aucun n'est saisi.
+const fullName = (p: { prenom: string | null; nom: string | null }) => {
+  const parts = [p.prenom, p.nom].filter((v): v is string => !!v?.trim());
+  return parts.length > 0 ? parts.join(' ') : 'Responsable';
+};
 
 /**
  * Messagerie sécurisée (Lot 13). La règle centrale (RV09, D72) est vérifiée côté serveur à chaque

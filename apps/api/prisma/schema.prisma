@@ -394,7 +394,10 @@ model Student {
   nom           String
   prenom        String
   sexe          Sexe
-  dateNaissance DateTime
+  // Facultative (demande explicite, 22 septembre 2026) : pour faciliter l'enregistrement, un dossier
+  // peut être créé sans date de naissance connue, à compléter plus tard via PATCH /students/:id. Un
+  // document officiel (attestation, carte) refuse tant qu'elle manque (DocumentsService.issueForEnrollment).
+  dateNaissance DateTime?
   // Lot 19 : figure sur l'attestation de scolarité ; facultatif (dossiers antérieurs).
   lieuNaissance String?
   nationalite   String?
@@ -425,9 +428,14 @@ model Guardian {
   id         String   @id @default(cuid())
   schoolId   String
   school     School   @relation(fields: [schoolId], references: [id])
-  nom        String
-  prenom     String
-  telephone  String
+  // Tous facultatifs (demande explicite, 22 septembre 2026, même raison que Student.dateNaissance) :
+  // un contact incomplet reste enregistrable, à compléter plus tard via PATCH /students/guardians/:id.
+  // Sans téléphone, ce responsable ne peut identifier aucun autre responsable existant (le find-or-create
+  // R9-like exige un numéro, voir StudentsService.create/attachGuardian) et ne peut recevoir de code
+  // d'activation parent (ParentAccountsService.generateCode) : un nouveau Guardian est alors toujours créé.
+  nom        String?
+  prenom     String?
+  telephone  String?
   email      String?
   profession String?
   adresse    String?
@@ -453,7 +461,9 @@ model StudentGuardian {
   student        Student   @relation(fields: [studentId], references: [id])
   guardianId     String
   guardian       Guardian  @relation(fields: [guardianId], references: [id])
-  lien           String
+  // Facultatif (demande explicite, 22 septembre 2026, même raison que Guardian) : un lien familial
+  // encore inconnu au moment de la saisie, à compléter plus tard.
+  lien           String?
   prioritaire    Boolean   @default(false)
   // Lot 11 (D67) : la Direction peut retirer l'accès au portail d'un responsable pour cet élève précis
   // (décision de justice, par exemple), avec motif et audit. Le lien familial, lui, ne change pas.

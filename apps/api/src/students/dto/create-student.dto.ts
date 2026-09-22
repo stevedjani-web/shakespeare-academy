@@ -24,8 +24,12 @@ export class CreateStudentDto {
   @IsEnum(Sexe)
   sexe!: Sexe;
 
+  // Facultative (demande explicite, 22 septembre 2026) : pour faciliter l'enregistrement, complétable
+  // plus tard via PATCH /students/:id. Absente, elle exclut ce dossier de la détection de doublon D33
+  // (StudentsService.create) et bloque tout document officiel tant qu'elle n'est pas renseignée.
+  @IsOptional()
   @IsDateString()
-  dateNaissance!: string;
+  dateNaissance?: string;
 
   @IsOptional()
   @IsString()

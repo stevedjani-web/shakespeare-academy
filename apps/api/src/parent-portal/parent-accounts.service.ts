@@ -181,6 +181,14 @@ export class ParentAccountsService {
       where: { id: guardianId },
     });
     if (!guardian) throw new NotFoundException('Responsable introuvable.');
+    // Téléphone facultatif (22 septembre 2026) : sans lui, ce responsable ne pourra jamais se
+    // reconnaître (l'activation se fait par numéro, voir parent-auth.util.ts::samePhone) — un code
+    // généré serait donc définitivement inutilisable. Complétez le numéro d'abord.
+    if (!guardian.telephone) {
+      throw new UnprocessableEntityException(
+        "Ce responsable n'a pas de numéro de téléphone : complétez-le avant de générer un code d'activation.",
+      );
+    }
     const school = await this.prisma.school.findFirstOrThrow({
       select: { parentCodeValiditeJours: true },
     });
@@ -437,10 +445,14 @@ export class ParentAccountsService {
 
     let avecCompte = 0;
     let codeEnAttente = 0;
+    // Téléphone facultatif (22 septembre 2026) : un code généré pour ce responsable serait
+    // définitivement inutilisable (l'activation se fait par numéro), donc exclu comme les autres cas.
+    let sansTelephone = 0;
     const targets: typeof guardians = [];
     for (const g of guardians) {
       if (g.parentAccount) avecCompte++;
       else if (g.activationCodes.length > 0 && !dto.regenerer) codeEnAttente++;
+      else if (!g.telephone) sansTelephone++;
       else targets.push(g);
     }
     if (targets.length > BULK_CODES_MAX_FAMILIES) {
@@ -487,7 +499,7 @@ export class ParentAccountsService {
         guardianIds: generated.map(({ g }) => g.id),
         expireLe: expiresAt,
         regenerer: dto.regenerer === true,
-        ignores: { avecCompte, codeEnAttente, sansAcces },
+        ignores: { avecCompte, codeEnAttente, sansAcces, sansTelephone },
       },
     );
 
@@ -507,7 +519,7 @@ export class ParentAccountsService {
           classe: l.student.enrollments[0]?.class.nom ?? null,
         })),
       })),
-      ignores: { avecCompte, codeEnAttente, sansAcces },
+      ignores: { avecCompte, codeEnAttente, sansAcces, sansTelephone },
     };
   }
 }

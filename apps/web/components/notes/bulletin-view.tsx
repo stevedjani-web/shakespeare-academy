@@ -3,7 +3,8 @@
 import { API_URL } from "@/lib/api";
 import { formatNote, rankLabel, type BulletinData } from "@/lib/grades";
 
-function frDate(iso: string): string {
+function frDate(iso: string | null): string {
+  if (!iso) return "Non renseignée";
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 }

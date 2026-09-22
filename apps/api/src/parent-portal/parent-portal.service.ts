@@ -66,7 +66,7 @@ export class ParentPortalService {
       nom: string;
       prenom: string;
       matricule: string;
-      lien: string;
+      lien: string | null;
       classe: string | null;
       anneeScolaire: string | null;
     }> = [];

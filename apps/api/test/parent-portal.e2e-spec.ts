@@ -404,6 +404,19 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       ).expect(404);
     });
 
+    it('refuse de générer un code pour un responsable sans téléphone (facultatif, 22 septembre 2026) : il ne pourrait jamais se reconnaître', async () => {
+      const school = await prisma.school.findFirstOrThrow();
+      const guardianSansTelephone = await prisma.guardian.create({
+        data: { schoolId: school.id, nom: 'Sans', prenom: 'Telephone' },
+      });
+      const res = await post(
+        `/parent-accounts/guardians/${guardianSansTelephone.id}/activation-code`,
+        {},
+      ).expect(422);
+      expect(res.body.message).toContain('numéro de téléphone');
+      expect(await prisma.parentActivationCode.count()).toBe(0);
+    });
+
     it('active le compte : mot de passe choisi, consentement enregistré, numéro saisi sous une autre forme', async () => {
       const s = await school();
       const { code } = (

@@ -144,7 +144,7 @@ export default function StudentsListPage() {
                   { header: "Nom", value: (r: Student) => r.nom },
                   { header: "Prénom", value: (r: Student) => r.prenom },
                   { header: "Sexe", value: (r: Student) => (r.sexe === "M" ? "Masculin" : "Féminin") },
-                  { header: "Date de naissance", value: (r: Student) => new Date(r.dateNaissance).toLocaleDateString("fr-FR") },
+                  { header: "Date de naissance", value: (r: Student) => formatDate(r.dateNaissance) },
                   { header: "Statut", value: (r: Student) => (r.statut === "ACTIF" ? "Actif" : "Inactif") },
                 ],
                 students,
@@ -276,7 +276,7 @@ export default function StudentsListPage() {
                       </td>
                       <td className="py-2.5 pr-4 font-mono text-xs text-ink-muted">{s.matricule}</td>
                       <td className="py-2.5 pr-4 text-ink-muted">
-                        {new Date(s.dateNaissance).toLocaleDateString("fr-FR")}
+                        {formatDate(s.dateNaissance)}
                       </td>
                       <td className="py-2.5 pr-4">
                         <Badge color={s.statut === "ACTIF" ? "green" : "gray"}>
@@ -314,7 +314,7 @@ export default function StudentsListPage() {
                         {s.prenom} {s.nom}
                       </p>
                       <p className="truncate text-xs text-ink-muted">
-                        {s.matricule} · {new Date(s.dateNaissance).toLocaleDateString("fr-FR")}
+                        {s.matricule} · {formatDate(s.dateNaissance)}
                       </p>
                     </div>
                     <Badge color={s.statut === "ACTIF" ? "green" : "gray"}>

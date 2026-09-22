@@ -130,7 +130,8 @@ export interface BulletinData {
   id: string;
   statut: PeriodStatus;
   ecole: { nom: string; adresse: string | null; telephone: string | null; logoUrl: string | null };
-  eleve: { nom: string; prenom: string; matricule: string; dateNaissance: string };
+  // Facultative depuis le 22 septembre 2026 (Student.dateNaissance) : le bulletin s'imprime quand même.
+  eleve: { nom: string; prenom: string; matricule: string; dateNaissance: string | null };
   classe: { nom: string; niveau: string; section: string };
   trimestre: { libelle: string; dateDebut: string; dateFin: string };
   annee: string;

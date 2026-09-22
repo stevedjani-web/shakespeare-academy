@@ -231,6 +231,35 @@ describe('Documents officiels (e2e, Lot 19)', () => {
       await issue(s.alice.id, ATT).expect(201);
     });
 
+    it('refuse tout document (attestation ET carte) tant que la date de naissance manque (facultative depuis le 22 septembre 2026)', async () => {
+      const s = await school();
+      await setSigner();
+      const sansDate = (
+        await post('/students', admin, {
+          nom: 'Sans',
+          prenom: 'DateNaissance',
+          sexe: 'F',
+        }).expect(201)
+      ).body;
+      await post('/enrollments', admin, {
+        studentId: sansDate.id,
+        classId: s.classA.id,
+        academicYearId: s.yearRow.id,
+      }).expect(201);
+
+      const attRes = await issue(sansDate.id, ATT).expect(422);
+      expect(attRes.body.message).toMatch(/date de naissance/i);
+      const carteRes = await issue(sansDate.id, CARTE).expect(422);
+      expect(carteRes.body.message).toMatch(/date de naissance/i);
+      expect(await prisma.issuedDocument.count()).toBe(0);
+
+      // Une fois complétée, l'émission fonctionne normalement.
+      await patch(`/students/${sansDate.id}`, admin, {
+        dateNaissance: '2015-04-12',
+      }).expect(200);
+      await issue(sansDate.id, ATT).expect(201);
+    });
+
     it('fige le contenu, numérote sans le montrer dans le jeton, et garde le lieu de naissance', async () => {
       const s = await school();
       await setSigner();

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, isOfflineError } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { isApiError } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { enqueue, processOutbox, refOf } from "@/lib/outbox";
@@ -175,7 +176,7 @@ function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
                     {s.prenom} {s.nom}
                   </span>{" "}
                   <span className="text-ink-muted">
-                    — {s.matricule} · né(e) le {new Date(s.dateNaissance).toLocaleDateString("fr-FR")}
+                    — {s.matricule} · né(e) le {formatDate(s.dateNaissance)}
                   </span>
                 </button>
               </li>
@@ -210,11 +211,33 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
     setError(null);
     setSubmitting(true);
     try {
+      // Date de naissance et responsable facultatifs (22 septembre 2026, pour faciliter l'enregistrement) :
+      // un champ laissé vide est omis plutôt qu'envoyé en chaîne vide (rejetée par l'API, qui exige soit
+      // une vraie valeur, soit rien du tout). Le responsable entier est omis si aucun de ses champs n'est
+      // renseigné — aucune fiche vide créée pour rien.
+      const r = form.responsable;
+      const responsableRempli = r.nom || r.prenom || r.telephone || r.lien;
       const res = await submitOrQueue<Student>({
         kind: "student",
         method: "POST",
         path: "/students",
-        body: { ...form, lieuNaissance: form.lieuNaissance.trim() || undefined, forcerCreation },
+        body: {
+          nom: form.nom,
+          prenom: form.prenom,
+          sexe: form.sexe,
+          dateNaissance: form.dateNaissance || undefined,
+          lieuNaissance: form.lieuNaissance.trim() || undefined,
+          nationalite: form.nationalite || undefined,
+          responsable: responsableRempli
+            ? {
+                nom: r.nom || undefined,
+                prenom: r.prenom || undefined,
+                telephone: r.telephone || undefined,
+                lien: r.lien || undefined,
+              }
+            : undefined,
+          forcerCreation,
+        },
         label: `${form.prenom} ${form.nom}`,
       });
       if (res.queued) {
@@ -225,7 +248,7 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
           nom: form.nom,
           prenom: form.prenom,
           sexe: form.sexe as Student["sexe"],
-          dateNaissance: form.dateNaissance,
+          dateNaissance: form.dateNaissance || null,
           lieuNaissance: form.lieuNaissance.trim() || null,
           nationalite: form.nationalite || null,
           statut: "ACTIF",
@@ -268,10 +291,9 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
             <option value="M">Masculin</option>
           </Select>
         </Field>
-        <Field label="Date de naissance">
+        <Field label="Date de naissance (facultatif, à compléter plus tard si inconnue)">
           <Input
             type="date"
-            required
             value={form.dateNaissance}
             onChange={(e) => setForm({ ...form, dateNaissance: e.target.value })}
           />
@@ -284,18 +306,16 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
         <Input value={form.nationalite} onChange={(e) => setForm({ ...form, nationalite: e.target.value })} />
       </Field>
 
-      <h3 className="pt-2 text-sm font-semibold text-ink">Responsable légal</h3>
+      <h3 className="pt-2 text-sm font-semibold text-ink">Responsable légal (facultatif, à compléter plus tard si inconnu)</h3>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Nom">
           <Input
-            required
             value={form.responsable.nom}
             onChange={(e) => setForm({ ...form, responsable: { ...form.responsable, nom: e.target.value } })}
           />
         </Field>
         <Field label="Prénom">
           <Input
-            required
             value={form.responsable.prenom}
             onChange={(e) => setForm({ ...form, responsable: { ...form.responsable, prenom: e.target.value } })}
           />
@@ -304,14 +324,12 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Téléphone">
           <Input
-            required
             value={form.responsable.telephone}
             onChange={(e) => setForm({ ...form, responsable: { ...form.responsable, telephone: e.target.value } })}
           />
         </Field>
         <Field label="Lien (Père, Mère, Tuteur…)">
           <Input
-            required
             value={form.responsable.lien}
             onChange={(e) => setForm({ ...form, responsable: { ...form.responsable, lien: e.target.value } })}
           />

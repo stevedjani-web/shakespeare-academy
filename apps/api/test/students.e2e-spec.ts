@@ -301,4 +301,109 @@ describe('Élèves et responsables (e2e)', () => {
       )
       .expect(403);
   });
+
+  describe('champs facultatifs (22 septembre 2026, pour faciliter l’enregistrement)', () => {
+    it('crée un élève sans date de naissance ni responsable', async () => {
+      const res = await auth(request(app.getHttpServer()).post('/students')).send({
+        nom: 'Sans',
+        prenom: 'Informations',
+        sexe: 'F',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.dateNaissance).toBeNull();
+      expect(res.body.studentGuardians).toHaveLength(0);
+    });
+
+    it('deux homonymes sans date de naissance ne sont jamais signalés comme doublon (D33 sauté, pas de rapprochement sur le seul nom)', async () => {
+      const first = await auth(
+        request(app.getHttpServer()).post('/students'),
+      ).send({ nom: 'Moukala', prenom: 'Grace', sexe: 'F' });
+      expect(first.status).toBe(201);
+      const second = await auth(
+        request(app.getHttpServer()).post('/students'),
+      ).send({ nom: 'Moukala', prenom: 'Grace', sexe: 'F' });
+      expect(second.status).toBe(201);
+    });
+
+    it('une date de naissance explicitement vide reste refusée (400) — il faut l’omettre, pas envoyer une chaîne vide', async () => {
+      const res = await auth(request(app.getHttpServer()).post('/students')).send(
+        { nom: 'Test', prenom: 'Vide', sexe: 'F', dateNaissance: '' },
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it('accepte un responsable partiel (seulement un nom, sans téléphone ni lien)', async () => {
+      const res = await auth(request(app.getHttpServer()).post('/students')).send(
+        baseStudent({
+          dateNaissance: undefined,
+          responsable: { nom: 'Bakala' },
+        }),
+      );
+      expect(res.status).toBe(201);
+      const guardian = res.body.studentGuardians[0].guardian;
+      expect(guardian.nom).toBe('Bakala');
+      expect(guardian.prenom).toBeNull();
+      expect(guardian.telephone).toBeNull();
+      expect(res.body.studentGuardians[0].lien).toBeNull();
+    });
+
+    it('un responsable sans téléphone n’est jamais rapproché d’un autre : deux enfants du même parent créent deux Guardian distincts', async () => {
+      await auth(request(app.getHttpServer()).post('/students')).send(
+        baseStudent({
+          nom: 'Kimbembe',
+          prenom: 'Alice',
+          responsable: { nom: 'Kimbembe', prenom: 'Paul', lien: 'Père' },
+        }),
+      );
+      await auth(request(app.getHttpServer()).post('/students')).send(
+        baseStudent({
+          nom: 'Kimbembe',
+          prenom: 'Bruno',
+          dateNaissance: '2016-01-01',
+          responsable: { nom: 'Kimbembe', prenom: 'Paul', lien: 'Père' },
+        }),
+      );
+      const guardians = await prisma.guardian.findMany({
+        where: { nom: 'Kimbembe', prenom: 'Paul' },
+      });
+      expect(guardians).toHaveLength(2);
+    });
+
+    it('POST /students/:id/guardians sans téléphone crée toujours un nouveau responsable (jamais un rapprochement)', async () => {
+      const created = await auth(
+        request(app.getHttpServer()).post('/students'),
+      ).send(baseStudent({ responsable: undefined }));
+
+      const first = await auth(
+        request(app.getHttpServer()).post(
+          `/students/${created.body.id}/guardians`,
+        ),
+      ).send({ nom: 'Nzila', prenom: 'Sans-tel' });
+      expect(first.status).toBe(201);
+
+      // Un deuxième rattachement avec les mêmes nom/prénom, toujours sans téléphone : refusé pour cause de
+      // doublon de LIEN (même élève, même Guardian) seulement si c'est le même Guardian — ici ce n'en
+      // est pas un, donc accepté, preuve qu'aucun rapprochement n'a eu lieu.
+      const other = await auth(
+        request(app.getHttpServer()).post('/students'),
+      ).send(baseStudent({ nom: 'Autre', prenom: 'Enfant', responsable: undefined }));
+      const second = await auth(
+        request(app.getHttpServer()).post(
+          `/students/${other.body.id}/guardians`,
+        ),
+      ).send({ nom: 'Nzila', prenom: 'Sans-tel' });
+      expect(second.status).toBe(201);
+      expect(second.body.guardianId).not.toBe(first.body.guardianId);
+    });
+
+    it('GET /students/search ne plante jamais sur un responsable sans téléphone', async () => {
+      await auth(request(app.getHttpServer()).post('/students')).send(
+        baseStudent({ responsable: { nom: 'Sans', prenom: 'Tel' } }),
+      );
+      const res = await auth(
+        request(app.getHttpServer()).get('/students/search?q=242060000001'),
+      );
+      expect(res.status).toBe(200);
+    });
+  });
 });

@@ -140,6 +140,15 @@ export class DocumentsService {
         "Cet élève n'a pas d'inscription active dans l'année scolaire en cours.",
       );
     }
+    // La date de naissance est facultative à la création (22 septembre 2026), mais un document
+    // officiel (attestation, carte) l'affiche : jamais émis sans elle, plutôt que d'imprimer un blanc.
+    if (!student.dateNaissance) {
+      throw new UnprocessableEntityException(
+        actor.type === 'PARENT'
+          ? "Ce document n'est pas encore disponible : contactez le secrétariat de l'école."
+          : "Complétez la date de naissance de l'élève avant d'émettre ce document.",
+      );
+    }
     if (
       type === 'ATTESTATION_SCOLARITE' &&
       (!school.directeurNom?.trim() || !school.ville?.trim())

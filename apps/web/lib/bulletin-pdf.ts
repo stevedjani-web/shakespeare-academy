@@ -21,7 +21,8 @@ async function loadLogo(logoUrl: string | null): Promise<string | null> {
   }
 }
 
-function frDate(iso: string): string {
+function frDate(iso: string | null): string {
+  if (!iso) return "Non renseignée";
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 }
