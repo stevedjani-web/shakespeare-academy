@@ -1,0 +1,45 @@
+name: Vulnerabilities
+
+# Pas de Snyk : son badge public répond « monitored » pour n'importe quel dépôt sans jamais le scanner
+# réellement (vérifié avant de coder, aurait été un signal trompeur). `npm audit` (apps/api + apps/web)
+# fait autorité — vrai registre d'avis de sécurité npm, jamais un chiffre inventé. Sur un calendrier
+# quotidien en plus des push : de nouvelles vulnérabilités sont publiées sans aucun commit sur ce dépôt.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 7 * * *' # chaque jour 07:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    name: Vulnérabilités connues (api + web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nécessaire pour pouvoir committer le badge mis à jour en fin de job.
+          token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: apps/api
+      - run: npm ci
+        working-directory: apps/web
+      - run: node scripts/generate-vulnerabilities-badge.js
+      - name: Committer le badge s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- docs/badges/vulnerabilities.svg; then
+            git add docs/badges/vulnerabilities.svg
+            git commit -m "Badge de vulnérabilités : mise à jour automatique [skip ci]"
+            git push
+          else
+            echo "Badge de vulnérabilités inchangé, rien à committer."
+          fi
