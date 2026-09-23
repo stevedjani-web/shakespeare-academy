@@ -5,6 +5,7 @@ import type {
   ReactNode,
   SelectHTMLAttributes,
 } from "react";
+import { HelpTip } from "@/components/help-tip";
 
 export function Card({
   children,
@@ -26,13 +27,27 @@ export function Card({
   );
 }
 
-export function PageTitle({ children, subtitle, eyebrow }: { children: ReactNode; subtitle?: string; eyebrow?: string }) {
+export function PageTitle({
+  children,
+  subtitle,
+  eyebrow,
+  helpId,
+}: {
+  children: ReactNode;
+  subtitle?: string;
+  eyebrow?: string;
+  /** Identifiant de `lib/help-content.ts` : affiche la puce d'aide contextuelle à côté du titre. */
+  helpId?: string;
+}) {
   return (
     <div className="mb-6 sm:mb-8">
       {eyebrow && (
         <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent-dark">{eyebrow}</p>
       )}
-      <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{children}</h1>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ink">{children}</h1>
+        {helpId && <HelpTip id={helpId} />}
+      </div>
       {subtitle && <p className="mt-1.5 text-sm text-ink-muted max-w-2xl">{subtitle}</p>}
     </div>
   );

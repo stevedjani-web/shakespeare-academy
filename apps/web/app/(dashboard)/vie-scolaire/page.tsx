@@ -71,6 +71,7 @@ export default function VieScolairePage() {
       <PageTitle
         eyebrow="Vie scolaire"
         subtitle="Espace de saisie : horaires, matières, enseignants, affectations, calendrier et salles. Rien n'est prérempli, tout est saisi par la Direction."
+        helpId="vie-scolaire"
       >
         Vie scolaire
       </PageTitle>

@@ -141,7 +141,7 @@ export default function TarifsPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Lot 3" subtitle="Types de frais, grilles tarifaires par niveau et tranches d'écolage.">
+      <PageTitle eyebrow="Lot 3" subtitle="Types de frais, grilles tarifaires par niveau et tranches d'écolage." helpId="tarifs">
         Tarifs & facturation
       </PageTitle>
 

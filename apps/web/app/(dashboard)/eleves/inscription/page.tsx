@@ -58,7 +58,10 @@ function EnrollmentWizard() {
 
   return (
     <div className="max-w-2xl">
-      <PageTitle subtitle="Un seul assistant pour la première inscription et la réinscription : le système détermine automatiquement lequel s'applique.">
+      <PageTitle
+        subtitle="Un seul assistant pour la première inscription et la réinscription : le système détermine automatiquement lequel s'applique."
+        helpId="eleves-inscription"
+      >
         Inscription / réinscription
       </PageTitle>
 

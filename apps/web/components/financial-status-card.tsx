@@ -8,6 +8,7 @@ import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { nextProvisionalNumber, useOnOutboxChange, useOutbox, type OutboxEntry } from "@/lib/outbox";
 import { ExpandButton } from "@/components/expand";
+import { HelpTip } from "@/components/help-tip";
 import { formatDate, formatMontant } from "@/lib/format";
 import type { FeeType, FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
@@ -149,6 +150,7 @@ export function FinancialStatusCard({
           <Receipt size={18} />
         </div>
         <h2 className="font-display text-lg font-semibold text-ink">Situation financière</h2>
+        {open && <HelpTip id="eleves-dossier-paiements" />}
         {!open && <span className="text-xs font-medium text-ink-muted">Restant dû {formatMontant(status.montantRestant)}</span>}
         <span className="ml-auto">
           <Badge color={meta.color}>

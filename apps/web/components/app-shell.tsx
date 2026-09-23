@@ -33,7 +33,7 @@ import {
   ShieldAlert,
   UserPlus,
 } from "lucide-react";
-import { Link2, LifeBuoy } from "lucide-react";
+import { Link2, LifeBuoy, HelpCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
@@ -78,6 +78,7 @@ const LINKS: NavLink[] = [
   { href: "/parametres/etablissement", label: "Établissement", icon: Building2, requiredPermission: "SETTINGS_READ" },
   { href: "/hors-ligne", label: "Synchronisation", icon: RefreshCw },
   { href: "/audit", label: "Journal d'audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
+  { href: "/aide", label: "Aide", icon: HelpCircle },
   { href: "/liens-utiles", label: "Liens utiles", icon: Link2 },
   { href: "/guide", label: "Guide d'utilisation", icon: LifeBuoy },
 ];

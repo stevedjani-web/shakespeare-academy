@@ -128,6 +128,7 @@ export default function StudentsListPage() {
         <PageTitle
           eyebrow="Lot 2"
           subtitle="Recherche par matricule, nom, prénom, téléphone d'un responsable ou date de naissance (AAAA-MM-JJ)."
+          helpId="eleves"
         >
           Élèves
         </PageTitle>
