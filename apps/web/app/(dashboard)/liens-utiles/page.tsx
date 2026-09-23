@@ -94,7 +94,10 @@ function LinkRow({ link }: { link: ActorLink }) {
 export default function LiensUtilesPage() {
   return (
     <div>
-      <PageTitle subtitle="Les adresses à transmettre à chaque acteur de l'école — famille, enseignant ou membre du personnel.">
+      <PageTitle
+        subtitle="Les adresses à transmettre à chaque acteur de l'école — famille, enseignant ou membre du personnel."
+        helpId="liens-utiles"
+      >
         Liens utiles
       </PageTitle>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

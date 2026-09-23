@@ -46,7 +46,11 @@ export default function InsolventStudentsPage() {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-        <PageTitle eyebrow="Lot 5" subtitle="Élèves dont au moins une échéance est en retard, non couverte par un paiement.">
+        <PageTitle
+          eyebrow="Lot 5"
+          subtitle="Élèves dont au moins une échéance est en retard, non couverte par un paiement."
+          helpId="insolvables"
+        >
           Élèves insolvables
         </PageTitle>
         {loaded && students.length > 0 && (

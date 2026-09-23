@@ -49,6 +49,7 @@ export default function AuditLogPage() {
       <PageTitle
         eyebrow="Lot 1"
         subtitle="Traçabilité des actions sensibles (RG15) — journal en lecture seule, jamais modifiable."
+        helpId="audit"
       >
         Journal d&apos;audit
       </PageTitle>

@@ -100,7 +100,9 @@ export default function OnlinePaymentsPage() {
 
   return (
     <div>
-      <PageTitle subtitle="Les paiements de scolarité faits par les parents par Mobile Money.">Paiements en ligne</PageTitle>
+      <PageTitle subtitle="Les paiements de scolarité faits par les parents par Mobile Money." helpId="paiements-en-ligne">
+        Paiements en ligne
+      </PageTitle>
 
       {toTreat > 0 && (
         <p className="mb-4 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">

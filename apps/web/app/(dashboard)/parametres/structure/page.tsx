@@ -144,7 +144,10 @@ export default function AcademicStructurePage() {
 
   return (
     <div>
-      <PageTitle subtitle="Section → Cycle → Niveau → Classe. Ouvrez un élément avec + pour voir son contenu.">
+      <PageTitle
+        subtitle="Section → Cycle → Niveau → Classe. Ouvrez un élément avec + pour voir son contenu."
+        helpId="parametres-structure"
+      >
         Structure académique
       </PageTitle>
       <ErrorMessage>{error}</ErrorMessage>

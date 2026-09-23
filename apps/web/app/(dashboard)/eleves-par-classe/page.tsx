@@ -95,7 +95,11 @@ export default function StudentsByClassPage() {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-        <PageTitle eyebrow="Effectifs" subtitle="Liste nominative des élèves, regroupés par classe.">
+        <PageTitle
+          eyebrow="Effectifs"
+          subtitle="Liste nominative des élèves, regroupés par classe."
+          helpId="eleves-par-classe"
+        >
           Élèves par classe
         </PageTitle>
         <ExportButtons

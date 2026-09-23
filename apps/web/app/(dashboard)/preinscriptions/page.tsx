@@ -108,6 +108,7 @@ export default function PreRegistrationsPage() {
       <PageTitle
         eyebrow="Lot 21"
         subtitle="Demandes déposées par des familles sans compte. Accepter crée l'élève et son inscription réels."
+        helpId="preinscriptions"
       >
         Préinscriptions
       </PageTitle>

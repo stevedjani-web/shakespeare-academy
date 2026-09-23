@@ -118,7 +118,7 @@ export default function DashboardHomePage() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageTitle eyebrow="Tableau de bord" subtitle={`Bienvenue, ${user?.prenom} ${user?.nom}.`}>
+        <PageTitle eyebrow="Tableau de bord" subtitle={`Bienvenue, ${user?.prenom} ${user?.nom}.`} helpId="tableau-de-bord">
           Bonjour {user?.prenom}
         </PageTitle>
         {stats && (

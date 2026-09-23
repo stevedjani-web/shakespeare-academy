@@ -44,7 +44,11 @@ export default function AppelPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Vie scolaire" subtitle="Appel des élèves séance par séance, absences, retards et justificatifs.">
+      <PageTitle
+        eyebrow="Vie scolaire"
+        subtitle="Appel des élèves séance par séance, absences, retards et justificatifs."
+        helpId="appel"
+      >
         Appel et absences
       </PageTitle>
 

@@ -35,7 +35,11 @@ export default function PointageEnseignantsPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Vie scolaire" subtitle="Pointages scannés par les enseignants, validation par la vie scolaire, heures effectuées.">
+      <PageTitle
+        eyebrow="Vie scolaire"
+        subtitle="Pointages scannés par les enseignants, validation par la vie scolaire, heures effectuées."
+        helpId="pointage-enseignants"
+      >
         Pointage des enseignants
       </PageTitle>
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">

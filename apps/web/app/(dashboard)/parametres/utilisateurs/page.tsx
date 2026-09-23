@@ -48,7 +48,11 @@ export default function UsersAndRolesPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Lot 1" subtitle="Comptes du personnel et permissions par rôle.">
+      <PageTitle
+        eyebrow="Lot 1"
+        subtitle="Comptes du personnel et permissions par rôle."
+        helpId="parametres-utilisateurs"
+      >
         Utilisateurs & rôles
       </PageTitle>
       {canManageRoles && (

@@ -176,7 +176,11 @@ export default function PilotagePage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Direction" subtitle="Assiduité des élèves, ponctualité des enseignants et alertes de décrochage. Chaque chiffre est recalculé depuis les appels, les justificatifs et les pointages : rien n'est saisi.">
+      <PageTitle
+        eyebrow="Direction"
+        subtitle="Assiduité des élèves, ponctualité des enseignants et alertes de décrochage. Chaque chiffre est recalculé depuis les appels, les justificatifs et les pointages : rien n'est saisi."
+        helpId="pilotage"
+      >
         Pilotage 360°
       </PageTitle>
 

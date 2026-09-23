@@ -118,7 +118,11 @@ export default function PortailParentsPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Vie scolaire" subtitle="Remettez un code d'activation à un responsable pour qu'il crée son compte. Un responsable ne voit que ses propres enfants.">
+      <PageTitle
+        eyebrow="Vie scolaire"
+        subtitle="Remettez un code d'activation à un responsable pour qu'il crée son compte. Un responsable ne voit que ses propres enfants."
+        helpId="portail-parents"
+      >
         Comptes parents
       </PageTitle>
 

@@ -100,7 +100,11 @@ export default function AnnoncesPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Communication" subtitle="Publiez une information pour tous les responsables des élèves d'une classe. Un enseignant publie pour ses classes ; la vie scolaire et la Direction pour toutes.">
+      <PageTitle
+        eyebrow="Communication"
+        subtitle="Publiez une information pour tous les responsables des élèves d'une classe. Un enseignant publie pour ses classes ; la vie scolaire et la Direction pour toutes."
+        helpId="annonces"
+      >
         Annonces
       </PageTitle>
       <ErrorMessage>{error}</ErrorMessage>

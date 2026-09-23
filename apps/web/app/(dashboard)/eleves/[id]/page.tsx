@@ -235,7 +235,7 @@ export default function StudentDossierPage() {
             canEdit={canManage}
             onChanged={() => void load().catch(() => {})}
           />
-          <PageTitle subtitle={`Matricule ${student.matricule}`}>
+          <PageTitle subtitle={`Matricule ${student.matricule}`} helpId="eleves-dossier">
             {student.prenom} {student.nom}
           </PageTitle>
         </div>

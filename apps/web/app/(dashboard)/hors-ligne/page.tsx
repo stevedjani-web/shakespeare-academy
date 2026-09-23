@@ -66,6 +66,7 @@ export default function SyncPage() {
       <PageTitle
         eyebrow="Mode hors ligne"
         subtitle="Ce que cet appareil a saisi sans Internet, et l'état de l'envoi au serveur."
+        helpId="hors-ligne"
       >
         Synchronisation
       </PageTitle>

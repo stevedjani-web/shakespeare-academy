@@ -118,7 +118,11 @@ export default function ExpensesPage() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageTitle eyebrow="Lot 5" subtitle="Versements, salaires, factures, achats de matériel et autres sorties.">
+        <PageTitle
+          eyebrow="Lot 5"
+          subtitle="Versements, salaires, factures, achats de matériel et autres sorties."
+          helpId="depenses"
+        >
           Sorties financières
         </PageTitle>
         <ExportButtons

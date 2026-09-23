@@ -75,7 +75,9 @@ export default function AcademicYearsPage() {
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
           <CalendarRange size={26} />
         </span>
-        <PageTitle subtitle="Une seule année peut être active à la fois.">Années scolaires</PageTitle>
+        <PageTitle subtitle="Une seule année peut être active à la fois." helpId="parametres-annees">
+          Années scolaires
+        </PageTitle>
       </div>
 
       <ErrorMessage>{actionError}</ErrorMessage>

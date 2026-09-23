@@ -52,7 +52,11 @@ export default function NotesPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Vie scolaire" subtitle="Évaluations, notes, moyennes et bulletins par trimestre.">
+      <PageTitle
+        eyebrow="Vie scolaire"
+        subtitle="Évaluations, notes, moyennes et bulletins par trimestre."
+        helpId="notes"
+      >
         Notes et bulletins
       </PageTitle>
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">

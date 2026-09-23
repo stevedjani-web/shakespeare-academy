@@ -268,6 +268,7 @@ export default function EmploiDuTempsPage() {
       <PageTitle
         eyebrow="Vie scolaire"
         subtitle="Séances de la semaine par classe, enseignant et salle. Les conflits sont refusés ; les versions publiées ne changent plus."
+        helpId="emploi-du-temps"
       >
         Emploi du temps
       </PageTitle>

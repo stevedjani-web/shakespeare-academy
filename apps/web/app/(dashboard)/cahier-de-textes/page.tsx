@@ -36,7 +36,11 @@ export default function TextbookPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Vie scolaire" subtitle="Ce qui a été fait en cours et le travail à faire, visibles des parents de la classe.">
+      <PageTitle
+        eyebrow="Vie scolaire"
+        subtitle="Ce qui a été fait en cours et le travail à faire, visibles des parents de la classe."
+        helpId="cahier-de-textes"
+      >
         Cahier de textes
       </PageTitle>
       <ErrorMessage>{error}</ErrorMessage>

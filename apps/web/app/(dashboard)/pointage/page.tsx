@@ -121,6 +121,7 @@ export default function PointagePage() {
             ? "Scannez le QR de l'entrée de l'école à votre arrivée et à votre départ."
             : "Scannez le QR de la salle au début et à la fin de chaque cours."
         }
+        helpId="pointage"
       >
         Mon pointage
       </PageTitle>

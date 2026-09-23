@@ -41,6 +41,7 @@ export default function DisciplinePage() {
         <PageTitle
           eyebrow="Lot 20"
           subtitle="Signalements, sanctions, convocations des familles et points positifs. Les textes saisis ici sont confidentiels."
+          helpId="discipline"
         >
           Discipline
         </PageTitle>

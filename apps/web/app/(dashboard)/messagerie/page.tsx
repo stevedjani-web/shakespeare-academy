@@ -113,7 +113,11 @@ export default function MessageriePage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Communication" subtitle="Échangez avec les responsables des élèves. Seuls les couples autorisés peuvent se parler, et aucun numéro de téléphone n'est échangé.">
+      <PageTitle
+        eyebrow="Communication"
+        subtitle="Échangez avec les responsables des élèves. Seuls les couples autorisés peuvent se parler, et aucun numéro de téléphone n'est échangé."
+        helpId="messagerie"
+      >
         Messagerie
       </PageTitle>
       <div className="mb-4 flex flex-wrap gap-2">

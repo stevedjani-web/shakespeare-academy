@@ -179,7 +179,7 @@ export default function SchoolSettingsPage() {
             <Building2 size={26} />
           )}
         </span>
-        <PageTitle subtitle="Identité et coordonnées de l'établissement.">
+        <PageTitle subtitle="Identité et coordonnées de l'établissement." helpId="parametres-etablissement">
           Établissement
         </PageTitle>
       </div>

@@ -85,7 +85,11 @@ export default function CashClosingPage() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageTitle eyebrow="Lot 5" subtitle="État des entrées, sorties et solde de caisse pour une journée donnée.">
+        <PageTitle
+          eyebrow="Lot 5"
+          subtitle="État des entrées, sorties et solde de caisse pour une journée donnée."
+          helpId="cloture"
+        >
           Clôture de journée
         </PageTitle>
         {closing && (
