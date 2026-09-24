@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { cleanText, looksLikePhoneNumber } from './messaging.util';
+import { cleanText, excerpt, looksLikePhoneNumber } from './messaging.util';
 
 export interface Actor {
   id: string;
@@ -22,6 +22,9 @@ export interface Actor {
 
 const SCHOOL_LABEL = "L'école";
 const THREAD_MESSAGES_LIMIT = 300;
+// Bandeau d'alerte de l'espace parents : au plus trois messages, cent caractères chacun.
+const PREVIEW_MAX_MESSAGES = 3;
+const PREVIEW_EXCERPT_LENGTH = 100;
 
 // Le responsable (Guardian) a un nom/prénom facultatifs depuis le 22 septembre 2026 (contrairement à
 // un compte du personnel, User, toujours renseigné) : repli sur « Responsable » si aucun n'est saisi.
@@ -349,6 +352,67 @@ export class MessagingService {
   async parentUnreadCount(guardianId: string) {
     const { threads } = await this.parentThreads(guardianId);
     return { nonLus: threads.reduce((sum, t) => sum + t.nonLus, 0) };
+  }
+
+  /**
+   * Aperçu des messages non lus pour le bandeau d'alerte de l'espace parents : les plus récents d'abord, un
+   * extrait court (jamais le texte entier), sans les messages retirés par la Direction ni les enfants dont
+   * l'accès est retiré. Le responsable est celui du jeton, aucun autre paramètre n'est accepté.
+   */
+  async parentUnreadPreview(guardianId: string) {
+    const links = await this.prisma.studentGuardian.findMany({
+      where: { guardianId, accesPortail: true },
+      select: { studentId: true },
+    });
+    const threads = await this.prisma.messageThread.findMany({
+      where: { guardianId, studentId: { in: links.map((l) => l.studentId) } },
+      include: {
+        student: { select: { id: true, prenom: true } },
+        staffUser: { select: { nom: true, prenom: true } },
+      },
+    });
+    const perThread = await Promise.all(
+      threads.map(async (t) => {
+        const unread = {
+          threadId: t.id,
+          auteur: 'PERSONNEL' as const,
+          retireAt: null,
+          ...(t.parentLuAt ? { createdAt: { gt: t.parentLuAt } } : {}),
+        };
+        const [total, latest] = await Promise.all([
+          this.prisma.message.count({ where: unread }),
+          this.prisma.message.findMany({
+            where: unread,
+            orderBy: { createdAt: 'desc' },
+            take: PREVIEW_MAX_MESSAGES,
+            select: { id: true, texte: true, createdAt: true },
+          }),
+        ]);
+        return { thread: t, total, latest };
+      }),
+    );
+    const withUnread = perThread.filter((x) => x.total > 0);
+    const messages = withUnread
+      .flatMap(({ thread, latest }) =>
+        latest.map((m) => ({
+          id: m.id,
+          threadId: thread.id,
+          enfant: thread.student,
+          expediteur:
+            thread.type === 'ECOLE'
+              ? SCHOOL_LABEL
+              : fullName(thread.staffUser as { prenom: string; nom: string }),
+          extrait: excerpt(m.texte, PREVIEW_EXCERPT_LENGTH),
+          date: m.createdAt,
+        })),
+      )
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, PREVIEW_MAX_MESSAGES);
+    return {
+      total: withUnread.reduce((sum, x) => sum + x.total, 0),
+      threads: withUnread.length,
+      messages,
+    };
   }
 
   private async parentThreadOrThrow(guardianId: string, threadId: string) {

@@ -28,3 +28,15 @@ export function cleanText(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/**
+ * Début d'un message pour le bandeau d'alerte de l'espace parents : espaces et retours à la ligne réduits à
+ * un espace, coupé sur des caractères entiers (jamais au milieu d'un émoji), « … » si le texte est plus long.
+ */
+export function excerpt(text: string, maxLength: number): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const chars = Array.from(flat);
+  return chars.length <= maxLength
+    ? flat
+    : `${chars.slice(0, maxLength).join('').trimEnd()}…`;
+}

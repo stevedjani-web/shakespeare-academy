@@ -1,4 +1,4 @@
-import { cleanText, looksLikePhoneNumber } from './messaging.util';
+import { cleanText, excerpt, looksLikePhoneNumber } from './messaging.util';
 
 describe('détection d’un numéro de téléphone (RV09)', () => {
   const refused = [
@@ -37,5 +37,28 @@ describe('détection d’un numéro de téléphone (RV09)', () => {
     expect(cleanText('  Bonjour\r\n\r\n\r\n\r\nMerci  ')).toBe(
       'Bonjour\n\nMerci',
     );
+  });
+});
+
+describe('extrait d’un message pour le bandeau d’alerte', () => {
+  it('garde un texte court tel quel, sur une seule ligne', () => {
+    expect(excerpt('Bonjour,\n\n  merci   de passer.', 100)).toBe(
+      'Bonjour, merci de passer.',
+    );
+  });
+
+  it('coupe un texte long et ajoute une ellipse', () => {
+    const out = excerpt('a'.repeat(150), 100);
+    expect(out).toBe(`${'a'.repeat(100)}…`);
+  });
+
+  it('ne coupe jamais un émoji en deux', () => {
+    const out = excerpt('🙂'.repeat(120), 100);
+    expect(Array.from(out.replace('…', '')).every((c) => c === '🙂')).toBe(true);
+    expect(Array.from(out).length).toBe(101);
+  });
+
+  it('un texte de la longueur exacte n’est pas tronqué', () => {
+    expect(excerpt('b'.repeat(100), 100)).toBe('b'.repeat(100));
   });
 });

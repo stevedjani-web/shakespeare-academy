@@ -48,6 +48,11 @@ export class ParentMessagingController {
     return this.messaging.parentUnreadCount(req.parent.guardianId);
   }
 
+  @Get('messages/unread-preview')
+  unreadPreview(@Req() req: ParentRequest) {
+    return this.messaging.parentUnreadPreview(req.parent.guardianId);
+  }
+
   @Post('messages/threads')
   createThread(@Req() req: ParentRequest, @Body() dto: ParentNewThreadDto) {
     return this.messaging.parentCreateThread(req.parent.guardianId, dto);

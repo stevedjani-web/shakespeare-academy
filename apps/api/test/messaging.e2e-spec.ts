@@ -1121,6 +1121,168 @@ describe('Messagerie sécurisée et annonces (e2e, Lot 13)', () => {
     });
   });
 
+  // ======================================================================== Aperçu des non lus
+
+  describe('aperçu des messages non lus pour le bandeau d’alerte de l’espace parents', () => {
+    type Preview = {
+      total: number;
+      threads: number;
+      messages: Array<{
+        id: string;
+        threadId: string;
+        enfant: { id: string; prenom: string };
+        expediteur: string;
+        extrait: string;
+        date: string;
+      }>;
+    };
+    const preview = async (t: string) =>
+      (await get('/portal/messages/unread-preview', t).expect(200))
+        .body as Preview;
+    const staffSays = (w: World, threadId: string, texte: string) =>
+      post(
+        `/messaging/threads/${threadId}/messages`,
+        { texte },
+        w.ngoma.token,
+      ).expect(201);
+
+    it('reste vide tant que le parent n’a rien à lire, et son propre message n’en fait jamais partie', async () => {
+      const w = await world();
+      expect(await preview(w.pMoukala)).toEqual({
+        total: 0,
+        threads: 0,
+        messages: [],
+      });
+      await threadWithNgoma(w); // le message de la mère elle-même
+      expect(await preview(w.pMoukala)).toMatchObject({
+        total: 0,
+        messages: [],
+      });
+    });
+
+    it('montre le début du message, jamais le texte entier, avec l’expéditeur et l’enfant', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      const long = `Bonjour Madame, Alice a besoin de son livre de lecture. ${'Merci de votre aide. '.repeat(40)}FIN-SECRETE`;
+      await staffSays(w, id, long);
+      const p = await preview(w.pMoukala);
+      expect(p).toMatchObject({ total: 1, threads: 1 });
+      expect(p.messages).toHaveLength(1);
+      expect(p.messages[0]).toMatchObject({
+        threadId: id,
+        enfant: { prenom: 'Alice' },
+      });
+      expect(p.messages[0].expediteur).toContain('Ngoma');
+      expect(p.messages[0].extrait.startsWith('Bonjour Madame, Alice')).toBe(
+        true,
+      );
+      expect(p.messages[0].extrait.endsWith('…')).toBe(true);
+      expect(Array.from(p.messages[0].extrait).length).toBeLessThanOrEqual(101);
+      expect(JSON.stringify(p)).not.toContain('FIN-SECRETE');
+    });
+
+    it('disparaît dès que le parent ouvre la conversation', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Un mot pour vous.');
+      expect((await preview(w.pMoukala)).total).toBe(1);
+      await get(`/portal/messages/threads/${id}`, w.pMoukala).expect(200);
+      expect(await preview(w.pMoukala)).toMatchObject({
+        total: 0,
+        messages: [],
+      });
+    });
+
+    it('montre les trois plus récents, du plus récent au plus ancien, et compte tous les non lus', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      for (const n of [1, 2, 3, 4, 5]) await staffSays(w, id, `Message ${n}.`);
+      const p = await preview(w.pMoukala);
+      expect(p.total).toBe(5);
+      expect(p.messages.map((m) => m.extrait)).toEqual([
+        'Message 5.',
+        'Message 4.',
+        'Message 3.',
+      ]);
+    });
+
+    it('réunit plusieurs conversations, la plus récente en premier', async () => {
+      const w = await world();
+      const withTeacher = await threadWithNgoma(w);
+      await staffSays(w, withTeacher, 'De la part de l’enseignant.');
+      await post(
+        '/messaging/threads',
+        {
+          studentId: w.alice.id,
+          guardianId: w.moukala.id,
+          texte: 'De la part de l’école.',
+        },
+        w.dir.token,
+      ).expect(201);
+      const p = await preview(w.pMoukala);
+      expect(p).toMatchObject({ total: 2, threads: 2 });
+      expect(p.messages.map((m) => m.extrait)).toEqual([
+        'De la part de l’école.',
+        'De la part de l’enseignant.',
+      ]);
+      expect(p.messages[0].expediteur).toBe("L'école");
+    });
+
+    it('n’affiche jamais un message retiré par la Direction', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Propos à retirer.');
+      // La réponse d'un envoi est la conversation : on lit l'identifiant du message en base (sans ouvrir le fil côté parent).
+      const sent = await prisma.message.findFirstOrThrow({
+        where: { threadId: id, auteur: 'PERSONNEL' },
+      });
+      await post(
+        `/messaging/supervision/messages/${sent.id}/withdraw`,
+        { motif: 'Propos inappropriés' },
+        w.dir.token,
+      ).expect(201);
+      const p = await preview(w.pMoukala);
+      expect(p).toMatchObject({ total: 0, messages: [] });
+      expect(JSON.stringify(p)).not.toContain('Propos à retirer');
+    });
+
+    it('chaque famille ne voit que ses messages', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Réservé à la famille Moukala.');
+      expect(await preview(w.pZola)).toMatchObject({
+        total: 0,
+        messages: [],
+      });
+      expect((await preview(w.pMoukala)).total).toBe(1);
+    });
+
+    it('n’affiche plus rien d’un enfant dont la Direction a retiré l’accès', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Encore un mot.');
+      const link = await prisma.studentGuardian.findFirstOrThrow({
+        where: { guardianId: w.moukala.id, studentId: w.alice.id },
+      });
+      await patch(
+        `/parent-accounts/links/${link.id}/access`,
+        { acces: false, motif: 'Décision de justice' },
+        w.dir.token,
+      ).expect(200);
+      expect(await preview(w.pMoukala)).toMatchObject({
+        total: 0,
+        messages: [],
+      });
+    });
+
+    it('n’est ouvert qu’à un parent connecté', async () => {
+      const w = await world();
+      await http().get('/portal/messages/unread-preview').expect(401);
+      await get('/portal/messages/unread-preview', w.ngoma.token).expect(401);
+      await get('/portal/messages/unread-preview', admin).expect(401);
+    });
+  });
+
   // ==================================================================================== Annonces
 
   describe('annonces de classe', () => {

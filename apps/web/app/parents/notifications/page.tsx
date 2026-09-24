@@ -7,6 +7,7 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
 import { ParentPushOptIn } from "@/components/parent-push-opt-in";
+import type { UnreadPreview } from "@/components/parents/message-alert";
 
 interface Notification {
   id: string;
@@ -106,8 +107,17 @@ export default function ParentNotificationsPage() {
       }
     }
     // Un message ou une annonce s'ouvre dans la messagerie ; le reste, sur la fiche de l'enfant.
-    if (n.type === "MESSAGE_RECU") router.push("/parents/messages");
-    else if (n.type === "ANNONCE") router.push("/parents/annonces");
+    if (n.type === "MESSAGE_RECU") {
+      // Une seule conversation à lire : on l'ouvre directement, sinon la liste.
+      let target = "/parents/messages";
+      try {
+        const p = await portalApi.get<UnreadPreview>("/portal/messages/unread-preview");
+        if (p.threads === 1 && p.messages[0]) target = `/parents/messages/${p.messages[0].threadId}`;
+      } catch {
+        // Repli sur la liste des conversations.
+      }
+      router.push(target);
+    } else if (n.type === "ANNONCE") router.push("/parents/annonces");
     else router.push(`/parents/enfant/${n.enfant.id}`);
   }
 
