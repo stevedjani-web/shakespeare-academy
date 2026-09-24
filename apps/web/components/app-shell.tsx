@@ -33,7 +33,7 @@ import {
   ShieldAlert,
   UserPlus,
 } from "lucide-react";
-import { Link2, LifeBuoy, HelpCircle } from "lucide-react";
+import { Link2, LifeBuoy, HelpCircle, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
@@ -164,6 +164,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {user?.prenom} {user?.nom}
           </p>
           <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
+          <Link
+            href="/mon-compte"
+            className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
+          >
+            <Lock size={14} /> Mon compte et mot de passe
+          </Link>
           <button
             onClick={handleLogout}
             className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
@@ -208,6 +214,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {user?.prenom} {user?.nom}
                 </p>
                 <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
+                <Link
+                  href="/mon-compte"
+                  onClick={() => setDrawerOpen(false)}
+                  className="sa-interactive mt-2 flex items-center gap-1.5 text-sm font-medium text-white/80 hover:text-accent"
+                >
+                  <Lock size={14} /> Mon compte et mot de passe
+                </Link>
                 <Button variant="secondary" className="mt-2 w-full bg-white/10 text-white border-white/10 hover:bg-white/20" onClick={handleLogout}>
                   <LogOut size={14} /> Déconnexion
                 </Button>
