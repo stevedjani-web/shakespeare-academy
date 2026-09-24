@@ -21,7 +21,7 @@ export class WebPushSender implements PushSender {
   private readonly publicKey = process.env.VAPID_PUBLIC_KEY?.trim() || null;
   private readonly privateKey = process.env.VAPID_PRIVATE_KEY?.trim() || null;
   private readonly subject =
-    process.env.VAPID_SUBJECT?.trim() || 'https://academy.lobima.online';
+    process.env.VAPID_SUBJECT?.trim() || 'https://ecole-shakespeare.com';
   private configured = false;
 
   constructor() {

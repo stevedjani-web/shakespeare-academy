@@ -1,4 +1,4 @@
-# Conteneurisation de l'API pour le déploiement VPS (api-academy.lobima.online).
+# Conteneurisation de l'API pour le déploiement VPS (api.ecole-shakespeare.com).
 
 # ---------------------------------------------------------------------------
 # Stage 1 : builder — compile le code et génère le client Prisma

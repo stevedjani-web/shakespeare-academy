@@ -13,8 +13,8 @@ assert.equal(whatsappDigits("12345"), null);
 assert.equal(whatsappDigits(""), null);
 
 // Adresse d'activation : téléphone et code dans le fragment seulement.
-const url = activationUrl("https://academy.lobima.online", "06 123 45 67", "K7MQ-2XPA");
-assert.ok(url.startsWith("https://academy.lobima.online/parents/activer#"));
+const url = activationUrl("https://ecole-shakespeare.com", "06 123 45 67", "K7MQ-2XPA");
+assert.ok(url.startsWith("https://ecole-shakespeare.com/parents/activer#"));
 assert.ok(!url.split("#")[0].includes("K7MQ"), "le code ne doit jamais être dans la partie envoyée au serveur");
 assert.deepEqual(parseActivationHash(new URL(url).hash), { telephone: "06 123 45 67", code: "K7MQ-2XPA" });
 assert.equal(activationUrl("https://x.test"), "https://x.test/parents/activer");
@@ -23,10 +23,10 @@ assert.deepEqual(parseActivationHash("#code=ABCD-2345"), { code: "ABCD-2345" });
 
 // Message WhatsApp : bilingue, avec le code, l'échéance et le lien ; pas de lien pour un numéro inutilisable.
 const letter = { guardianId: "g1", nom: "Moukala", prenom: "Jean", telephone: "06 123 45 67", code: "K7MQ-2XPA", expireLe: "2026-10-21T12:00:00.000Z", enfants: [] };
-const msg = whatsappMessage("Shakespeare Academy", letter, "https://academy.lobima.online");
+const msg = whatsappMessage("Shakespeare Academy", letter, "https://ecole-shakespeare.com");
 assert.ok(msg.includes("K7MQ-2XPA") && msg.includes("21/10/2026") && msg.includes("activation code") && msg.includes("code d'activation"));
-const link = whatsappLink("Shakespeare Academy", letter, "https://academy.lobima.online");
+const link = whatsappLink("Shakespeare Academy", letter, "https://ecole-shakespeare.com");
 assert.ok(link && link.startsWith("https://wa.me/242061234567?text="));
-assert.equal(whatsappLink("Shakespeare Academy", { ...letter, telephone: "123" }, "https://academy.lobima.online"), null);
+assert.equal(whatsappLink("Shakespeare Academy", { ...letter, telephone: "123" }, "https://ecole-shakespeare.com"), null);
 
 console.log("parent-activation : tous les contrôles passent");

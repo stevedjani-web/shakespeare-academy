@@ -30,8 +30,8 @@ assert.equal(formatDocDate("2015-04-12", "en"), "12 April 2015");
 assert.equal(formatDocDate("2026-01-05", "en"), "5 January 2026");
 
 // Attestation en français : accords selon le sexe, lieu de naissance facultatif.
-const url = verifyUrl("https://academy.lobima.online", "tok123");
-assert.equal(url, "https://academy.lobima.online/verifier-document/tok123");
+const url = verifyUrl("https://ecole-shakespeare.com", "tok123");
+assert.equal(url, "https://ecole-shakespeare.com/verifier-document/tok123");
 const fr = attestationText(doc(), "fr", url);
 assert.equal(fr.title, "ATTESTATION DE SCOLARITÉ");
 assert.match(fr.paragraphs[0], /Je soussigné\(e\), Marie Ndinga, la Directrice de Shakespeare Academy/);

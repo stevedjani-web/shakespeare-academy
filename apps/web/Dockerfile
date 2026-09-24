@@ -1,4 +1,4 @@
-# Conteneurisation du web pour le déploiement VPS (academy.lobima.online).
+# Conteneurisation du web pour le déploiement VPS (ecole-shakespeare.com).
 
 # ---------------------------------------------------------------------------
 # Stage 1 : deps — installe les dépendances seules (couche cache réutilisable

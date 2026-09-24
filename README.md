@@ -86,7 +86,7 @@ npm run dev                 # http://localhost:3000
 
 ## 5. Déploiement
 
-Déployé en production sur `https://academy.lobima.online` (web) / `https://api-academy.lobima.online` (API), sur le même VPS qu'un autre projet (Elyon) derrière son reverse-proxy Caddy existant — voir `CLAUDE.md §Déploiement production` pour l'architecture exacte (réseau Docker partagé, pièges rencontrés, procédure). `Dockerfile` dans `apps/api/` et `apps/web/`, `docker-compose.yml` à la racine (sûr par défaut — aucun port publié en dehors de l'override local). `.env.production.example` documente les variables requises pour un nouveau déploiement.
+Déployé en production sur `https://ecole-shakespeare.com` (web) / `https://api.ecole-shakespeare.com` (API, anciennement `academy.lobima.online` / `api-academy.lobima.online`, conservés en redirection), sur le même VPS qu'un autre projet (Elyon) derrière son reverse-proxy Caddy existant — voir `CLAUDE.md §Déploiement production` pour l'architecture exacte (réseau Docker partagé, pièges rencontrés, procédure). `Dockerfile` dans `apps/api/` et `apps/web/`, `docker-compose.yml` à la racine (sûr par défaut — aucun port publié en dehors de l'override local). `.env.production.example` documente les variables requises pour un nouveau déploiement.
 
 ## 6. Structure
 

@@ -28,8 +28,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # Conteneurisation de l'application (déploiement VPS, academy.lobima.online
-  # / api-academy.lobima.online). Noms de service volontairement préfixés
+  # Conteneurisation de l'application (déploiement VPS, ecole-shakespeare.com
+  # / api.ecole-shakespeare.com). Noms de service volontairement préfixés
   # `academy-` (pas `api`/`web`) : ces conteneurs rejoignent aussi le réseau
   # Docker du projet Elyon (`proxy`, ci-dessous) pour être joignables par son
   # Caddy déjà en place sur les ports 80/443 — des noms `api`/`web` entreraient
@@ -52,13 +52,13 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
-      WEB_ORIGIN: ${WEB_ORIGIN:-https://academy.lobima.online}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://ecole-shakespeare.com}
       ADMIN_SEED_EMAIL: ${ADMIN_SEED_EMAIL:-}
       ADMIN_SEED_PASSWORD: ${ADMIN_SEED_PASSWORD:-}
       # Lot 12 : alertes push aux parents. Vides = pas d'alerte push (notifications dans l'application seulement).
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-https://academy.lobima.online}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-https://ecole-shakespeare.com}
       # Lot 17 : paiement des frais par les parents (PawaPay). Vides = paiement en ligne indisponible.
       # Doivent figurer ICI pour atteindre le conteneur : les mettre seulement dans .env.production ne suffit pas.
       PAWAPAY_API_TOKEN: ${PAWAPAY_API_TOKEN:-}
@@ -81,7 +81,7 @@ services:
       args:
         # ARG de build, jamais une variable runtime seule (inlinée dans le
         # bundle JS au moment de `next build`, voir apps/web/Dockerfile).
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api-academy.lobima.online}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.ecole-shakespeare.com}
     restart: unless-stopped
     environment:
       # Next.js standalone lit HOSTNAME ; Docker le positionne par défaut à
