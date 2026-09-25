@@ -142,6 +142,9 @@ export function useSchoolBrand(): UseSchoolBrand {
         setState((s) => ({ ...s, loading: false }));
         return;
       }
+      // Le nom et les coordonnées s'affichent tout de suite ; le logo (une image lourde à télécharger la première
+      // fois) les rejoint quand il est prêt.
+      setState((s) => ({ loading: false, brand, logoSrc: brand.logoUrl ? s.logoSrc : null }));
       const trimmed = brand.logoUrl ? await trimmedLogo(brand.logoUrl) : null;
       const logoSrc = trimmed ?? (brand.logoUrl ? `${API_URL}${brand.logoUrl}` : null);
       if (cancelled) return;
