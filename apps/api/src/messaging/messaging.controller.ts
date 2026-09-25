@@ -68,7 +68,7 @@ export class MessagingController {
     @Param('id') id: string,
     @Body() dto: MessageTextDto,
   ) {
-    return this.messaging.staffSend(user, id, dto.texte);
+    return this.messaging.staffSend(user, id, dto.texte, dto.priorite);
   }
 
   @Post('messages/:id/report')

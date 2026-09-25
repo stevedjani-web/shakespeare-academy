@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = { title: "Politique de confidentialité, espace parents | Shakespeare Academy" };
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-const VERSION = "2026-09-v6";
+const VERSION = "2026-09-v7";
 
 const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
@@ -39,7 +39,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
   {
     titre: "Notifications",
     contenu: [
-      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe, de la publication d'un bulletin, des devoirs donnés et d'un élément de vie scolaire (sanction publiée, convocation). Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note, de sanction ni de montant. Vous pouvez couper les alertes par type d'événement.",
+      "Vous êtes prévenu dans l'application des absences et retards de vos enfants, des cours annulés ou remplacés, des changements d'emploi du temps, des nouveaux messages, des annonces de classe, de la publication d'un bulletin, des devoirs donnés et d'un élément de vie scolaire (sanction publiée, convocation). Si vous activez les alertes sur votre téléphone, l'alerte donne seulement le prénom de l'enfant et vous renvoie vers l'application : jamais de motif, de note, de sanction ni de montant. Pour un message que son auteur a marqué urgent, l'alerte le dit (« message urgent ») sans jamais donner son contenu. Vous pouvez couper les alertes par type d'événement.",
     ],
   },
   {
@@ -55,6 +55,7 @@ const SECTIONS: Array<{ titre: string; contenu: string[] }> = [
       "Vous pouvez écrire aux enseignants de la classe de votre enfant et à l'école. Vous ne pouvez jamais écrire à un autre parent, et personne ne peut vous écrire hors de ce cadre. Les messages sont du texte seulement, sans pièce jointe, et les numéros de téléphone ne s'y échangent pas.",
       "La Direction de l'école peut consulter les échanges de la messagerie, par exemple pour traiter un signalement ou vérifier un usage inapproprié. Chaque consultation est enregistrée dans un journal. Vous pouvez signaler un message reçu à la Direction. Un message n'est jamais supprimé : la Direction peut le retirer, et il n'est alors plus lisible pour vous, mais sa trace est conservée.",
       "L'école indique un délai de réponse indicatif, affiché dans la messagerie. Ce n'est pas un engagement.",
+      "Chaque message peut être marqué Normal, Important ou Urgent par son auteur. Vous ne pouvez marquer vos messages que Normal ou Important : pour une urgence immédiate (santé, sécurité), appelez l'école. Le niveau est visible par les personnes qui lisent l'échange, y compris la Direction.",
     ],
   },
   {

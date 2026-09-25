@@ -1,5 +1,7 @@
+import { MessagePriority } from '@prisma/client';
 import {
   IsBoolean,
+  IsEnum,
   IsOptional,
   IsString,
   MaxLength,
@@ -17,6 +19,13 @@ export class MessageTextDto {
   @MinLength(1, TEXT)
   @MaxLength(MESSAGE_MAX_LENGTH)
   texte!: string;
+
+  // Facultative : NORMALE par défaut. Un parent ne peut pas choisir URGENTE (refusé par le service).
+  @IsOptional()
+  @IsEnum(MessagePriority, {
+    message: 'Priorité inconnue (NORMALE, IMPORTANTE ou URGENTE).',
+  })
+  priorite?: MessagePriority;
 }
 
 /** Un responsable écrit à un enseignant de la classe de son enfant, ou à l'école. */

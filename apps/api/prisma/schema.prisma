@@ -1755,6 +1755,14 @@ enum MessageAuthor {
   PERSONNEL
 }
 
+// Priorité choisie par l'expéditeur, message par message. L'ordre de déclaration compte : Postgres trie les valeurs
+// d'un enum dans cet ordre (NORMALE < IMPORTANTE < URGENTE), ce qui sert aux listes et à l'aperçu des non lus.
+enum MessagePriority {
+  NORMALE
+  IMPORTANTE
+  URGENTE
+}
+
 model MessageThread {
   id               String        @id @default(cuid())
   studentId        String
@@ -1780,19 +1788,21 @@ model MessageThread {
 }
 
 model Message {
-  id           String        @id @default(cuid())
+  id           String          @id @default(cuid())
   threadId     String
-  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread       MessageThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   auteur       MessageAuthor
   // Renseigné pour un message du personnel ; le responsable est celui de la conversation.
   auteurUserId String?
-  auteurUser   User?         @relation("MessageAuthorUser", fields: [auteurUserId], references: [id])
+  auteurUser   User?           @relation("MessageAuthorUser", fields: [auteurUserId], references: [id])
   texte        String
-  createdAt    DateTime      @default(now())
+  // Un parent ne peut choisir que NORMALE ou IMPORTANTE (l'urgence immédiate passe par un appel à l'école).
+  priorite     MessagePriority @default(NORMALE)
+  createdAt    DateTime        @default(now())
   // Pas de suppression (D75) : la Direction retire un message avec un motif, la trace reste.
   retireAt     DateTime?
   retireParId  String?
-  retirePar    User?         @relation("MessageWithdrawnBy", fields: [retireParId], references: [id])
+  retirePar    User?           @relation("MessageWithdrawnBy", fields: [retireParId], references: [id])
   retireMotif  String?
 
   reports MessageReport[]

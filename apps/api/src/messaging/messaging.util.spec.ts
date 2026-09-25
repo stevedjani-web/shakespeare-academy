@@ -1,4 +1,9 @@
-import { cleanText, excerpt, looksLikePhoneNumber } from './messaging.util';
+import {
+  cleanText,
+  excerpt,
+  highestPriority,
+  looksLikePhoneNumber,
+} from './messaging.util';
 
 describe('détection d’un numéro de téléphone (RV09)', () => {
   const refused = [
@@ -54,11 +59,27 @@ describe('extrait d’un message pour le bandeau d’alerte', () => {
 
   it('ne coupe jamais un émoji en deux', () => {
     const out = excerpt('🙂'.repeat(120), 100);
-    expect(Array.from(out.replace('…', '')).every((c) => c === '🙂')).toBe(true);
+    expect(Array.from(out.replace('…', '')).every((c) => c === '🙂')).toBe(
+      true,
+    );
     expect(Array.from(out).length).toBe(101);
   });
 
   it('un texte de la longueur exacte n’est pas tronqué', () => {
     expect(excerpt('b'.repeat(100), 100)).toBe('b'.repeat(100));
+  });
+});
+
+describe('priorité la plus pressante', () => {
+  it('donne NORMALE pour une liste vide', () => {
+    expect(highestPriority([])).toBe('NORMALE');
+  });
+
+  it('choisit la plus pressante, quel que soit l’ordre', () => {
+    expect(highestPriority(['NORMALE', 'IMPORTANTE'])).toBe('IMPORTANTE');
+    expect(highestPriority(['URGENTE', 'NORMALE', 'IMPORTANTE'])).toBe(
+      'URGENTE',
+    );
+    expect(highestPriority(['IMPORTANTE', 'NORMALE'])).toBe('IMPORTANTE');
   });
 });

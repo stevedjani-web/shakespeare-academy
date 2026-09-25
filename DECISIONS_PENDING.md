@@ -344,6 +344,21 @@ Quatrième et dernier lot de la feuille de route (parents, documents officiels, 
 
 ---
 
+## 26. Messagerie : alerte dans l'application et priorités des messages (25 septembre 2026)
+
+Demande du propriétaire après la mise en service du portail parents : tous les parents ne vont pas voir l'icône des messages, et l'expéditeur doit pouvoir signaler l'importance d'un message. Les recommandations ci-dessous ont été proposées puis validées telles quelles.
+
+| # | Question | Impact si non tranchée | Décision |
+|---|---|---|---|
+| D131 | Comment amener le parent à lire un nouveau message ? | Un simple badge sur une icône passe inaperçu. | **TRANCHÉ (25 septembre 2026)** : un **bandeau dans l'espace parents** avec le début des messages non lus (3 au plus, 100 caractères), lien direct vers la conversation, à la connexion, au retour sur l'onglet et toutes les 30 secondes ; il reste jusqu'à la lecture ou jusqu'à ce que le parent le masque. **Réalisé** : `GET /portal/messages/unread-preview`. |
+| D132 | Afficher le début du message sur l'alerte push (écran verrouillé) ? | Un tiers peut lire un écran verrouillé (RV10, D69) ; la politique de confidentialité promet des alertes sans contenu. | **TRANCHÉ (25 septembre 2026)** : **non**. L'extrait n'existe que dans l'application connectée ; les alertes push restent génériques. Aucune option « aperçu dans l'alerte ». |
+| D133 | Quels niveaux de priorité ? | Sans niveaux, tout message se ressemble. | **TRANCHÉ (25 septembre 2026)** : **Normal, Important (❗, cadre orange), Urgent (🚨, cadre rouge)**, choisis par l'expéditeur **message par message** ; le libellé écrit accompagne toujours la couleur (daltonisme). Une conversation qui contient un message urgent non lu passe en tête de liste. |
+| D134 | Un parent peut-il marquer un message urgent ? | Un parent qui marque tout en urgent noie les vraies urgences. | **TRANCHÉ (25 septembre 2026)** : **non, Normal ou Important seulement** (refusé côté serveur, 422) ; le formulaire rappelle « pour une urgence immédiate (santé, sécurité), appelez l'école ». Le personnel a les trois niveaux. |
+| D135 | Que dit l'alerte d'un message urgent ? | Un message urgent absorbé dans une notification déjà non lue ne réveillerait personne. | **TRANCHÉ (25 septembre 2026)** : l'alerte dit **« nouveau message urgent »**, jamais le contenu ; un message urgent n'est **jamais regroupé** avec d'autres, il déclenche toujours une notification et une alerte. La politique de confidentialité passe à la version `2026-09-v7`. Un message important reste une alerte générique, regroupée comme un message normal. |
+| D136 | Le personnel (enseignants, vie scolaire) reçoit-il le même bandeau à l'arrivée d'un message ? | Le personnel n'a aujourd'hui qu'un compteur dans le menu. | **OUVERT** : non traité à ce stade, à décider par le propriétaire. |
+
+---
+
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
 
 Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe explicitement — ils sont listés ici uniquement pour éviter qu'une future relecture les remette en question par erreur :
@@ -358,4 +373,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 25 septembre 2026 : D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 25 septembre 2026 : D131 à D136 (messagerie : alerte dans l'application et priorités) ; D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

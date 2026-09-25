@@ -121,7 +121,7 @@ describe('Messagerie sécurisée et annonces (e2e, Lot 13)', () => {
         code: body.code,
         motDePasse: 'MotDePasse123',
         consentement: true,
-        versionPolitique: '2026-09-v6',
+        versionPolitique: '2026-09-v7',
       })
       .expect(201);
     return res.body.accessToken as string;
@@ -1280,6 +1280,309 @@ describe('Messagerie sécurisée et annonces (e2e, Lot 13)', () => {
       await http().get('/portal/messages/unread-preview').expect(401);
       await get('/portal/messages/unread-preview', w.ngoma.token).expect(401);
       await get('/portal/messages/unread-preview', admin).expect(401);
+    });
+  });
+
+  // =========================================================================== Priorité
+
+  describe('priorité des messages (normale, importante, urgente)', () => {
+    const staffSays = (
+      w: World,
+      threadId: string,
+      texte: string,
+      priorite?: string,
+    ) =>
+      post(
+        `/messaging/threads/${threadId}/messages`,
+        { texte, ...(priorite ? { priorite } : {}) },
+        w.ngoma.token,
+      );
+    const parentThread = async (t: string, id: string) =>
+      (await get(`/portal/messages/threads/${id}`, t).expect(200)).body
+        .messages as Array<{ texte: string; priorite: string; moi: boolean }>;
+
+    it('un message est normal par défaut, et l’expéditeur du personnel choisit importante ou urgente', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Sans choix.').expect(201);
+      await staffSays(w, id, 'À noter.', 'IMPORTANTE').expect(201);
+      await staffSays(w, id, 'À lire tout de suite.', 'URGENTE').expect(201);
+      const messages = await parentThread(w.pMoukala, id);
+      expect(
+        messages.filter((m) => !m.moi).map((m) => [m.texte, m.priorite]),
+      ).toEqual([
+        ['Sans choix.', 'NORMALE'],
+        ['À noter.', 'IMPORTANTE'],
+        ['À lire tout de suite.', 'URGENTE'],
+      ]);
+      // Le message écrit par le parent, sans choix, est normal.
+      expect(messages.find((m) => m.moi)?.priorite).toBe('NORMALE');
+    });
+
+    it('la vie scolaire ouvre une conversation avec une priorité, et une valeur inconnue est refusée', async () => {
+      const w = await world();
+      await post(
+        '/messaging/threads',
+        {
+          studentId: w.alice.id,
+          guardianId: w.moukala.id,
+          texte: 'Réunion demain.',
+          priorite: 'URGENTE',
+        },
+        w.dir.token,
+      ).expect(201);
+      expect(
+        (
+          await prisma.message.findFirstOrThrow({
+            where: { auteur: 'PERSONNEL' },
+          })
+        ).priorite,
+      ).toBe('URGENTE');
+      await post(
+        '/messaging/threads',
+        {
+          studentId: w.alice.id,
+          guardianId: w.moukala.id,
+          texte: 'x',
+          priorite: 'CRITIQUE',
+        },
+        w.dir.token,
+      ).expect(400);
+    });
+
+    it('un parent choisit normale ou importante, jamais urgente, et un refus ne laisse pas de conversation vide', async () => {
+      const w = await world();
+      await post(
+        '/portal/messages/threads',
+        {
+          studentId: w.alice.id,
+          ecole: true,
+          texte: 'Question importante.',
+          priorite: 'IMPORTANTE',
+        },
+        w.pMoukala,
+      ).expect(201);
+      expect(
+        (await prisma.message.findFirstOrThrow({ where: { auteur: 'PARENT' } }))
+          .priorite,
+      ).toBe('IMPORTANTE');
+
+      const refused = await post(
+        '/portal/messages/threads',
+        {
+          studentId: w.brice.id,
+          ecole: true,
+          texte: 'Au secours.',
+          priorite: 'URGENTE',
+        },
+        w.pMoukala,
+      ).expect(422);
+      expect(refused.body.message).toContain('appelez l');
+      // Aucune conversation n'a été créée pour Brice.
+      expect(
+        await prisma.messageThread.count({ where: { studentId: w.brice.id } }),
+      ).toBe(0);
+
+      const id = await threadWithNgoma(w);
+      await post(
+        `/portal/messages/threads/${id}/messages`,
+        { texte: 'Encore.', priorite: 'URGENTE' },
+        w.pMoukala,
+      ).expect(422);
+      await post(
+        `/portal/messages/threads/${id}/messages`,
+        { texte: 'Encore.', priorite: 'IMPORTANTE' },
+        w.pMoukala,
+      ).expect(201);
+    });
+
+    it('une conversation avec un message urgent non lu passe en tête, même si elle est plus ancienne', async () => {
+      const w = await world();
+      // L'école écrit d'abord (urgent), puis l'enseignant (normal, plus récent).
+      await post(
+        '/messaging/threads',
+        {
+          studentId: w.alice.id,
+          guardianId: w.moukala.id,
+          texte: 'Urgent de l’école.',
+          priorite: 'URGENTE',
+        },
+        w.dir.token,
+      ).expect(201);
+      const withTeacher = await threadWithNgoma(w);
+      await staffSays(w, withTeacher, 'Un mot normal, plus récent.').expect(
+        201,
+      );
+
+      const list = (
+        await get('/portal/messages/threads', w.pMoukala).expect(200)
+      ).body.threads as Array<{
+        interlocuteur: string;
+        prioriteNonLus: string | null;
+      }>;
+      expect(list.map((t) => [t.interlocuteur, t.prioriteNonLus])).toEqual([
+        ["L'école", 'URGENTE'],
+        [expect.stringContaining('Ngoma'), 'NORMALE'],
+      ]);
+      // Une fois lue, la conversation urgente ne passe plus devant.
+      const urgentId = (
+        await prisma.messageThread.findFirstOrThrow({
+          where: { type: 'ECOLE' },
+        })
+      ).id;
+      await get(`/portal/messages/threads/${urgentId}`, w.pMoukala).expect(200);
+      const after = (
+        await get('/portal/messages/threads', w.pMoukala).expect(200)
+      ).body.threads as Array<{ prioriteNonLus: string | null }>;
+      expect(after.map((t) => t.prioriteNonLus)).toEqual(['NORMALE', null]);
+    });
+
+    it('côté personnel, la liste montre la priorité du message du parent à lire', async () => {
+      const w = await world();
+      await post(
+        '/portal/messages/threads',
+        {
+          studentId: w.alice.id,
+          teacherId: w.tNgoma.id,
+          texte: 'Important pour moi.',
+          priorite: 'IMPORTANTE',
+        },
+        w.pMoukala,
+      ).expect(201);
+      const list = (await get('/messaging/threads', w.ngoma.token).expect(200))
+        .body as Array<{
+        prioriteNonLus: string | null;
+        dernierMessage: { priorite: string };
+      }>;
+      expect(list[0].prioriteNonLus).toBe('IMPORTANTE');
+      expect(list[0].dernierMessage.priorite).toBe('IMPORTANTE');
+    });
+
+    it('l’aperçu de l’espace parents met le message urgent en premier et indique sa priorité', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Urgent, écrit en premier.', 'URGENTE').expect(
+        201,
+      );
+      for (const n of [1, 2, 3])
+        await staffSays(w, id, `Normal ${n}.`).expect(201);
+      const p = (
+        await get('/portal/messages/unread-preview', w.pMoukala).expect(200)
+      ).body as {
+        total: number;
+        messages: Array<{ extrait: string; priorite: string }>;
+      };
+      expect(p.total).toBe(4);
+      expect(p.messages).toHaveLength(3);
+      expect(p.messages[0]).toMatchObject({
+        extrait: 'Urgent, écrit en premier.',
+        priorite: 'URGENTE',
+      });
+      expect(p.messages.slice(1).every((m) => m.priorite === 'NORMALE')).toBe(
+        true,
+      );
+    });
+
+    it('la supervision de la Direction voit la priorité de chaque message', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await staffSays(w, id, 'Note.', 'IMPORTANTE').expect(201);
+      const view = (
+        await get(`/messaging/supervision/threads/${id}`, w.dir.token).expect(
+          200,
+        )
+      ).body.messages as Array<{ priorite: string }>;
+      expect(view.map((m) => m.priorite)).toEqual(['NORMALE', 'IMPORTANTE']);
+    });
+
+    describe('notifications', () => {
+      async function subscribe(t: string) {
+        await post(
+          '/portal/push/subscriptions',
+          {
+            endpoint: `https://push.example.test/dev-${t.slice(-12)}`,
+            keys: { p256dh: 'a', auth: 'b' },
+          },
+          t,
+        ).expect(201);
+      }
+      const notifs = async (t: string) =>
+        (await get('/portal/notifications', t).expect(200)).body
+          .notifications as Array<{
+          titre: string;
+          corps: string;
+          occurrences: number;
+        }>;
+
+      it('un message urgent alerte toujours, même si une notification de message n’est pas encore lue, sans jamais dire le contenu', async () => {
+        const w = await world();
+        await subscribe(w.pMoukala);
+        const id = await threadWithNgoma(w);
+        await staffSays(w, id, 'Un premier mot.').expect(201);
+        await notifications.idle();
+        expect(push.sent).toHaveLength(1);
+
+        await staffSays(
+          w,
+          id,
+          'Ceci est confidentiel et urgent.',
+          'URGENTE',
+        ).expect(201);
+        await notifications.idle();
+        // Une seconde alerte, distincte, qui dit « urgent » mais pas le contenu.
+        expect(push.sent).toHaveLength(2);
+        expect(push.sent[1].payload.body).toContain('urgent');
+        expect(JSON.stringify(push.sent[1].payload)).not.toMatch(
+          /confidentiel|Ngoma|ngoma/,
+        );
+        expect(push.sent[0].payload.body).not.toContain('urgent');
+
+        const list = await notifs(w.pMoukala);
+        expect(list).toHaveLength(2);
+        expect(list.map((n) => n.titre).sort()).toEqual([
+          'Nouveau message',
+          'Nouveau message urgent',
+        ]);
+        expect(JSON.stringify(list)).not.toContain('confidentiel');
+      });
+
+      it('un message normal ne s’ajoute jamais à une notification urgente', async () => {
+        const w = await world();
+        const id = await threadWithNgoma(w);
+        await staffSays(w, id, 'Urgent.', 'URGENTE').expect(201);
+        await staffSays(w, id, 'Puis un mot normal.').expect(201);
+        await staffSays(w, id, 'Et un autre.').expect(201);
+        await notifications.idle();
+        const list = await notifs(w.pMoukala);
+        const urgent = list.find((n) => n.titre === 'Nouveau message urgent');
+        const normal = list.find((n) => n.titre === 'Nouveau message');
+        expect(list).toHaveLength(2);
+        expect(urgent?.occurrences).toBe(1);
+        expect(normal?.occurrences).toBe(2);
+      });
+
+      it('deux messages urgents font deux notifications et deux alertes', async () => {
+        const w = await world();
+        await subscribe(w.pMoukala);
+        const id = await threadWithNgoma(w);
+        await staffSays(w, id, 'Urgent un.', 'URGENTE').expect(201);
+        await staffSays(w, id, 'Urgent deux.', 'URGENTE').expect(201);
+        await notifications.idle();
+        expect(await notifs(w.pMoukala)).toHaveLength(2);
+        expect(push.sent).toHaveLength(2);
+      });
+
+      it('un message important reste une alerte générique, regroupée comme un message normal', async () => {
+        const w = await world();
+        await subscribe(w.pMoukala);
+        const id = await threadWithNgoma(w);
+        await staffSays(w, id, 'À noter.', 'IMPORTANTE').expect(201);
+        await staffSays(w, id, 'Encore.').expect(201);
+        await notifications.idle();
+        expect(push.sent).toHaveLength(1);
+        expect(push.sent[0].payload.body).not.toContain('urgent');
+        expect(await notifs(w.pMoukala)).toHaveLength(1);
+      });
     });
   });
 

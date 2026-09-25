@@ -69,7 +69,12 @@ export class ParentMessagingController {
     @Param('id') id: string,
     @Body() dto: MessageTextDto,
   ) {
-    return this.messaging.parentSend(req.parent.guardianId, id, dto.texte);
+    return this.messaging.parentSend(
+      req.parent.guardianId,
+      id,
+      dto.texte,
+      dto.priorite,
+    );
   }
 
   @Post('messages/messages/:id/report')

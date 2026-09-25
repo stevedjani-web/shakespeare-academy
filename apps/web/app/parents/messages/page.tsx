@@ -8,12 +8,16 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, PageTitle, Select, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/components/messaging/message-list";
+import { PrioritySelect } from "@/components/messaging/priority-select";
+import { PRIORITY_META, priorityText, type MessagePriority } from "@/lib/message-priority";
 
 interface Thread {
   id: string;
   enfant: { id: string; prenom: string };
   interlocuteur: string;
   nonLus: number;
+  /** La priorité la plus pressante parmi les messages non lus (null s'il n'y en a pas). */
+  prioriteNonLus: MessagePriority | null;
   dernierMessage: { auteur: "PARENT" | "PERSONNEL"; apercu: string | null; date: string } | null;
 }
 
@@ -116,11 +120,24 @@ export default function ParentMessagesPage() {
         {threads?.map((t) => (
           <li key={t.id}>
             <Link href={`/parents/messages/${t.id}`}>
-              <Card className={`transition-colors hover:border-primary/40 ${t.nonLus > 0 ? "border-primary/40 bg-primary-soft/40" : ""}`}>
+              <Card
+                className={`transition-colors hover:border-primary/40 ${
+                  t.prioriteNonLus === "URGENTE"
+                    ? "border-2 border-danger bg-danger-soft"
+                    : t.prioriteNonLus === "IMPORTANTE"
+                      ? "border-2 border-warning bg-warning-soft"
+                      : t.nonLus > 0
+                        ? "border-primary/40 bg-primary-soft/40"
+                        : ""
+                }`}
+              >
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
                     <span className="font-medium text-ink">{t.interlocuteur}</span>
                     <Badge color="primary">{t.enfant.prenom}</Badge>
+                    {t.prioriteNonLus && t.prioriteNonLus !== "NORMALE" && (
+                      <Badge color={PRIORITY_META[t.prioriteNonLus].badge}>{priorityText(t.prioriteNonLus)}</Badge>
+                    )}
                     {t.nonLus > 0 && <Badge color="orange">{t.nonLus} nouveau{t.nonLus > 1 ? "x" : ""}</Badge>}
                   </span>
                   {t.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(t.dernierMessage.date)}</span>}
@@ -145,6 +162,7 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
   const [contacts, setContacts] = useState<Contacts | null>(null);
   const [who, setWho] = useState("");
   const [texte, setTexte] = useState("");
+  const [priorite, setPriorite] = useState<MessagePriority>("NORMALE");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,7 +181,7 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
     setBusy(true);
     setError(null);
     try {
-      const body = who === "ecole" ? { studentId, ecole: true, texte } : { studentId, teacherId: who, texte };
+      const body = who === "ecole" ? { studentId, ecole: true, texte, priorite } : { studentId, teacherId: who, texte, priorite };
       const res = await portalApi.post<{ id: string }>("/portal/messages/threads", body);
       await onDone(res.id);
     } catch (err) {
@@ -211,6 +229,7 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
                 onChange={(e) => setTexte(e.target.value)}
               />
             </Field>
+            <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent={false} />
             <p className="text-xs text-ink-muted">Ne mettez pas de numéro de téléphone : ils ne s&apos;échangent pas dans la messagerie.</p>
             <Button type="submit" disabled={busy || !texte.trim()}>
               Envoyer

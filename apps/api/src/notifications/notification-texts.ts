@@ -10,6 +10,9 @@ import type { NotificationType } from '@prisma/client';
 
 export const PUSH_TITLE = 'Shakespeare Academy';
 
+/** Titre d'une notification de message urgent : sert aussi à la reconnaître (elle n'est jamais regroupée). */
+export const URGENT_MESSAGE_TITLE = 'Nouveau message urgent';
+
 /** « Alice », « Alice et Brice », « Alice, Brice et Carine ». */
 export function joinNames(names: string[]): string {
   const unique = [...new Set(names)];
@@ -24,8 +27,15 @@ export function dePrenom(prenom: string): string {
     : `de ${prenom}`;
 }
 
-export function pushBody(type: NotificationType, names: string[]): string {
+export function pushBody(
+  type: NotificationType,
+  names: string[],
+  urgent = false,
+): string {
   const who = joinNames(names);
+  // Seul le niveau « urgent » est dit, jamais le contenu du message (RV10).
+  if (urgent && type === 'MESSAGE_RECU')
+    return `Vous avez un nouveau message urgent concernant ${who}. Ouvrez l'application pour le lire.`;
   switch (type) {
     case 'ABSENCE':
       return `Une absence a été signalée pour ${who}. Ouvrez l'application pour le détail.`;
@@ -151,8 +161,14 @@ export function disciplineBody(prenom: string): string {
   return `Un nouvel élément de vie scolaire est disponible pour ${prenom}. Consultez l'onglet Vie scolaire.`;
 }
 
-export function messageReceivedBody(prenom: string, from: string): string {
-  return `Vous avez reçu un message de ${from} à propos de ${prenom}.`;
+export function messageReceivedBody(
+  prenom: string,
+  from: string,
+  urgent = false,
+): string {
+  return urgent
+    ? `Vous avez reçu un message urgent de ${from} à propos de ${prenom}.`
+    : `Vous avez reçu un message de ${from} à propos de ${prenom}.`;
 }
 
 /** Dans l'application (authentifiée) : la matière et l'échéance, jamais le texte du devoir. */

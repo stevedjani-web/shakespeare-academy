@@ -270,7 +270,7 @@ describe('Notifications aux parents (e2e, Lot 12)', () => {
         code: body.code,
         motDePasse: 'MotDePasse123',
         consentement: true,
-        versionPolitique: '2026-09-v6',
+        versionPolitique: '2026-09-v7',
       })
       .expect(201);
     return res.body.accessToken as string;

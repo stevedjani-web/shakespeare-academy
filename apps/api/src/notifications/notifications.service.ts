@@ -6,6 +6,7 @@ import { toDateOnly } from '../pedagogy/pedagogy.util';
 import { PUSH_SENDER, type PushSender } from './push-sender.interface';
 import {
   PUSH_TITLE,
+  URGENT_MESSAGE_TITLE,
   absenceBody,
   canceledBody,
   coalescePolicy,
@@ -45,6 +46,8 @@ interface Draft {
   corps: string;
   /** Si renseigné, seul ce responsable est prévenu (un message ne concerne qu'un destinataire). */
   onlyGuardianId?: string;
+  /** Message urgent : jamais regroupé, toujours une nouvelle notification et une nouvelle alerte. */
+  urgent?: boolean;
 }
 
 export interface AttendanceItem {
@@ -171,6 +174,7 @@ export class NotificationsService {
     studentId: string,
     guardianId: string,
     from: string,
+    urgent = false,
   ): Promise<void> {
     try {
       const [student, school] = await Promise.all([
@@ -189,8 +193,9 @@ export class NotificationsService {
           prenom: student.prenom,
           type: 'MESSAGE_RECU',
           jour: dayInTimezone(new Date(), school.fuseauHoraire),
-          corps: messageReceivedBody(student.prenom, from),
+          corps: messageReceivedBody(student.prenom, from, urgent),
           onlyGuardianId: guardianId,
+          urgent,
         },
       ]);
     } catch (err) {
@@ -414,18 +419,22 @@ export class NotificationsService {
         if (draft.onlyGuardianId && draft.onlyGuardianId !== guardianId)
           continue;
         const policy = coalescePolicy(draft.type);
-        const existing = await this.prisma.parentNotification.findFirst({
-          where: {
-            accountId,
-            studentId: draft.studentId,
-            type: draft.type,
-            luAt: null,
-            ...(policy === 'JOUR'
-              ? { jour: toDateOnly(draft.jour) }
-              : { createdAt: { gte: windowStart } }),
-          },
-          orderBy: { createdAt: 'desc' },
-        });
+        // Un message urgent n'est ni absorbé par une notification existante, ni ne sert à en absorber une autre.
+        const existing = draft.urgent
+          ? null
+          : await this.prisma.parentNotification.findFirst({
+              where: {
+                accountId,
+                studentId: draft.studentId,
+                type: draft.type,
+                luAt: null,
+                titre: { not: URGENT_MESSAGE_TITLE },
+                ...(policy === 'JOUR'
+                  ? { jour: toDateOnly(draft.jour) }
+                  : { createdAt: { gte: windowStart } }),
+              },
+              orderBy: { createdAt: 'desc' },
+            });
         if (existing) {
           const count = existing.occurrences + 1;
           // Regroupée : le message dans l'application est complété, aucune nouvelle alerte n'est envoyée.
@@ -449,7 +458,9 @@ export class NotificationsService {
             studentId: draft.studentId,
             type: draft.type,
             jour: toDateOnly(draft.jour),
-            titre: notificationTitle(draft.type),
+            titre: draft.urgent
+              ? URGENT_MESSAGE_TITLE
+              : notificationTitle(draft.type),
             corps: draft.corps,
           },
         });
@@ -469,7 +480,7 @@ export class NotificationsService {
         Array<{ row: ParentNotification; prenom: string }>
       >();
       for (const c of created) {
-        const key = `${c.row.accountId}|${c.row.type}`;
+        const key = `${c.row.accountId}|${c.row.type}|${c.row.titre === URGENT_MESSAGE_TITLE}`;
         groups.set(key, [...(groups.get(key) ?? []), c]);
       }
       const accountIds = [...new Set(created.map((c) => c.row.accountId))];
@@ -484,6 +495,7 @@ export class NotificationsService {
       await Promise.all(
         [...groups.values()].map(async (group) => {
           const { accountId, type } = group[0].row;
+          const urgent = group[0].row.titre === URGENT_MESSAGE_TITLE;
           const ids = group.map((g) => g.row.id);
           const setStatus = (
             pushStatut: ParentNotification['pushStatut'],
@@ -508,9 +520,10 @@ export class NotificationsService {
               body: pushBody(
                 type,
                 group.map((g) => g.prenom),
+                urgent,
               ),
               url: PUSH_URL,
-              tag: `sa-${type}`,
+              tag: urgent ? `sa-${type}-urgent` : `sa-${type}`,
             };
             const results = await Promise.all(
               devices.map(async (d) => ({

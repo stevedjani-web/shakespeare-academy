@@ -6,12 +6,17 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { MessageAuthor, Prisma } from '@prisma/client';
+import type { MessageAuthor, MessagePriority, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { cleanText, excerpt, looksLikePhoneNumber } from './messaging.util';
+import {
+  cleanText,
+  excerpt,
+  looksLikePhoneNumber,
+  PRIORITY_RANK,
+} from './messaging.util';
 
 export interface Actor {
   id: string;
@@ -190,12 +195,20 @@ export class MessagingService {
     auteur: MessageAuthor,
     auteurUserId: string | null,
     raw: string,
+    priorite: MessagePriority = 'NORMALE',
   ) {
     const texte = await this.validText(raw);
     const now = new Date();
     const [message] = await this.prisma.$transaction([
       this.prisma.message.create({
-        data: { threadId, auteur, auteurUserId, texte, createdAt: now },
+        data: {
+          threadId,
+          auteur,
+          auteurUserId,
+          texte,
+          priorite,
+          createdAt: now,
+        },
       }),
       this.prisma.messageThread.update({
         where: { id: threadId },
@@ -253,6 +266,7 @@ export class MessagingService {
         moi: mine,
         auteur: author,
         texte: m.retireAt ? null : m.texte,
+        priorite: m.priorite,
         retire: m.retireAt !== null,
         date: m.createdAt,
         signale: reportedByMe,
@@ -287,6 +301,42 @@ export class MessagingService {
     };
   }
 
+  /** La priorité la plus pressante parmi les messages non lus d'une conversation (null s'il n'y en a pas). */
+  private async unreadPriority(
+    threadId: string,
+    auteur: MessageAuthor,
+    luAt: Date | null,
+  ): Promise<MessagePriority | null> {
+    const m = await this.prisma.message.findFirst({
+      where: {
+        threadId,
+        auteur,
+        retireAt: null,
+        ...(luAt ? { createdAt: { gt: luAt } } : {}),
+      },
+      orderBy: { priorite: 'desc' },
+      select: { priorite: true },
+    });
+    return m?.priorite ?? null;
+  }
+
+  /** Une conversation qui contient un message urgent non lu passe en tête (le reste garde son ordre). */
+  private urgentFirst<T extends { prioriteNonLus: MessagePriority | null }>(
+    items: T[],
+  ): T[] {
+    const rank = (i: T) => (i.prioriteNonLus === 'URGENTE' ? 1 : 0);
+    return [...items].sort((a, b) => rank(b) - rank(a));
+  }
+
+  /** Un parent choisit entre NORMALE et IMPORTANTE : l'urgence immédiate (santé, sécurité) passe par un appel. */
+  private assertParentPriority(priorite?: MessagePriority) {
+    if (priorite === 'URGENTE') {
+      throw new UnprocessableEntityException(
+        "Un message ne peut pas être marqué urgent depuis l'espace parents. Pour une urgence immédiate (santé, sécurité), appelez l'école.",
+      );
+    }
+  }
+
   async parentThreads(guardianId: string) {
     const [school, links] = await Promise.all([
       this.prisma.school.findFirstOrThrow({
@@ -309,6 +359,7 @@ export class MessagingService {
           select: {
             auteur: true,
             texte: true,
+            priorite: true,
             retireAt: true,
             createdAt: true,
           },
@@ -325,6 +376,11 @@ export class MessagingService {
           },
         });
         const last = t.messages[0];
+        const prioriteNonLus = await this.unreadPriority(
+          t.id,
+          'PERSONNEL',
+          t.parentLuAt,
+        );
         return {
           id: t.id,
           enfant: t.student,
@@ -333,10 +389,12 @@ export class MessagingService {
               ? SCHOOL_LABEL
               : fullName(t.staffUser as { prenom: string; nom: string }),
           nonLus: unread,
+          prioriteNonLus,
           dernierMessage: last
             ? {
                 auteur: last.auteur,
                 apercu: last.retireAt ? null : last.texte.slice(0, 120),
+                priorite: last.priorite,
                 date: last.createdAt,
               }
             : null,
@@ -345,7 +403,7 @@ export class MessagingService {
     );
     return {
       delaiReponseJours: school.messageDelaiReponseJours,
-      threads: items,
+      threads: this.urgentFirst(items),
     };
   }
 
@@ -383,9 +441,14 @@ export class MessagingService {
           this.prisma.message.count({ where: unread }),
           this.prisma.message.findMany({
             where: unread,
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ priorite: 'desc' }, { createdAt: 'desc' }],
             take: PREVIEW_MAX_MESSAGES,
-            select: { id: true, texte: true, createdAt: true },
+            select: {
+              id: true,
+              texte: true,
+              priorite: true,
+              createdAt: true,
+            },
           }),
         ]);
         return { thread: t, total, latest };
@@ -403,10 +466,15 @@ export class MessagingService {
               ? SCHOOL_LABEL
               : fullName(thread.staffUser as { prenom: string; nom: string }),
           extrait: excerpt(m.texte, PREVIEW_EXCERPT_LENGTH),
+          priorite: m.priorite,
           date: m.createdAt,
         })),
       )
-      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .sort(
+        (a, b) =>
+          PRIORITY_RANK[b.priorite] - PRIORITY_RANK[a.priorite] ||
+          b.date.getTime() - a.date.getTime(),
+      )
       .slice(0, PREVIEW_MAX_MESSAGES);
     return {
       total: withUnread.reduce((sum, x) => sum + x.total, 0),
@@ -474,8 +542,10 @@ export class MessagingService {
       teacherId?: string;
       ecole?: boolean;
       texte: string;
+      priorite?: MessagePriority;
     },
   ) {
+    this.assertParentPriority(dto.priorite);
     await this.assertParentChild(guardianId, dto.studentId);
     if (Boolean(dto.teacherId) === Boolean(dto.ecole)) {
       throw new BadRequestException(
@@ -513,7 +583,7 @@ export class MessagingService {
           createdByType: 'PARENT',
         },
       }));
-    await this.addMessage(thread.id, 'PARENT', null, dto.texte);
+    await this.addMessage(thread.id, 'PARENT', null, dto.texte, dto.priorite);
     await this.log(
       null,
       'MESSAGE_THREAD_CREATE',
@@ -526,7 +596,13 @@ export class MessagingService {
     return this.parentThread(guardianId, thread.id);
   }
 
-  async parentSend(guardianId: string, threadId: string, texte: string) {
+  async parentSend(
+    guardianId: string,
+    threadId: string,
+    texte: string,
+    priorite?: MessagePriority,
+  ) {
+    this.assertParentPriority(priorite);
     const thread = await this.parentThreadOrThrow(guardianId, threadId);
     if (thread.type === 'ENSEIGNANT') {
       const reachable = thread.staffUserId
@@ -538,7 +614,7 @@ export class MessagingService {
         );
       }
     }
-    await this.addMessage(threadId, 'PARENT', null, texte);
+    await this.addMessage(threadId, 'PARENT', null, texte, priorite);
     return this.parentThread(guardianId, threadId);
   }
 
@@ -673,6 +749,7 @@ export class MessagingService {
           select: {
             auteur: true,
             texte: true,
+            priorite: true,
             retireAt: true,
             createdAt: true,
           },
@@ -688,7 +765,7 @@ export class MessagingService {
       },
       select: { studentId: true, guardianId: true, lien: true },
     });
-    return Promise.all(
+    const items = await Promise.all(
       threads.map(async (t) => {
         const unread = await this.prisma.message.count({
           where: {
@@ -698,6 +775,11 @@ export class MessagingService {
           },
         });
         const last = t.messages[0];
+        const prioriteNonLus = await this.unreadPriority(
+          t.id,
+          'PARENT',
+          t.personnelLuAt,
+        );
         return {
           id: t.id,
           type: t.type,
@@ -712,16 +794,19 @@ export class MessagingService {
               )?.lien ?? null,
           },
           nonLus: unread,
+          prioriteNonLus,
           dernierMessage: last
             ? {
                 auteur: last.auteur,
                 apercu: last.retireAt ? null : last.texte.slice(0, 120),
+                priorite: last.priorite,
                 date: last.createdAt,
               }
             : null,
         };
       }),
     );
+    return this.urgentFirst(items);
   }
 
   async staffUnreadCount(actor: Actor) {
@@ -801,7 +886,12 @@ export class MessagingService {
 
   async staffCreateThread(
     actor: Actor,
-    dto: { studentId: string; guardianId: string; texte: string },
+    dto: {
+      studentId: string;
+      guardianId: string;
+      texte: string;
+      priorite?: MessagePriority;
+    },
   ) {
     await this.guardianReachable(dto.guardianId, dto.studentId);
     const desk = this.isDesk(actor);
@@ -833,7 +923,13 @@ export class MessagingService {
           createdByType: 'PERSONNEL',
         },
       }));
-    await this.addMessage(thread.id, 'PERSONNEL', actor.id, dto.texte);
+    await this.addMessage(
+      thread.id,
+      'PERSONNEL',
+      actor.id,
+      dto.texte,
+      dto.priorite,
+    );
     await this.log(
       actor.id,
       'MESSAGE_THREAD_CREATE',
@@ -852,11 +948,17 @@ export class MessagingService {
       dto.studentId,
       dto.guardianId,
       desk ? SCHOOL_LABEL : fullName(actor),
+      dto.priorite === 'URGENTE',
     );
     return this.staffThread(actor, thread.id);
   }
 
-  async staffSend(actor: Actor, threadId: string, texte: string) {
+  async staffSend(
+    actor: Actor,
+    threadId: string,
+    texte: string,
+    priorite?: MessagePriority,
+  ) {
     const thread = await this.staffThreadOrThrow(actor, threadId);
     if (
       thread.type === 'ENSEIGNANT' &&
@@ -867,11 +969,12 @@ export class MessagingService {
       );
     }
     await this.guardianReachable(thread.guardianId, thread.studentId);
-    await this.addMessage(threadId, 'PERSONNEL', actor.id, texte);
+    await this.addMessage(threadId, 'PERSONNEL', actor.id, texte, priorite);
     await this.notifications.notifyMessage(
       thread.studentId,
       thread.guardianId,
       thread.type === 'ECOLE' ? SCHOOL_LABEL : fullName(actor),
+      priorite === 'URGENTE',
     );
     return this.staffThread(actor, threadId);
   }
@@ -1047,6 +1150,7 @@ export class MessagingService {
         cote: m.auteur,
         // La Direction voit le texte d'origine d'un message retiré, avec le motif du retrait.
         texte: m.texte,
+        priorite: m.priorite,
         date: m.createdAt,
         retire: m.retireAt
           ? {

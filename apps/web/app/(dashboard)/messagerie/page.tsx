@@ -7,6 +7,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, Spinner, SuccessMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { MessageList, formatDateTime, type ThreadMessage } from "@/components/messaging/message-list";
+import { PrioritySelect } from "@/components/messaging/priority-select";
+import { PRIORITY_META, priorityText, type MessagePriority } from "@/lib/message-priority";
 
 interface Thread {
   id: string;
@@ -14,6 +16,8 @@ interface Thread {
   enfant: { id: string; nom: string; prenom: string };
   responsable: { nom: string; prenom: string; lien: string | null };
   nonLus: number;
+  /** La priorité la plus pressante parmi les messages non lus du responsable (null s'il n'y en a pas). */
+  prioriteNonLus: MessagePriority | null;
   dernierMessage: { auteur: "PARENT" | "PERSONNEL"; apercu: string | null; date: string } | null;
 }
 
@@ -60,6 +64,7 @@ interface SupervisedThreadView {
     auteur: string;
     cote: "PARENT" | "PERSONNEL";
     texte: string;
+    priorite?: MessagePriority;
     date: string;
     retire: { le: string; par: string | null; motif: string | null } | null;
     signalementsOuverts: number;
@@ -205,7 +210,15 @@ function Conversations() {
             <button
               type="button"
               onClick={() => setOpenId(t.id)}
-              className={`w-full rounded-2xl border p-3 text-left hover:border-primary/40 ${t.nonLus > 0 ? "border-primary/40 bg-primary-soft/40" : "border-border bg-surface"}`}
+              className={`w-full rounded-2xl border p-3 text-left hover:border-primary/40 ${
+                t.prioriteNonLus === "URGENTE"
+                  ? "border-2 border-danger bg-danger-soft"
+                  : t.prioriteNonLus === "IMPORTANTE"
+                    ? "border-2 border-warning bg-warning-soft"
+                    : t.nonLus > 0
+                      ? "border-primary/40 bg-primary-soft/40"
+                      : "border-border bg-surface"
+              }`}
             >
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <span className="flex flex-wrap items-center gap-2">
@@ -217,6 +230,9 @@ function Conversations() {
                     {t.enfant.prenom} {t.enfant.nom}
                   </Badge>
                   {t.type === "ECOLE" && <Badge color="slate">Guichet de l&apos;école</Badge>}
+                  {t.prioriteNonLus && t.prioriteNonLus !== "NORMALE" && (
+                    <Badge color={PRIORITY_META[t.prioriteNonLus].badge}>{priorityText(t.prioriteNonLus)}</Badge>
+                  )}
                   {t.nonLus > 0 && <Badge color="orange">{t.nonLus} non lu{t.nonLus > 1 ? "s" : ""}</Badge>}
                 </span>
                 {t.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(t.dernierMessage.date)}</span>}
@@ -242,6 +258,7 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
   const [studentId, setStudentId] = useState("");
   const [guardianId, setGuardianId] = useState("");
   const [texte, setTexte] = useState("");
+  const [priorite, setPriorite] = useState<MessagePriority>("NORMALE");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -270,7 +287,7 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ id: string }>("/messaging/threads", { studentId, guardianId, texte });
+      const res = await api.post<{ id: string }>("/messaging/threads", { studentId, guardianId, texte, priorite });
       onDone(res.id);
     } catch (err) {
       setError(describeError(err));
@@ -323,6 +340,7 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
             <Field label="Message">
               <textarea className={TEXTAREA} maxLength={2000} required value={texte} onChange={(e) => setTexte(e.target.value)} />
             </Field>
+            <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent />
             <p className="text-xs text-ink-muted">{NO_NUMBER}</p>
             <Button type="submit" disabled={busy || !texte.trim()}>
               <Send size={16} /> Envoyer
@@ -337,6 +355,7 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
 function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [texte, setTexte] = useState("");
+  const [priorite, setPriorite] = useState<MessagePriority>("NORMALE");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -361,8 +380,9 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      setThread(await api.post<ThreadView>(`/messaging/threads/${id}/messages`, { texte }));
+      setThread(await api.post<ThreadView>(`/messaging/threads/${id}/messages`, { texte, priorite }));
       setTexte("");
+      setPriorite("NORMALE");
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -409,6 +429,7 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
           {thread.peutRepondre ? (
             <form onSubmit={send} className="space-y-2">
               <textarea className={TEXTAREA} placeholder="Votre réponse" maxLength={2000} value={texte} onChange={(e) => setTexte(e.target.value)} />
+              <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent />
               <p className="text-xs text-ink-muted">{NO_NUMBER}</p>
               <Button type="submit" disabled={busy || !texte.trim()}>
                 <Send size={16} /> Envoyer
@@ -494,6 +515,9 @@ function Supervision({ initialId }: { initialId?: string }) {
             <li key={m.id} className="rounded-2xl border border-border bg-surface p-3">
               <p className="mb-1 text-xs font-medium text-ink-muted">
                 {m.auteur} ({m.cote === "PARENT" ? "responsable" : "personnel"}) · {formatDateTime(m.date)}
+                {m.priorite && m.priorite !== "NORMALE" && (
+                  <span className="ml-2 font-semibold text-ink">{priorityText(m.priorite)}</span>
+                )}
                 {m.signalementsOuverts > 0 && <span className="ml-2 text-danger">signalé</span>}
               </p>
               <p className="whitespace-pre-wrap text-sm text-ink">{m.texte}</p>

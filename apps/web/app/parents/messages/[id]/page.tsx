@@ -8,6 +8,8 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner, SuccessMessage } from "@/components/ui";
 import { MessageList, type ThreadMessage } from "@/components/messaging/message-list";
+import { PrioritySelect } from "@/components/messaging/priority-select";
+import type { MessagePriority } from "@/lib/message-priority";
 
 interface ThreadView {
   id: string;
@@ -24,6 +26,7 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [texte, setTexte] = useState("");
+  const [priorite, setPriorite] = useState<MessagePriority>("NORMALE");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,8 +56,9 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
     setBusy(true);
     setError(null);
     try {
-      setThread(await portalApi.post<ThreadView>(`/portal/messages/threads/${id}/messages`, { texte }));
+      setThread(await portalApi.post<ThreadView>(`/portal/messages/threads/${id}/messages`, { texte, priorite }));
       setTexte("");
+      setPriorite("NORMALE");
     } catch (err) {
       setError(describePortalError(err));
     } finally {
@@ -113,6 +117,7 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
                 value={texte}
                 onChange={(e) => setTexte(e.target.value)}
               />
+              <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent={false} />
               <p className="text-xs text-ink-muted">Ne mettez pas de numéro de téléphone : ils ne s&apos;échangent pas dans la messagerie.</p>
               <Button type="submit" disabled={busy || !texte.trim()}>
                 <Send size={16} /> Envoyer

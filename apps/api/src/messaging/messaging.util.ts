@@ -1,3 +1,5 @@
+import type { MessagePriority } from '@prisma/client';
+
 /** Longueur maximale d'un message ou d'une annonce (texte seul, D75). */
 export const MESSAGE_MAX_LENGTH = 2000;
 export const ANNOUNCEMENT_TITLE_MAX_LENGTH = 120;
@@ -39,4 +41,19 @@ export function excerpt(text: string, maxLength: number): string {
   return chars.length <= maxLength
     ? flat
     : `${chars.slice(0, maxLength).join('').trimEnd()}…`;
+}
+
+/** Ordre des priorités, de la moins à la plus pressante (même ordre que l'enum en base). */
+export const PRIORITY_RANK: Record<MessagePriority, number> = {
+  NORMALE: 0,
+  IMPORTANTE: 1,
+  URGENTE: 2,
+};
+
+/** La priorité la plus pressante d'une liste (NORMALE si elle est vide). */
+export function highestPriority(list: MessagePriority[]): MessagePriority {
+  return list.reduce<MessagePriority>(
+    (best, p) => (PRIORITY_RANK[p] > PRIORITY_RANK[best] ? p : best),
+    'NORMALE',
+  );
 }

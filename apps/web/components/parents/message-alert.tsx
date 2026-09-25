@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageSquare, X } from "lucide-react";
 import { portalApi } from "@/lib/portal-api";
+import { priorityText, type MessagePriority } from "@/lib/message-priority";
 
 export interface UnreadPreview {
   total: number;
@@ -15,6 +16,7 @@ export interface UnreadPreview {
     enfant: { id: string; prenom: string };
     expediteur: string;
     extrait: string;
+    priorite: MessagePriority;
     date: string;
   }>;
 }
@@ -68,7 +70,11 @@ export function MessageAlert() {
     <section
       role="status"
       aria-live="polite"
-      className="sticky top-2 z-30 mb-4 rounded-2xl border border-accent/50 bg-accent-soft p-3.5 shadow-[var(--shadow-lift)]"
+      className={`sticky top-2 z-30 mb-4 rounded-2xl p-3.5 shadow-[var(--shadow-lift)] ${
+        shown.some((m) => m.priorite === "URGENTE")
+          ? "border-2 border-danger bg-danger-soft"
+          : "border border-accent/50 bg-accent-soft"
+      }`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-display text-base font-semibold text-ink">
@@ -88,6 +94,15 @@ export function MessageAlert() {
         {shown.map((m) => (
           <li key={m.id}>
             <Link href={`/parents/messages/${m.threadId}`} className="block rounded-xl bg-surface px-3 py-2 hover:bg-surface-muted">
+              {m.priorite !== "NORMALE" && (
+                <span
+                  className={`mb-1 inline-flex items-center rounded-full border bg-surface px-2 py-0.5 text-xs font-semibold ${
+                    m.priorite === "URGENTE" ? "border-danger text-danger" : "border-warning text-warning"
+                  }`}
+                >
+                  {priorityText(m.priorite)}
+                </span>
+              )}
               <span className="flex items-baseline justify-between gap-2 text-xs">
                 <span className="font-medium text-ink">
                   {m.expediteur} <span className="font-normal text-ink-muted">· pour {m.enfant.prenom}</span>
