@@ -63,6 +63,10 @@ services:
       # Doivent figurer ICI pour atteindre le conteneur : les mettre seulement dans .env.production ne suffit pas.
       PAWAPAY_API_TOKEN: ${PAWAPAY_API_TOKEN:-}
       PAWAPAY_ENVIRONMENT: ${PAWAPAY_ENVIRONMENT:-sandbox}
+      # Lot 22 : assistant de rédaction de la messagerie (Claude Haiku 4.5). Vide = assistant non configuré : la messagerie
+      # fonctionne comme avant. Doivent figurer ICI pour atteindre le conteneur.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODELE: ${ASSISTANT_MODELE:-}
     volumes:
       # Logo de l'établissement (et futurs fichiers uploadés) : nommé pour survivre à une
       # recréation du conteneur (rebuild d'image), jamais dans l'image elle-même.

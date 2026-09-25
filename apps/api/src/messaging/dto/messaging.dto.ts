@@ -7,12 +7,18 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { msg } from '../../common/language';
 import {
   ANNOUNCEMENT_TITLE_MAX_LENGTH,
   MESSAGE_MAX_LENGTH,
 } from '../messaging.util';
 
-const TEXT = { message: 'Le message ne peut pas être vide.' };
+const TEXT = {
+  message: msg(
+    'Le message ne peut pas être vide.',
+    'The message cannot be empty.',
+  ),
+};
 
 export class MessageTextDto {
   @IsString()
@@ -23,7 +29,10 @@ export class MessageTextDto {
   // Facultative : NORMALE par défaut. Un parent ne peut pas choisir URGENTE (refusé par le service).
   @IsOptional()
   @IsEnum(MessagePriority, {
-    message: 'Priorité inconnue (NORMALE, IMPORTANTE ou URGENTE).',
+    message: msg(
+      'Priorité inconnue (NORMALE, IMPORTANTE ou URGENTE).',
+      'Unknown priority (NORMALE, IMPORTANTE or URGENTE).',
+    ),
   })
   priorite?: MessagePriority;
 }
@@ -60,7 +69,9 @@ export class ReportMessageDto {
 
 export class WithdrawDto {
   @IsString()
-  @MinLength(1, { message: 'Le motif est obligatoire.' })
+  @MinLength(1, {
+    message: msg('Le motif est obligatoire.', 'A reason is required.'),
+  })
   @MaxLength(500)
   motif!: string;
 }
@@ -70,12 +81,19 @@ export class CreateAnnouncementDto {
   classId!: string;
 
   @IsString()
-  @MinLength(1, { message: 'Le titre est obligatoire.' })
+  @MinLength(1, {
+    message: msg('Le titre est obligatoire.', 'The title is required.'),
+  })
   @MaxLength(ANNOUNCEMENT_TITLE_MAX_LENGTH)
   titre!: string;
 
   @IsString()
-  @MinLength(1, { message: "Le texte de l'annonce est obligatoire." })
+  @MinLength(1, {
+    message: msg(
+      "Le texte de l'annonce est obligatoire.",
+      'The announcement text is required.',
+    ),
+  })
   @MaxLength(MESSAGE_MAX_LENGTH)
   corps!: string;
 }

@@ -5,6 +5,7 @@ import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Room, TimeSlot, TimetableEntry } from "@/lib/types";
 import { Button, ErrorMessage, Select } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { CELL, TH, orderedDays, slotRows, type ViewKind } from "./shared";
 
@@ -43,6 +44,7 @@ export function VersionGrid({
   classSlots: TimeSlot[];
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const days = orderedDays(joursClasse);
   const rows = slotRows(view === "classe" ? classSlots : slots);
   const [adding, setAdding] = useState<{ timeSlotId: string; jour: number } | null>(null);
@@ -90,11 +92,7 @@ export function VersionGrid({
   }
 
   if (rows.length === 0) {
-    return (
-      <p className="text-sm text-ink-muted">
-        Aucun créneau horaire n&apos;est défini pour cette vue. Saisissez d&apos;abord la grille horaire dans « Vie scolaire ».
-      </p>
-    );
+    return <p className="text-sm text-ink-muted">{t("tt.grid.noSlots")}</p>;
   }
 
   return (
@@ -104,7 +102,7 @@ export function VersionGrid({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className={`${TH} w-24`}>Horaire</th>
+              <th className={`${TH} w-24`}>{t("tt.grid.timeCol")}</th>
               {days.map((d) => (
                 <th key={d.value} className={TH}>
                   {d.label}
@@ -134,7 +132,7 @@ export function VersionGrid({
                         {here.map((e) =>
                           editing === e.id ? (
                             <div key={e.id} className="mb-1 space-y-1.5 rounded-lg border border-primary/30 bg-primary/5 p-1.5">
-                              <Select value={roomId} onChange={(ev) => setRoomId(ev.target.value)} aria-label="Salle">
+                              <Select value={roomId} onChange={(ev) => setRoomId(ev.target.value)} aria-label={t("tt.col.room")}>
                                 {activeRooms.map((r) => (
                                   <option key={r.id} value={r.id}>
                                     {r.nom}
@@ -142,7 +140,7 @@ export function VersionGrid({
                                 ))}
                               </Select>
                               <div className="flex gap-1">
-                                <Button onClick={() => void run(() => api.patch(`/timetable-entries/${e.id}`, { roomId }))}>OK</Button>
+                                <Button onClick={() => void run(() => api.patch(`/timetable-entries/${e.id}`, { roomId }))}>{t("tt.ok")}</Button>
                                 <Button variant="ghost" onClick={close}>
                                   <X size={14} />
                                 </Button>
@@ -162,7 +160,7 @@ export function VersionGrid({
                                 <div className="mt-1 flex gap-1">
                                   <button
                                     type="button"
-                                    aria-label="Changer la salle"
+                                    aria-label={t("tt.grid.changeRoom")}
                                     className="rounded p-1 text-ink-muted hover:bg-surface-muted hover:text-ink"
                                     onClick={() => {
                                       close();
@@ -174,7 +172,7 @@ export function VersionGrid({
                                   </button>
                                   <button
                                     type="button"
-                                    aria-label="Retirer la séance"
+                                    aria-label={t("tt.grid.removeSession")}
                                     className="rounded p-1 text-danger hover:bg-danger-soft"
                                     onClick={() => void run(() => api.delete(`/timetable-entries/${e.id}`))}
                                   >
@@ -188,7 +186,7 @@ export function VersionGrid({
                         {canEditHere && here.length === 0 && !isAdding && (
                           <button
                             type="button"
-                            aria-label={`Ajouter une séance le ${d.label} à ${row.heureDebut}`}
+                            aria-label={t("tt.grid.addSession", { day: d.label, time: row.heureDebut })}
                             className="flex h-8 w-full items-center justify-center rounded-lg border border-dashed border-border text-ink-muted hover:border-primary hover:text-primary"
                             onClick={() => {
                               close();
@@ -202,16 +200,16 @@ export function VersionGrid({
                         )}
                         {isAdding && (
                           <div className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/5 p-1.5">
-                            <Select value={subjectId} onChange={(ev) => setSubjectId(ev.target.value)} aria-label="Matière">
-                              {assignments.length === 0 && <option value="">Aucune affectation</option>}
+                            <Select value={subjectId} onChange={(ev) => setSubjectId(ev.target.value)} aria-label={t("tt.col.subject")}>
+                              {assignments.length === 0 && <option value="">{t("tt.grid.noAssignment")}</option>}
                               {assignments.map((a) => (
                                 <option key={a.subjectId} value={a.subjectId}>
                                   {a.subject.nom} ({a.teacher.prenom} {a.teacher.nom})
                                 </option>
                               ))}
                             </Select>
-                            <Select value={roomId} onChange={(ev) => setRoomId(ev.target.value)} aria-label="Salle">
-                              {activeRooms.length === 0 && <option value="">Aucune salle</option>}
+                            <Select value={roomId} onChange={(ev) => setRoomId(ev.target.value)} aria-label={t("tt.col.room")}>
+                              {activeRooms.length === 0 && <option value="">{t("tt.grid.noRoom")}</option>}
                               {activeRooms.map((r) => (
                                 <option key={r.id} value={r.id}>
                                   {r.nom}
@@ -235,7 +233,7 @@ export function VersionGrid({
                                   );
                                 }}
                               >
-                                Ajouter
+                                {t("tt.add")}
                               </Button>
                               <Button variant="ghost" onClick={close}>
                                 <X size={14} />

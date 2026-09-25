@@ -3,25 +3,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { ClassPicker } from "@/components/pre-registrations/class-picker";
 import { STATUT_COLOR, STATUT_LABEL, dayLabel, studentName, type PreRegistrationStatus, type PreRegistrationView } from "@/lib/pre-registrations";
 
-const TABS: Array<{ key: PreRegistrationStatus; label: string }> = [
-  { key: "EN_ATTENTE", label: "En attente" },
-  { key: "ACCEPTEE", label: "Acceptées" },
-  { key: "REJETEE", label: "Refusées" },
+const TABS: Array<{ key: PreRegistrationStatus; label: MessageKey }> = [
+  { key: "EN_ATTENTE", label: "stu.pre.tabPending" },
+  { key: "ACCEPTEE", label: "stu.pre.tabAccepted" },
+  { key: "REJETEE", label: "stu.pre.tabRejected" },
 ];
 
 function AcceptPanel({ row, onDone, onCancel }: { row: PreRegistrationView; onDone: () => void; onCancel: () => void }) {
+  const { t } = useI18n();
   const [classId, setClassId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ id: string; nom: string; prenom: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(forcerCreation: boolean) {
-    if (!classId) return setError("Choisissez la classe.");
+    if (!classId) return setError(t("stu.pre.chooseClass"));
     setError(null);
     setBusy(true);
     try {
@@ -46,21 +49,21 @@ function AcceptPanel({ row, onDone, onCancel }: { row: PreRegistrationView; onDo
       <ErrorMessage>{error}</ErrorMessage>
       {duplicate && (
         <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
-          Un élève très proche existe déjà ({duplicate.prenom} {duplicate.nom}). Confirmez si ce n&apos;est pas un doublon.
+          {t("stu.pre.duplicateWarn", { name: `${duplicate.prenom} ${duplicate.nom}` })}
         </p>
       )}
       <div className="flex flex-wrap gap-2">
         {!duplicate ? (
           <Button onClick={() => void submit(false)} disabled={busy || !classId}>
-            {busy ? "Enregistrement…" : "Accepter et inscrire"}
+            {busy ? t("stu.pre.saving") : t("stu.pre.acceptAndEnrol")}
           </Button>
         ) : (
           <Button onClick={() => void submit(true)} disabled={busy}>
-            {busy ? "Enregistrement…" : "Confirmer malgré le doublon"}
+            {busy ? t("stu.pre.saving") : t("stu.pre.confirmDespiteDuplicate")}
           </Button>
         )}
         <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
-          Annuler
+          {t("stu.pre.cancel")}
         </Button>
       </div>
     </div>
@@ -72,6 +75,7 @@ function AcceptPanel({ row, onDone, onCancel }: { row: PreRegistrationView; onDo
  * à choisir la classe réelle puis à créer l'élève et son inscription (les mêmes garde-fous s'appliquent, doublon compris).
  */
 export default function PreRegistrationsPage() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<PreRegistrationStatus>("EN_ATTENTE");
   const [rows, setRows] = useState<PreRegistrationView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export default function PreRegistrationsPage() {
   }, [load]);
 
   async function reject(row: PreRegistrationView) {
-    const motif = prompt(`Motif du refus de la demande de ${studentName(row.eleve)} :`);
+    const motif = prompt(t("stu.pre.rejectPrompt", { name: studentName(row.eleve) }));
     if (!motif) return;
     setError(null);
     try {
@@ -105,57 +109,60 @@ export default function PreRegistrationsPage() {
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Lot 21"
-        subtitle="Demandes déposées par des familles sans compte. Accepter crée l'élève et son inscription réels."
-        helpId="preinscriptions"
-      >
-        Préinscriptions
+      <PageTitle eyebrow={t("stu.pre.eyebrow")} subtitle={t("stu.pre.subtitle")} helpId="preinscriptions">
+        {t("stu.pre.title")}
       </PageTitle>
 
       <div className="mb-4 flex gap-1 rounded-full border border-border bg-surface-muted p-1">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.key}
+            key={tb.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab(tb.key)}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-surface text-ink shadow-[var(--shadow-soft)]" : "text-ink-muted hover:text-ink"
+              tab === tb.key ? "bg-surface text-ink shadow-[var(--shadow-soft)]" : "text-ink-muted hover:text-ink"
             }`}
           >
-            {t.label}
+            {t(tb.label)}
           </button>
         ))}
       </div>
 
       <ErrorMessage>{error}</ErrorMessage>
-      {rows && rows.length === 0 && <EmptyState title="Aucune demande" description="Les demandes de préinscription apparaîtront ici." />}
+      {rows && rows.length === 0 && <EmptyState title={t("stu.pre.emptyTitle")} description={t("stu.pre.emptyDesc")} />}
       <div className="space-y-3">
         {rows?.map((r) => (
           <Card key={r.id}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="font-medium text-ink">
-                  {studentName(r.eleve)} <span className="font-normal text-ink-muted">· {r.niveau?.nom ?? "Niveau supprimé"}</span>
+                  {studentName(r.eleve)} <span className="font-normal text-ink-muted">· {r.niveau?.nom ?? t("stu.pre.levelDeleted")}</span>
                 </p>
                 <p className="text-sm text-ink-muted">
-                  Né(e) le {dayLabel(r.eleve.dateNaissance)} · Référence {r.reference} · Déposée le {dayLabel(r.createdAt)}
+                  {t("stu.pre.bornRefFiled", {
+                    born: dayLabel(r.eleve.dateNaissance),
+                    reference: r.reference,
+                    filed: dayLabel(r.createdAt),
+                  })}
                 </p>
                 <p className="text-sm text-ink">
-                  Responsable : {r.responsable.prenom} {r.responsable.nom} · {r.responsable.telephone}
+                  {t("stu.pre.guardianLine", {
+                    name: `${r.responsable.prenom} ${r.responsable.nom}`,
+                    phone: r.responsable.telephone,
+                  })}
                   {r.responsable.email ? ` · ${r.responsable.email}` : ""}
                 </p>
-                {r.message && <p className="mt-1 text-sm text-ink-muted">« {r.message} »</p>}
-                {r.motifRejet && <p className="mt-1 text-sm text-danger">Motif du refus : {r.motifRejet}</p>}
+                {r.message && <p className="mt-1 text-sm text-ink-muted">{t("stu.pre.quotedMessage", { message: r.message })}</p>}
+                {r.motifRejet && <p className="mt-1 text-sm text-danger">{t("stu.pre.rejectReason", { reason: r.motifRejet })}</p>}
               </div>
               <Badge color={STATUT_COLOR[r.statut]}>{STATUT_LABEL[r.statut]}</Badge>
             </div>
             {r.statut === "EN_ATTENTE" && (
               <>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button onClick={() => setAccepting(accepting === r.id ? null : r.id)}>Accepter</Button>
+                  <Button onClick={() => setAccepting(accepting === r.id ? null : r.id)}>{t("stu.pre.accept")}</Button>
                   <Button variant="secondary" onClick={() => void reject(r)}>
-                    Refuser
+                    {t("stu.pre.reject")}
                   </Button>
                 </div>
                 {accepting === r.id && (

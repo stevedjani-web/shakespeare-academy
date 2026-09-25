@@ -5,7 +5,10 @@ import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
 import { buildSection } from "@/lib/export";
+import { type MessageKey } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { ExportButtons } from "@/components/export-buttons";
+import { ExpandButton } from "@/components/expand";
 import type { AcademicYear, FeeApplicability, FeeSchedule, FeeType, Level } from "@/lib/types";
 import {
   Badge,
@@ -19,12 +22,12 @@ import {
   Select,
   SuccessMessage,
 } from "@/components/ui";
-import { Coins, Layers, Minus, Plus, PlusCircle, Receipt } from "lucide-react";
+import { Coins, Layers, PlusCircle, Receipt } from "lucide-react";
 
-const APPLIES_TO_LABEL: Record<FeeApplicability, string> = {
-  TOUS: "Inscription et réinscription",
-  INSCRIPTION: "Inscription uniquement",
-  REINSCRIPTION: "Réinscription uniquement",
+const APPLIES_TO_KEY: Record<FeeApplicability, MessageKey> = {
+  TOUS: "fin.tariffs.appliesTo.TOUS",
+  INSCRIPTION: "fin.tariffs.appliesTo.INSCRIPTION",
+  REINSCRIPTION: "fin.tariffs.appliesTo.REINSCRIPTION",
 };
 
 interface TarifRow {
@@ -36,32 +39,18 @@ interface TarifRow {
   montant: number | null;
 }
 
-/** Bouton + / - qui développe une ligne. */
-function ExpandButton({ open, onClick, label }: { open: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={open}
-      aria-label={`${open ? "Réduire" : "Développer"} ${label}`}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-surface-muted"
-    >
-      {open ? <Minus size={15} /> : <Plus size={15} />}
-    </button>
-  );
-}
-
 /** Tout développer / Tout réduire, pour une liste dont on connaît les identifiants. */
 function ExpandAll({ ids, onChange }: { ids: string[]; onChange: (next: Set<string>) => void }) {
+  const { t } = useI18n();
   if (ids.length < 2) return null;
   const cls = "rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted";
   return (
     <div className="mb-3 flex gap-2 text-sm">
       <button type="button" onClick={() => onChange(new Set(ids))} className={cls}>
-        Tout développer
+        {t("common.expandAll")}
       </button>
       <button type="button" onClick={() => onChange(new Set())} className={cls}>
-        Tout réduire
+        {t("common.collapseAll")}
       </button>
     </div>
   );
@@ -70,6 +59,7 @@ function ExpandAll({ ids, onChange }: { ids: string[]; onChange: (next: Set<stri
 type InstallmentDraft = { libelle: string; montant: string; dateLimite: string; delaiGraceJours: string };
 
 export default function TarifsPage() {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canManage = hasPermission("FEE_MANAGE");
 
@@ -141,8 +131,8 @@ export default function TarifsPage() {
 
   return (
     <div>
-      <PageTitle eyebrow="Lot 3" subtitle="Types de frais, grilles tarifaires par niveau et tranches d'écolage." helpId="tarifs">
-        Tarifs & facturation
+      <PageTitle eyebrow={t("fin.eyebrow", { n: 3 })} subtitle={t("fin.tariffs.subtitle")} helpId="tarifs">
+        {t("fin.tariffs.title")}
       </PageTitle>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
@@ -154,7 +144,7 @@ export default function TarifsPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
                 <Layers size={18} />
               </div>
-              <h2 className="font-display text-lg font-semibold text-ink">Grilles tarifaires</h2>
+              <h2 className="font-display text-lg font-semibold text-ink">{t("fin.tariffs.schedules")}</h2>
               <div className="ml-auto flex flex-wrap gap-2">
                 <Select value={yearId} onChange={(e) => setYearId(e.target.value)} className="w-auto">
                   {years.map((y) => (
@@ -164,27 +154,27 @@ export default function TarifsPage() {
                   ))}
                 </Select>
                 <ExportButtons
-                  fileName="grille-tarifaire"
-                  title="Grille tarifaire"
+                  fileName={t("fin.tariffs.exportFile")}
+                  title={t("fin.tariffs.exportTitle")}
                   landscape
                   disabled={schedulesForLevel.length === 0}
                   sections={[
                     buildSection(
-                      "Grille tarifaire",
+                      t("fin.tariffs.exportTitle"),
                       [
-                        { header: "Année", value: (r: TarifRow) => r.annee },
-                        { header: "Niveau", value: (r: TarifRow) => r.niveau },
-                        { header: "Type de frais", value: (r: TarifRow) => r.frais },
-                        { header: "Tranche", value: (r: TarifRow) => r.tranche },
-                        { header: "Date limite", value: (r: TarifRow) => r.dateLimite },
-                        { header: "Montant", value: (r: TarifRow) => r.montant, kind: "money" },
+                        { header: t("fin.tariffs.colYear"), value: (r: TarifRow) => r.annee },
+                        { header: t("fin.tariffs.level"), value: (r: TarifRow) => r.niveau },
+                        { header: t("fin.tariffs.feeType"), value: (r: TarifRow) => r.frais },
+                        { header: t("fin.tariffs.instalment"), value: (r: TarifRow) => r.tranche },
+                        { header: t("fin.tariffs.deadline"), value: (r: TarifRow) => r.dateLimite },
+                        { header: t("fin.f.amount"), value: (r: TarifRow) => r.montant, kind: "money" },
                       ],
                       tarifRows,
                     ),
                   ]}
                 />
                 <Select value={levelId} onChange={(e) => setLevelId(e.target.value)} className="w-auto">
-                  <option value="">Tous les niveaux</option>
+                  <option value="">{t("fin.tariffs.allLevels")}</option>
                   {levels.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.nom}
@@ -197,8 +187,8 @@ export default function TarifsPage() {
             {schedulesForLevel.length === 0 ? (
               <EmptyState
                 icon={<Receipt />}
-                title="Aucune grille tarifaire"
-                description="Aucun tarif n'est encore configuré pour ce niveau et cette année scolaire."
+                title={t("fin.tariffs.emptyTitle")}
+                description={t("fin.tariffs.emptyText")}
               />
             ) : (
               <div className="space-y-2">
@@ -226,11 +216,11 @@ export default function TarifsPage() {
                         <div className="mt-3 border-t border-border pt-3">
                           <div className="mb-2 flex flex-wrap items-center gap-2">
                             {s.feeType.obligatoire ? (
-                              <Badge color="primary">Obligatoire</Badge>
+                              <Badge color="primary">{t("fin.tariffs.mandatory")}</Badge>
                             ) : (
-                              <Badge color="slate">Facultatif</Badge>
+                              <Badge color="slate">{t("fin.tariffs.optional")}</Badge>
                             )}
-                            {s.feeType.avecTranches ? <Badge color="accent">Tranches</Badge> : null}
+                            {s.feeType.avecTranches ? <Badge color="accent">{t("fin.tariffs.instalments")}</Badge> : null}
                           </div>
                           {s.feeType.avecTranches ? (
                             <ul className="space-y-1 text-sm text-ink-muted">
@@ -244,12 +234,12 @@ export default function TarifsPage() {
                                 </li>
                               ))}
                               <li className="flex justify-between border-t border-border pt-1 font-semibold text-ink">
-                                <span>Total</span>
+                                <span>{t("common.total")}</span>
                                 <span>{formatMontant(total)}</span>
                               </li>
                             </ul>
                           ) : (
-                            <p className="text-sm text-ink-muted">Montant unique : {formatMontant(total)}</p>
+                            <p className="text-sm text-ink-muted">{t("fin.tariffs.singleAmount", { amount: formatMontant(total) })}</p>
                           )}
                         </div>
                       )}
@@ -286,6 +276,7 @@ function FeeTypesPanel({
   canManage: boolean;
   onChanged: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<{
     code: string;
     nom: string;
@@ -315,7 +306,7 @@ function FeeTypesPanel({
       setForm({ code: "", nom: "", obligatoire: true, avecTranches: false, appliesTo: "TOUS" });
       await onChanged();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -327,23 +318,23 @@ function FeeTypesPanel({
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent-dark">
           <Coins size={18} />
         </div>
-        <h2 className="font-display text-lg font-semibold text-ink">Types de frais</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("fin.tariffs.feeTypes")}</h2>
       </div>
 
       {canManage && (
         <form onSubmit={handleCreate} className="mb-5 space-y-3 border-b border-border pb-5">
-          <Field label="Code">
+          <Field label={t("fin.tariffs.code")}>
             <Input
               required
-              placeholder="ECOLAGE"
+              placeholder={t("fin.tariffs.codePlaceholder")}
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
             />
           </Field>
-          <Field label="Nom">
+          <Field label={t("fin.tariffs.name")}>
             <Input
               required
-              placeholder="Écolage annuel"
+              placeholder={t("fin.tariffs.namePlaceholder")}
               value={form.nom}
               onChange={(e) => setForm({ ...form, nom: e.target.value })}
             />
@@ -355,7 +346,7 @@ function FeeTypesPanel({
                 checked={form.obligatoire}
                 onChange={(e) => setForm({ ...form, obligatoire: e.target.checked })}
               />
-              Obligatoire
+              {t("fin.tariffs.mandatory")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -363,23 +354,23 @@ function FeeTypesPanel({
                 checked={form.avecTranches}
                 onChange={(e) => setForm({ ...form, avecTranches: e.target.checked })}
               />
-              Réparti en tranches
+              {t("fin.tariffs.splitInstalments")}
             </label>
           </div>
-          <Field label="S'applique à">
+          <Field label={t("fin.tariffs.appliesTo")}>
             <Select
               value={form.appliesTo}
               onChange={(e) => setForm({ ...form, appliesTo: e.target.value as FeeApplicability })}
             >
-              <option value="TOUS">Inscription et réinscription</option>
-              <option value="INSCRIPTION">Inscription uniquement (nouvel élève)</option>
-              <option value="REINSCRIPTION">Réinscription uniquement (élève déjà connu)</option>
+              <option value="TOUS">{t("fin.tariffs.appliesTo.TOUS")}</option>
+              <option value="INSCRIPTION">{t("fin.tariffs.appliesToOption.INSCRIPTION")}</option>
+              <option value="REINSCRIPTION">{t("fin.tariffs.appliesToOption.REINSCRIPTION")}</option>
             </Select>
           </Field>
           <ErrorMessage>{error}</ErrorMessage>
           <Button type="submit" disabled={submitting} className="w-full">
             <PlusCircle size={16} />
-            {submitting ? "Création…" : "Créer le type de frais"}
+            {submitting ? t("fin.tariffs.creating") : t("fin.tariffs.createFeeType")}
           </Button>
         </form>
       )}
@@ -397,19 +388,23 @@ function FeeTypesPanel({
               {expanded && (
                 <div className="mt-2.5 space-y-2 border-t border-border pt-2.5">
                   <p className="text-xs text-ink-muted">
-                    {ft.code} · {APPLIES_TO_LABEL[ft.appliesTo]}
+                    {ft.code} · {t(APPLIES_TO_KEY[ft.appliesTo])}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {ft.obligatoire ? <Badge color="primary">Obligatoire</Badge> : <Badge color="slate">Facultatif</Badge>}
-                    {ft.avecTranches && <Badge color="accent">Tranches</Badge>}
-                    {ft.appliesTo !== "TOUS" && <Badge color="orange">{APPLIES_TO_LABEL[ft.appliesTo]}</Badge>}
+                    {ft.obligatoire ? (
+                      <Badge color="primary">{t("fin.tariffs.mandatory")}</Badge>
+                    ) : (
+                      <Badge color="slate">{t("fin.tariffs.optional")}</Badge>
+                    )}
+                    {ft.avecTranches && <Badge color="accent">{t("fin.tariffs.instalments")}</Badge>}
+                    {ft.appliesTo !== "TOUS" && <Badge color="orange">{t(APPLIES_TO_KEY[ft.appliesTo])}</Badge>}
                   </div>
                 </div>
               )}
             </li>
           );
         })}
-        {feeTypes.length === 0 && <p className="py-4 text-center text-sm text-ink-muted">Aucun type de frais.</p>}
+        {feeTypes.length === 0 && <p className="py-4 text-center text-sm text-ink-muted">{t("fin.tariffs.noFeeTypes")}</p>}
       </ul>
     </Card>
   );
@@ -432,12 +427,13 @@ function CreateFeeSchedulePanel({
   existing: FeeSchedule[];
   onCreated: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const [academicYearId, setAcademicYearId] = useState(defaultYearId);
   const [levelId, setLevelId] = useState(defaultLevelId);
   const [feeTypeId, setFeeTypeId] = useState(feeTypes[0]?.id ?? "");
   const [montant, setMontant] = useState("");
   const [installments, setInstallments] = useState<InstallmentDraft[]>([
-    { libelle: "1ère tranche", montant: "", dateLimite: "", delaiGraceJours: "0" },
+    { libelle: t("fin.tariffs.firstInstalment"), montant: "", dateLimite: "", delaiGraceJours: "0" },
   ]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -480,7 +476,7 @@ function CreateFeeSchedulePanel({
       setMontant("");
       await onCreated();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -490,10 +486,10 @@ function CreateFeeSchedulePanel({
 
   return (
     <Card>
-      <h2 className="mb-4 font-display text-lg font-semibold text-ink">Configurer un tarif</h2>
+      <h2 className="mb-4 font-display text-lg font-semibold text-ink">{t("fin.tariffs.setUp")}</h2>
       <form onSubmit={handleCreate} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Année scolaire">
+          <Field label={t("fin.tariffs.schoolYear")}>
             <Select value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
               {years.map((y) => (
                 <option key={y.id} value={y.id}>
@@ -502,7 +498,7 @@ function CreateFeeSchedulePanel({
               ))}
             </Select>
           </Field>
-          <Field label="Niveau">
+          <Field label={t("fin.tariffs.level")}>
             <Select value={levelId} onChange={(e) => setLevelId(e.target.value)}>
               {levels.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -511,7 +507,7 @@ function CreateFeeSchedulePanel({
               ))}
             </Select>
           </Field>
-          <Field label="Type de frais">
+          <Field label={t("fin.tariffs.feeType")}>
             <Select value={feeTypeId} onChange={(e) => setFeeTypeId(e.target.value)}>
               {feeTypes.map((ft) => (
                 <option key={ft.id} value={ft.id}>
@@ -524,17 +520,17 @@ function CreateFeeSchedulePanel({
 
         {selectedFeeType?.avecTranches ? (
           <div className="space-y-3">
-            <p className="text-sm font-medium text-ink">Tranches</p>
+            <p className="text-sm font-medium text-ink">{t("fin.tariffs.instalments")}</p>
             {installments.map((row, idx) => (
               <div key={idx} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Input
-                  placeholder="Libellé"
+                  placeholder={t("fin.tariffs.labelPlaceholder")}
                   value={row.libelle}
                   onChange={(e) => updateInstallment(idx, { libelle: e.target.value })}
                 />
                 <Input
                   type="number"
-                  placeholder="Montant"
+                  placeholder={t("fin.f.amount")}
                   value={row.montant}
                   onChange={(e) => updateInstallment(idx, { montant: e.target.value })}
                 />
@@ -545,7 +541,7 @@ function CreateFeeSchedulePanel({
                 />
                 <Input
                   type="number"
-                  placeholder="Délai de grâce (j)"
+                  placeholder={t("fin.tariffs.gracePlaceholder")}
                   value={row.delaiGraceJours}
                   onChange={(e) => updateInstallment(idx, { delaiGraceJours: e.target.value })}
                 />
@@ -558,11 +554,11 @@ function CreateFeeSchedulePanel({
                 onClick={() =>
                   setInstallments((rows) => [
                     ...rows,
-                    { libelle: `${rows.length + 1}ème tranche`, montant: "", dateLimite: "", delaiGraceJours: "0" },
+                    { libelle: t("fin.tariffs.nthInstalment", { n: rows.length + 1 }), montant: "", dateLimite: "", delaiGraceJours: "0" },
                   ])
                 }
               >
-                + Ajouter une tranche
+                {t("fin.tariffs.addInstalment")}
               </Button>
               {installments.length > 1 && (
                 <Button
@@ -570,13 +566,13 @@ function CreateFeeSchedulePanel({
                   variant="ghost"
                   onClick={() => setInstallments((rows) => rows.slice(0, -1))}
                 >
-                  Retirer la dernière
+                  {t("fin.tariffs.removeLast")}
                 </Button>
               )}
             </div>
           </div>
         ) : (
-          <Field label="Montant">
+          <Field label={t("fin.f.amount")}>
             <Input
               type="number"
               required
@@ -589,13 +585,13 @@ function CreateFeeSchedulePanel({
 
         {alreadyConfigured && (
           <p className="text-xs text-warning">
-            Un tarif existe déjà pour ce type de frais, ce niveau et cette année scolaire.
+            {t("fin.tariffs.alreadyConfigured")}
           </p>
         )}
         <ErrorMessage>{error}</ErrorMessage>
-        <SuccessMessage>{success ? "Grille tarifaire créée." : null}</SuccessMessage>
+        <SuccessMessage>{success ? t("fin.tariffs.created") : null}</SuccessMessage>
         <Button type="submit" disabled={submitting || alreadyConfigured}>
-          {submitting ? "Enregistrement…" : "Enregistrer le tarif"}
+          {submitting ? t("fin.saving") : t("fin.tariffs.saveFee")}
         </Button>
       </form>
     </Card>

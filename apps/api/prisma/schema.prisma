@@ -64,6 +64,13 @@ model School {
   messageDelaiReponseJours Int @default(2)
   messageNumeroMinChiffres Int @default(9)
 
+  // Lot 22 (D144 à D150) : assistant de rédaction de la messagerie (brouillons de réponse pour le personnel,
+  // jamais envoyés seuls). Éteint par défaut ; plafond de dépense mensuel en centimes de dollar (1000 = 10 $) ;
+  // FAQ de l'école rédigée par la Direction, seule connaissance qui ne vient pas de la base.
+  assistantActif           Boolean @default(false)
+  assistantPlafondCentimes Int     @default(1000)
+  assistantFaq             String?
+
   // Lot 14 (D61 : AUCUN seuil inventé). Nombre d'absences non justifiées, sur la période du tableau de bord,
   // à partir duquel un élève apparaît dans les alertes de décrochage. `null` = alertes désactivées : elles le
   // restent tant que la Direction n'a pas fixé un seuil.
@@ -297,6 +304,8 @@ model User {
   verrouilleJusqua          DateTime?
   // Récupération administrée (§8) : un admin fixe un mot de passe temporaire, l'utilisateur doit le changer à la connexion suivante.
   doitChangerMotDePasse     Boolean    @default(false)
+  // Langue choisie par l'utilisateur (« fr » ou « en ») ; vide = pas encore choisie, la langue de l'appareil s'applique.
+  langue                    String?
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 
@@ -1599,6 +1608,8 @@ model ParentAccount {
   tentativesEchecsConnexion Int        @default(0)
   verrouilleJusqua          DateTime?
   dernierLoginAt            DateTime?
+  // Langue choisie par le responsable (« fr » ou « en ») ; vide = la langue de l'appareil s'applique.
+  langue                    String?
   activatedAt               DateTime   @default(now())
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
@@ -1701,6 +1712,9 @@ model ParentNotification {
   titre       String
   // Détail lisible dans l'application authentifiée uniquement, jamais le motif, une note ou un montant.
   corps       String
+  // Version anglaise du titre et du détail (vide pour les notifications créées avant la version bilingue : le français s'affiche alors).
+  titreEn     String?
+  corpsEn     String?
   occurrences Int              @default(1)
   pushStatut  PushDelivery     @default(EN_ATTENTE)
   pushErreur  String?
@@ -2032,4 +2046,25 @@ model TextbookEntry {
 
   @@index([classId, date])
   @@map("textbook_entries")
+}
+
+// Lot 22 : un appel à l'assistant de rédaction (réussi ou non), pour le plafond mensuel, la limite par utilisateur et le
+// suivi du coût. Ne contient jamais le texte des messages ni celui du brouillon.
+model AssistantUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  threadId     String?
+  modele       String
+  // OK, ECHEC (le prestataire a refusé ou n'a pas répondu) ou REJETE (brouillon inutilisable).
+  statut       String
+  raison       String?
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  // Coût en millionièmes de dollar (entier : jamais de calcul flottant sur un montant).
+  coutMicroUsd Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("assistant_usages")
 }

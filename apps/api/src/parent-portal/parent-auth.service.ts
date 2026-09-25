@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { pick } from '../common/language';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash, randomBytes } from 'crypto';
@@ -23,9 +24,27 @@ import { ActivateDto } from './dto/parent.dto';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
-const GENERIC_LOGIN_ERROR = 'Numéro ou mot de passe incorrect.';
-const GENERIC_CODE_ERROR =
-  'Numéro ou code d’activation incorrect, ou code expiré. Demandez un nouveau code au secrétariat.';
+// Messages montrés au parent : dans la langue de sa requête (Accept-Language), le français par défaut.
+const genericLoginError = () =>
+  pick({
+    fr: 'Numéro ou mot de passe incorrect.',
+    en: 'Incorrect number or password.',
+  });
+const genericCodeError = () =>
+  pick({
+    fr: 'Numéro ou code d’activation incorrect, ou code expiré. Demandez un nouveau code au secrétariat.',
+    en: 'Incorrect number or activation code, or the code has expired. Ask the school office for a new code.',
+  });
+const invalidSession = () =>
+  pick({
+    fr: 'Session invalide ou expirée.',
+    en: 'Invalid or expired session.',
+  });
+const sessionExpired = () =>
+  pick({
+    fr: 'Session expirée, veuillez vous reconnecter.',
+    en: 'Your session has expired, please sign in again.',
+  });
 
 export interface ParentSession {
   accessToken: string;
@@ -39,6 +58,8 @@ export interface ParentSession {
     nom: string | null;
     prenom: string | null;
     telephone: string;
+    /** Langue choisie (« fr » ou « en »), vide tant que le parent n'a pas choisi. */
+    langue: string | null;
   };
 }
 
@@ -91,12 +112,18 @@ export class ParentAuthService {
   async activate(dto: ActivateDto): Promise<ParentSession> {
     if (!dto.consentement) {
       throw new BadRequestException(
-        'Vous devez accepter la politique de confidentialité pour activer votre compte.',
+        pick({
+          fr: 'Vous devez accepter la politique de confidentialité pour activer votre compte.',
+          en: 'You must accept the privacy policy to activate your account.',
+        }),
       );
     }
     if (dto.versionPolitique !== CONSENT_VERSION) {
       throw new BadRequestException(
-        'La politique de confidentialité a changé : rechargez la page et relisez-la.',
+        pick({
+          fr: 'La politique de confidentialité a changé : rechargez la page et relisez-la.',
+          en: 'The privacy policy has changed: reload the page and read it again.',
+        }),
       );
     }
     const guardians = await this.guardiansWithPhone(dto.telephone);
@@ -119,7 +146,7 @@ export class ParentAuthService {
           data: { tentatives: { increment: 1 } },
         });
       }
-      throw new UnauthorizedException(GENERIC_CODE_ERROR);
+      throw new UnauthorizedException(genericCodeError());
     }
 
     const guardian = guardians.find((g) => g.id === match.guardianId)!;
@@ -179,16 +206,22 @@ export class ParentAuthService {
       : [];
     const account = accounts[0];
     if (!account) {
-      throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+      throw new UnauthorizedException(genericLoginError());
     }
     if (account.verrouilleJusqua && account.verrouilleJusqua > new Date()) {
       throw new ForbiddenException(
-        `Compte temporairement verrouillé après plusieurs échecs. Réessayez après ${account.verrouilleJusqua.toLocaleTimeString('fr-FR')}.`,
+        pick({
+          fr: `Compte temporairement verrouillé après plusieurs échecs. Réessayez après ${account.verrouilleJusqua.toLocaleTimeString('fr-FR')}.`,
+          en: `Account temporarily locked after several failed attempts. Try again after ${account.verrouilleJusqua.toLocaleTimeString('en-GB')}.`,
+        }),
       );
     }
     if (account.statut !== 'ACTIF') {
       throw new ForbiddenException(
-        "Ce compte est désactivé. Contactez le secrétariat de l'école.",
+        pick({
+          fr: "Ce compte est désactivé. Contactez le secrétariat de l'école.",
+          en: 'This account is disabled. Contact the school office.',
+        }),
       );
     }
     if (!(await argon2.verify(account.motDePasseHash, motDePasse))) {
@@ -203,7 +236,7 @@ export class ParentAuthService {
             : null,
         },
       });
-      throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+      throw new UnauthorizedException(genericLoginError());
     }
     await this.prisma.parentAccount.update({
       where: { id: account.id },
@@ -226,17 +259,13 @@ export class ParentAuthService {
       where: { tokenHash },
     });
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException(
-        'Session expirée, veuillez vous reconnecter.',
-      );
+      throw new UnauthorizedException(sessionExpired());
     }
     const account = await this.prisma.parentAccount.findUnique({
       where: { id: stored.accountId },
     });
     if (!account || account.statut !== 'ACTIF') {
-      throw new UnauthorizedException(
-        'Session expirée, veuillez vous reconnecter.',
-      );
+      throw new UnauthorizedException(sessionExpired());
     }
     await this.prisma.parentRefreshToken.update({
       where: { id: stored.id },
@@ -258,11 +287,19 @@ export class ParentAuthService {
       where: { id: accountId },
     });
     if (!(await argon2.verify(account.motDePasseHash, ancien))) {
-      throw new UnauthorizedException('Ancien mot de passe incorrect.');
+      throw new UnauthorizedException(
+        pick({
+          fr: 'Ancien mot de passe incorrect.',
+          en: 'Current password is incorrect.',
+        }),
+      );
     }
     if (ancien === nouveau) {
       throw new ForbiddenException(
-        "Le nouveau mot de passe doit être différent de l'ancien.",
+        pick({
+          fr: "Le nouveau mot de passe doit être différent de l'ancien.",
+          en: 'The new password must be different from the current one.',
+        }),
       );
     }
     await this.prisma.parentAccount.update({
@@ -287,16 +324,21 @@ export class ParentAuthService {
         { secret: parentTokenSecret() },
       );
     } catch {
-      throw new UnauthorizedException('Session invalide ou expirée.');
+      throw new UnauthorizedException(invalidSession());
     }
     if (payload.typ !== 'parent' || !payload.sub) {
-      throw new UnauthorizedException('Session invalide ou expirée.');
+      throw new UnauthorizedException(invalidSession());
     }
     const account = await this.prisma.parentAccount.findUnique({
       where: { id: payload.sub },
     });
     if (!account || account.statut !== 'ACTIF') {
-      throw new UnauthorizedException('Compte introuvable ou désactivé.');
+      throw new UnauthorizedException(
+        pick({
+          fr: 'Compte introuvable ou désactivé.',
+          en: 'Account not found or disabled.',
+        }),
+      );
     }
     return { accountId: account.id, guardianId: account.guardianId };
   }
@@ -314,8 +356,12 @@ export class ParentAuthService {
     // qui refuse toujours un téléphone absent — jamais atteint en pratique, gardé pour ne jamais
     // mentir sur le type de ParentSession.parent.telephone.
     if (!guardian.telephone) {
-      throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+      throw new UnauthorizedException(genericLoginError());
     }
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { id: accountId },
+      select: { langue: true },
+    });
     return {
       accessToken: await this.signAccessToken(accountId),
       ...(await this.issueRefreshToken(accountId)),
@@ -324,8 +370,16 @@ export class ParentAuthService {
         nom: guardian.nom,
         prenom: guardian.prenom,
         telephone: guardian.telephone,
+        langue: account?.langue ?? null,
       },
     };
+  }
+
+  async setLanguage(accountId: string, langue: string): Promise<void> {
+    await this.prisma.parentAccount.update({
+      where: { id: accountId },
+      data: { langue },
+    });
   }
 
   private async signAccessToken(accountId: string): Promise<string> {

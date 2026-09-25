@@ -10,6 +10,8 @@ import { nextProvisionalNumber, useOnOutboxChange, useOutbox, type OutboxEntry }
 import { ExpandButton } from "@/components/expand";
 import { HelpTip } from "@/components/help-tip";
 import { formatDate, formatMontant } from "@/lib/format";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { FeeType, FinancialStatus, Invoice, InvoiceLine, Payment, SolvencyStatus } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import {
@@ -24,7 +26,16 @@ import {
   XCircle,
 } from "lucide-react";
 
-const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money" };
+const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
+const DISCOUNT_STATUS_KEY: Record<"EN_ATTENTE" | "APPROUVEE" | "REJETEE", MessageKey> = {
+  EN_ATTENTE: "fin.status.EN_ATTENTE",
+  APPROUVEE: "fin.status.APPROUVEE",
+  REJETEE: "fin.status.REJETEE",
+};
+const DISCOUNT_TYPE_KEY: Record<"MONTANT_FIXE" | "POURCENTAGE", MessageKey> = {
+  MONTANT_FIXE: "fin.card.discountType.MONTANT_FIXE",
+  POURCENTAGE: "fin.card.discountType.POURCENTAGE",
+};
 
 /** Élève concerné, pour le reçu provisoire imprimé quand l'encaissement se fait sans Internet. */
 export interface ReceiptStudent {
@@ -34,11 +45,9 @@ export interface ReceiptStudent {
   classe: string;
 }
 
-const NEEDS_ONLINE = "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
-
 function describeError(err: unknown): string {
-  if (isOfflineError(err)) return NEEDS_ONLINE;
-  return isApiError(err) ? err.message : "Une erreur est survenue.";
+  if (isOfflineError(err)) return translate("fin.needsOnline");
+  return isApiError(err) ? err.message : translate("common.error");
 }
 
 function computeSoldeRestant(line: InvoiceLine): number {
@@ -50,12 +59,43 @@ function computeSoldeRestant(line: InvoiceLine): number {
 }
 
 // Exporté pour StudentSummaryStrip (vue 360° du dossier élève), même badge que sur cette carte.
+// `label` est un accesseur : le texte est résolu dans la langue courante à chaque lecture, jamais figé au chargement.
 export const STATUS_META: Record<SolvencyStatus, { label: string; color: "green" | "blue" | "orange" | "red" | "slate"; icon: React.ReactNode }> = {
-  SOLVABLE: { label: "Solvable", color: "green", icon: <CheckCircle2 size={16} /> },
-  A_ECHOIR: { label: "À échoir", color: "blue", icon: <Clock size={16} /> },
-  EN_RETARD: { label: "En retard", color: "orange", icon: <AlertTriangle size={16} /> },
-  IMPAYE_CRITIQUE: { label: "Impayé critique", color: "red", icon: <AlertTriangle size={16} /> },
-  EXONERE: { label: "Exonéré", color: "slate", icon: <ShieldCheck size={16} /> },
+  SOLVABLE: {
+    get label() {
+      return translate("fin.solvency.SOLVABLE");
+    },
+    color: "green",
+    icon: <CheckCircle2 size={16} />,
+  },
+  A_ECHOIR: {
+    get label() {
+      return translate("fin.solvency.A_ECHOIR");
+    },
+    color: "blue",
+    icon: <Clock size={16} />,
+  },
+  EN_RETARD: {
+    get label() {
+      return translate("fin.solvency.EN_RETARD");
+    },
+    color: "orange",
+    icon: <AlertTriangle size={16} />,
+  },
+  IMPAYE_CRITIQUE: {
+    get label() {
+      return translate("fin.solvency.IMPAYE_CRITIQUE");
+    },
+    color: "red",
+    icon: <AlertTriangle size={16} />,
+  },
+  EXONERE: {
+    get label() {
+      return translate("fin.solvency.EXONERE");
+    },
+    color: "slate",
+    icon: <ShieldCheck size={16} />,
+  },
 };
 
 export function FinancialStatusCard({
@@ -72,6 +112,7 @@ export function FinancialStatusCard({
   open?: boolean;
   onToggle?: () => void;
 }) {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canRequestDiscount = hasPermission("ENROLLMENT_MANAGE");
   const canApproveDiscount = hasPermission("DISCOUNT_APPROVE");
@@ -145,13 +186,17 @@ export function FinancialStatusCard({
   return (
     <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6 shadow-[var(--shadow-soft)]">
       <div className={`flex flex-wrap items-center gap-3 ${open ? "mb-4" : ""}`}>
-        {onToggle && <ExpandButton open={open} onClick={onToggle} label="la situation financière" />}
+        {onToggle && <ExpandButton open={open} onClick={onToggle} label={t("fin.card.expandLabel")} />}
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
           <Receipt size={18} />
         </div>
-        <h2 className="font-display text-lg font-semibold text-ink">Situation financière</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("fin.card.title")}</h2>
         {open && <HelpTip id="eleves-dossier-paiements" />}
-        {!open && <span className="text-xs font-medium text-ink-muted">Restant dû {formatMontant(status.montantRestant)}</span>}
+        {!open && (
+          <span className="text-xs font-medium text-ink-muted">
+            {t("fin.card.remaining", { amount: formatMontant(status.montantRestant) })}
+          </span>
+        )}
         <span className="ml-auto">
           <Badge color={meta.color}>
             <span className="flex items-center gap-1">
@@ -164,10 +209,10 @@ export function FinancialStatusCard({
       {open && (
         <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Facturé" value={formatMontant(status.montantFacture)} />
-        <Metric label="Remises" value={formatMontant(status.montantRemise)} />
-        <Metric label="Payé" value={formatMontant(status.montantPaye)} hint="Encaissements : Lot 4" />
-        <Metric label="Restant dû" value={formatMontant(status.montantRestant)} />
+        <Metric label={t("fin.metric.billed")} value={formatMontant(status.montantFacture)} />
+        <Metric label={t("fin.metric.discounts")} value={formatMontant(status.montantRemise)} />
+        <Metric label={t("fin.metric.paid")} value={formatMontant(status.montantPaye)} hint={t("fin.metric.paidHint")} />
+        <Metric label={t("fin.metric.remaining")} value={formatMontant(status.montantRestant)} />
       </div>
 
       {notice && <p className="mt-3 rounded-xl bg-info-soft px-3 py-2 text-sm text-info">{notice}</p>}
@@ -175,7 +220,7 @@ export function FinancialStatusCard({
 
       {status.prochaineEcheance && (
         <p className="mt-4 text-sm text-ink-muted">
-          {status.prochaineEcheance.enRetard ? "Échéance en retard : " : "Prochaine échéance : "}
+          {status.prochaineEcheance.enRetard ? t("fin.card.overdueDue") : t("fin.card.nextDue")}{" "}
           <span className="font-medium text-ink">{status.prochaineEcheance.libelle}</span> —{" "}
           {formatMontant(status.prochaineEcheance.montant)} (
           {formatDate(status.prochaineEcheance.dateLimite)})
@@ -185,10 +230,10 @@ export function FinancialStatusCard({
       {invoice && (
         <div className="mt-5 space-y-2 border-t border-border pt-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-ink">Facture de l&apos;inscription en cours</p>
+            <p className="text-sm font-semibold text-ink">{t("fin.card.invoiceTitle")}</p>
             {canRequestDiscount && invoice.statut === "EMISE" && (
               <Button variant="ghost" onClick={() => setShowAddLine((v) => !v)}>
-                <PlusCircle size={14} /> Autre frais
+                <PlusCircle size={14} /> {t("fin.card.otherFee")}
               </Button>
             )}
           </div>
@@ -209,7 +254,7 @@ export function FinancialStatusCard({
                 <div>
                   <p className="text-sm font-medium text-ink">{line.libelle}</p>
                   {line.dateEcheance && (
-                    <p className="text-xs text-ink-muted">Échéance : {formatDate(line.dateEcheance)}</p>
+                    <p className="text-xs text-ink-muted">{t("fin.card.dueDate", { date: formatDate(line.dateEcheance) })}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -219,7 +264,7 @@ export function FinancialStatusCard({
                       variant="ghost"
                       onClick={() => setDiscountFormLineId((v) => (v === line.id ? null : line.id))}
                     >
-                      Demander une remise
+                      {t("fin.card.requestDiscount")}
                     </Button>
                   )}
                 </div>
@@ -231,22 +276,22 @@ export function FinancialStatusCard({
                 if (soldeRestant <= 0) {
                   return (
                     <p className="mt-2 text-xs font-medium text-success">
-                      Ligne soldée{enAttente > 0 ? " (paiement en attente d'envoi au serveur)" : ""}.
+                      {enAttente > 0 ? t("fin.card.lineSettledPending") : t("fin.card.lineSettled")}
                     </p>
                   );
                 }
                 return (
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-xs text-ink-muted">
-                      Solde restant : {formatMontant(soldeRestant)}
-                      {enAttente > 0 && <> (dont {formatMontant(enAttente)} déjà encaissés hors ligne, en attente)</>}
+                      {t("fin.card.balanceLeft", { amount: formatMontant(soldeRestant) })}
+                      {enAttente > 0 && <> {t("fin.card.offlineCollected", { amount: formatMontant(enAttente) })}</>}
                     </p>
                     {canPay && (
                       <Button
                         variant="accent"
                         onClick={() => setPaymentFormLineId((v) => (v === line.id ? null : line.id))}
                       >
-                        <Wallet size={15} /> Payer
+                        <Wallet size={15} /> {t("fin.card.pay")}
                       </Button>
                     )}
                   </div>
@@ -259,13 +304,13 @@ export function FinancialStatusCard({
                     <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="text-ink-muted">
                         {d.type === "POURCENTAGE" ? `${d.valeur}%` : formatMontant(d.valeur)} — {d.motif}
-                        {d.motifRejet && <> · Rejet : {d.motifRejet}</>}
+                        {d.motifRejet && <> · {t("fin.card.rejection", { reason: d.motifRejet })}</>}
                       </span>
                       <span className="flex items-center gap-2">
                         <Badge
                           color={d.statut === "APPROUVEE" ? "green" : d.statut === "REJETEE" ? "red" : "orange"}
                         >
-                          {d.statut === "EN_ATTENTE" ? "En attente" : d.statut === "APPROUVEE" ? "Approuvée" : "Rejetée"}
+                          {t(DISCOUNT_STATUS_KEY[d.statut])}
                         </Badge>
                         {canApproveDiscount && d.statut === "EN_ATTENTE" && (
                           <DiscountDecisionButtons discountId={d.id} onDecided={load} />
@@ -281,7 +326,7 @@ export function FinancialStatusCard({
                   invoiceLineId={line.id}
                   onDone={(queued) => {
                     setDiscountFormLineId(null);
-                    if (queued) setNotice("Demande de remise enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
+                    if (queued) setNotice(t("fin.card.discountQueued"));
                     void load();
                   }}
                 />
@@ -307,7 +352,7 @@ export function FinancialStatusCard({
 
       {(pendingPayments.length > 0 || failedPayments.length > 0) && (
         <div className="mt-5 space-y-2 border-t border-border pt-4">
-          <p className="text-sm font-semibold text-ink">Encaissements saisis hors ligne</p>
+          <p className="text-sm font-semibold text-ink">{t("fin.card.offlineTitle")}</p>
           {pendingPayments.map((e) => (
             <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warning/40 bg-warning-soft/40 p-3 text-sm">
               <div>
@@ -315,23 +360,23 @@ export function FinancialStatusCard({
                   {e.receipt?.numero} — {formatMontant(e.montant ?? 0)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  {e.status === "done" ? "Envoyé, mise à jour en cours" : "En attente d'envoi au serveur"} · {e.receipt?.motif}
+                  {e.status === "done" ? t("fin.card.sentUpdating") : t("fin.awaitingSend")} · {e.receipt?.motif}
                 </p>
               </div>
               <Link href={`/recus/provisoire/${e.id}`} className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                <Printer size={13} /> Reçu provisoire
+                <Printer size={13} /> {t("fin.card.provisionalReceipt")}
               </Link>
             </div>
           ))}
           {failedPayments.map((e) => (
             <div key={e.id} className="rounded-xl border border-danger/30 bg-danger-soft/40 p-3 text-sm">
               <p className="font-medium text-danger">
-                {e.receipt?.numero} — {formatMontant(e.montant ?? 0)} : refusé par le serveur
+                {t("fin.card.refusedByServer", { number: e.receipt?.numero ?? "", amount: formatMontant(e.montant ?? 0) })}
               </p>
               <p className="text-xs text-ink-muted">
                 {e.error}{" "}
                 <Link href="/hors-ligne" className="font-medium text-primary hover:underline">
-                  Voir « Synchronisation »
+                  {t("fin.card.seeSync")}
                 </Link>
               </p>
             </div>
@@ -341,7 +386,7 @@ export function FinancialStatusCard({
 
       {payments.length > 0 && (
         <div className="mt-5 space-y-2 border-t border-border pt-4">
-          <p className="text-sm font-semibold text-ink">Historique des paiements</p>
+          <p className="text-sm font-semibold text-ink">{t("fin.card.historyTitle")}</p>
           {payments.map((p) => (
             <div
               key={p.id}
@@ -354,9 +399,11 @@ export function FinancialStatusCard({
                   {p.numeroRecu} — {formatMontant(p.montant)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  {formatDate(p.datePaiement)} · {MODE_LABEL[p.modePaiement] ?? p.modePaiement} ·{" "}
+                  {formatDate(p.datePaiement)} · {MODE_KEY[p.modePaiement] ? t(MODE_KEY[p.modePaiement]) : p.modePaiement} ·{" "}
                   {p.invoiceLine?.libelle ?? "—"}
-                  {p.statut === "ANNULE" && <> · Annulé{p.motifAnnulation ? ` : ${p.motifAnnulation}` : ""}</>}
+                  {p.statut === "ANNULE" && (
+                    <> · {p.motifAnnulation ? t("fin.card.cancelledReason", { reason: p.motifAnnulation }) : t("fin.card.cancelled")}</>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -365,13 +412,13 @@ export function FinancialStatusCard({
                     onClick={() => void handleReprint(p.id)}
                     className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                   >
-                    <Printer size={13} /> Réimprimer
+                    <Printer size={13} /> {t("fin.card.reprint")}
                   </button>
                 )}
                 {canCancelPayment && p.statut === "VALIDE" && (
                   <button
                     onClick={async () => {
-                      const motif = prompt("Motif de l'annulation :");
+                      const motif = prompt(t("fin.card.cancelPrompt"));
                       if (!motif) return;
                       setActionError(null);
                       try {
@@ -383,7 +430,7 @@ export function FinancialStatusCard({
                     }}
                     className="flex items-center gap-1 text-xs font-medium text-danger hover:underline"
                   >
-                    <XCircle size={13} /> Annuler
+                    <XCircle size={13} /> {t("fin.cancel")}
                   </button>
                 )}
               </div>
@@ -408,6 +455,7 @@ function Metric({ label, value, hint }: { label: string; value: string; hint?: s
 }
 
 function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string; onDone: (queued: boolean) => void }) {
+  const { t } = useI18n();
   const [type, setType] = useState<"MONTANT_FIXE" | "POURCENTAGE">("MONTANT_FIXE");
   const [valeur, setValeur] = useState("");
   const [motif, setMotif] = useState("");
@@ -424,7 +472,10 @@ function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string;
         method: "POST",
         path: "/discounts",
         body: { invoiceLineId, type, valeur: Number(valeur), motif },
-        label: `Remise ${type === "POURCENTAGE" ? `${valeur} %` : formatMontant(Number(valeur))} : ${motif}`,
+        label: t("fin.card.discountLabel", {
+          value: type === "POURCENTAGE" ? `${valeur} %` : formatMontant(Number(valeur)),
+          reason: motif,
+        }),
         invoiceLineId,
       });
       onDone(res.queued);
@@ -439,23 +490,23 @@ function DiscountRequestForm({ invoiceLineId, onDone }: { invoiceLineId: string;
     <form onSubmit={handleSubmit} className="mt-3 space-y-2 rounded-xl bg-surface-muted p-3">
       <div className="grid grid-cols-2 gap-2">
         <Select value={type} onChange={(e) => setType(e.target.value as typeof type)}>
-          <option value="MONTANT_FIXE">Montant fixe</option>
-          <option value="POURCENTAGE">Pourcentage</option>
+          <option value="MONTANT_FIXE">{t(DISCOUNT_TYPE_KEY.MONTANT_FIXE)}</option>
+          <option value="POURCENTAGE">{t(DISCOUNT_TYPE_KEY.POURCENTAGE)}</option>
         </Select>
         <Input
           type="number"
           required
-          placeholder={type === "POURCENTAGE" ? "% (0-100)" : "Montant"}
+          placeholder={type === "POURCENTAGE" ? t("fin.card.percentPlaceholder") : t("fin.f.amount")}
           value={valeur}
           onChange={(e) => setValeur(e.target.value)}
         />
       </div>
-      <Field label="Motif">
-        <Input required value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Fratrie, difficulté..." />
+      <Field label={t("fin.card.reason")}>
+        <Input required value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("fin.card.reasonPlaceholder")} />
       </Field>
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" disabled={submitting}>
-        {submitting ? "Envoi…" : "Envoyer la demande"}
+        {submitting ? t("fin.sending") : t("fin.card.sendRequest")}
       </Button>
     </form>
   );
@@ -476,6 +527,7 @@ function PaymentForm({
   soldeRestant: number;
   onDone: () => void;
 }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [montant, setMontant] = useState(String(soldeRestant));
   const [modePaiement, setModePaiement] = useState<"ESPECES" | "MOBILE_MONEY">("ESPECES");
@@ -492,13 +544,14 @@ function PaymentForm({
       const amount = Number(montant);
       const reference = modePaiement === "MOBILE_MONEY" ? referenceExterne : undefined;
       const baseBody = { invoiceLineId, montant: amount, modePaiement, referenceExterne: reference };
+      const studentName = student ? `${student.prenom} ${student.nom}` : t("fin.student");
       const res = await submitOrQueue<Payment>(
         {
           kind: "payment",
           method: "POST",
           path: "/payments",
           body: baseBody,
-          label: `${student ? `${student.prenom} ${student.nom}` : "Élève"} : ${invoiceLineLabel}`,
+          label: t("fin.card.paymentLabel", { student: studentName, line: invoiceLineLabel }),
           studentId,
           invoiceLineId,
           montant: amount,
@@ -511,7 +564,7 @@ function PaymentForm({
             body: { ...baseBody, numeroProvisoire: numero, dateSaisie: now },
             receipt: {
               numero,
-              eleve: student ? `${student.prenom} ${student.nom}` : "Élève",
+              eleve: studentName,
               matricule: student?.matricule ?? "—",
               classe: student?.classe ?? "—",
               motif: invoiceLineLabel,
@@ -536,7 +589,7 @@ function PaymentForm({
   return (
     <form onSubmit={handleSubmit} className="mt-3 space-y-2 rounded-xl bg-surface-muted p-3">
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Montant">
+        <Field label={t("fin.f.amount")}>
           <Input
             type="number"
             required
@@ -546,32 +599,33 @@ function PaymentForm({
             onChange={(e) => setMontant(e.target.value)}
           />
         </Field>
-        <Field label="Mode de paiement">
+        <Field label={t("fin.card.paymentMethod")}>
           <Select value={modePaiement} onChange={(e) => setModePaiement(e.target.value as typeof modePaiement)}>
-            <option value="ESPECES">Espèces</option>
-            <option value="MOBILE_MONEY">Mobile Money</option>
+            <option value="ESPECES">{t("fin.mode.ESPECES")}</option>
+            <option value="MOBILE_MONEY">{t("fin.mode.MOBILE_MONEY")}</option>
           </Select>
         </Field>
       </div>
       {modePaiement === "MOBILE_MONEY" && (
-        <Field label="Référence externe">
+        <Field label={t("fin.card.externalRef")}>
           <Input
             required
             value={referenceExterne}
             onChange={(e) => setReferenceExterne(e.target.value)}
-            placeholder="Numéro de transaction"
+            placeholder={t("fin.card.transactionNumber")}
           />
         </Field>
       )}
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" variant="accent" disabled={submitting}>
-        {submitting ? "Encaissement…" : "Encaisser et imprimer le reçu"}
+        {submitting ? t("fin.card.collecting") : t("fin.card.collectAndPrint")}
       </Button>
     </form>
   );
 }
 
 function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => void }) {
+  const { t } = useI18n();
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [feeTypeId, setFeeTypeId] = useState("");
   const [montant, setMontant] = useState("");
@@ -603,8 +657,8 @@ function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => v
   return (
     <form onSubmit={handleSubmit} className="space-y-2 rounded-xl bg-surface-muted p-3">
       <p className="text-xs text-ink-muted">
-        Frais ponctuel (tenue, livres, cantine…) — configurez d&apos;abord le type dans{" "}
-        <span className="font-medium text-ink">Tarifs &amp; facturation</span> s&apos;il n&apos;existe pas encore.
+        {t("fin.card.addLineHint1")} <span className="font-medium text-ink">{t("fin.tariffs.title")}</span>{" "}
+        {t("fin.card.addLineHint2")}
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Select value={feeTypeId} onChange={(e) => setFeeTypeId(e.target.value)} required>
@@ -618,20 +672,21 @@ function AddLineForm({ invoiceId, onDone }: { invoiceId: string; onDone: () => v
           type="number"
           required
           min={1}
-          placeholder="Montant"
+          placeholder={t("fin.f.amount")}
           value={montant}
           onChange={(e) => setMontant(e.target.value)}
         />
       </div>
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" disabled={submitting || !feeTypeId}>
-        {submitting ? "Ajout…" : "Ajouter à la facture"}
+        {submitting ? t("fin.card.adding") : t("fin.card.addToInvoice")}
       </Button>
     </form>
   );
 }
 
 function DiscountDecisionButtons({ discountId, onDecided }: { discountId: string; onDecided: () => void }) {
+  const { t } = useI18n();
   async function approve() {
     try {
       await api.post(`/discounts/${discountId}/approve`);
@@ -641,7 +696,7 @@ function DiscountDecisionButtons({ discountId, onDecided }: { discountId: string
     }
   }
   async function reject() {
-    const motifRejet = prompt("Motif du rejet :");
+    const motifRejet = prompt(t("fin.rejectPrompt"));
     if (!motifRejet) return;
     try {
       await api.post(`/discounts/${discountId}/reject`, { motifRejet });
@@ -653,10 +708,10 @@ function DiscountDecisionButtons({ discountId, onDecided }: { discountId: string
   return (
     <span className="flex gap-1">
       <button onClick={() => void approve()} className="text-success hover:underline">
-        Approuver
+        {t("fin.approve")}
       </button>
       <button onClick={() => void reject()} className="text-danger hover:underline">
-        Rejeter
+        {t("fin.reject")}
       </button>
     </span>
   );

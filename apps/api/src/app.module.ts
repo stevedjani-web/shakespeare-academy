@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { languageMiddleware } from './common/language';
 import { IdempotencyInterceptor } from './common/idempotency.interceptor';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
@@ -36,6 +37,7 @@ import { OnlinePaymentsModule } from './online-payments/online-payments.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DisciplineModule } from './discipline/discipline.module';
 import { PreRegistrationsModule } from './pre-registrations/pre-registrations.module';
+import { AssistantModule } from './assistant/assistant.module';
 
 @Module({
   imports: [
@@ -73,8 +75,14 @@ import { PreRegistrationsModule } from './pre-registrations/pre-registrations.mo
     DocumentsModule,
     DisciplineModule,
     PreRegistrationsModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Langue de la requête (Accept-Language) : lue par les services qui produisent un texte pour un parent.
+    consumer.apply(languageMiddleware).forRoutes('*');
+  }
+}

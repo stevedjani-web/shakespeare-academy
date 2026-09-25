@@ -4,14 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { EvaluationRow, GradeContext } from "@/lib/grades";
-import { PERIOD_LABEL } from "@/lib/grades";
+import { periodLabel } from "@/lib/grades";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select, Spinner } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { GradeSheetView } from "./grade-sheet";
 
 /** Choix du trimestre, de la classe et de la matière, puis liste des évaluations et création d'une nouvelle. */
 export function EvaluationsTab({ context }: { context: GradeContext }) {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canEnter = hasPermission("GRADE_ENTER");
   const [termId, setTermId] = useState(context.trimestres[0]?.id ?? "");
@@ -82,7 +84,7 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
   }
 
   async function remove(row: EvaluationRow) {
-    if (!window.confirm(`Supprimer « ${row.titre} » et ses ${row.notes + row.absents + row.dispenses} note(s) ?`)) return;
+    if (!window.confirm(t("acd.eval.confirmDelete", { title: row.titre, count: row.notes + row.absents + row.dispenses }))) return;
     try {
       await api.delete(`/grades/evaluations/${row.id}`);
       await load();
@@ -104,20 +106,10 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
   }
 
   if (context.affectations.length === 0) {
-    return (
-      <EmptyState
-        title="Aucune matière"
-        description="Aucune matière ne vous est affectée cette année. La Direction ou l'administration renseigne les affectations dans Vie scolaire."
-      />
-    );
+    return <EmptyState title={t("acd.eval.noSubjectsTitle")} description={t("acd.eval.noSubjectsDesc")} />;
   }
   if (context.trimestres.length === 0) {
-    return (
-      <EmptyState
-        title="Aucun trimestre"
-        description="Les trimestres de l'année active n'ont pas été saisis. La Direction les renseigne dans Vie scolaire, onglet Calendrier."
-      />
-    );
+    return <EmptyState title={t("acd.eval.noTermsTitle")} description={t("acd.eval.noTermsDesc")} />;
   }
 
   const period = rows?.[0]?.periode ?? "OUVERT";
@@ -125,16 +117,16 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
     <div className="space-y-4">
       <Card>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Trimestre">
+          <Field label={t("acd.grades.term")}>
             <Select value={termId} onChange={(e) => setTermId(e.target.value)}>
-              {context.trimestres.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.libelle}
+              {context.trimestres.map((term) => (
+                <option key={term.id} value={term.id}>
+                  {term.libelle}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Classe">
+          <Field label={t("acd.grades.class")}>
             <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -143,7 +135,7 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
               ))}
             </Select>
           </Field>
-          <Field label="Matière">
+          <Field label={t("acd.grades.subject")}>
             <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
               {subjects.map((s) => (
                 <option key={s.subjectId} value={s.subjectId}>
@@ -155,7 +147,7 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
         </div>
         {period !== "OUVERT" && (
           <p className="mt-3 text-sm text-ink-muted">
-            <Badge color="orange">{PERIOD_LABEL[period]}</Badge> On ne peut plus ajouter d&apos;évaluation. La Direction peut rouvrir le trimestre.
+            <Badge color="orange">{periodLabel(period)}</Badge> {t("acd.eval.lockedNote")}
           </p>
         )}
       </Card>
@@ -166,22 +158,22 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
         <Card>
           <form onSubmit={create} className="grid gap-3 sm:grid-cols-5">
             <div className="sm:col-span-2">
-              <Field label="Nouvelle évaluation">
-                <Input required value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} placeholder="Ex. Devoir 1" maxLength={120} />
+              <Field label={t("acd.eval.newEval")}>
+                <Input required value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} placeholder={t("acd.eval.newEvalPlaceholder")} maxLength={120} />
               </Field>
             </div>
-            <Field label="Date">
+            <Field label={t("acd.eval.date")}>
               <Input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
             </Field>
-            <Field label={`Sur (défaut ${context.parametres.baremeDefaut})`}>
+            <Field label={t("acd.eval.outOf", { default: context.parametres.baremeDefaut })}>
               <Input inputMode="numeric" value={form.bareme} onChange={(e) => setForm({ ...form, bareme: e.target.value.replace(/\D/g, "") })} placeholder={String(context.parametres.baremeDefaut)} />
             </Field>
-            <Field label="Coefficient">
+            <Field label={t("acd.eval.coefficient")}>
               <Input inputMode="numeric" value={form.coefficient} onChange={(e) => setForm({ ...form, coefficient: e.target.value.replace(/\D/g, "") })} />
             </Field>
             <div className="sm:col-span-5">
               <Button type="submit" disabled={busy || !form.titre.trim() || !termId || !classId || !subjectId}>
-                {busy ? <Spinner /> : <Plus size={15} />} Créer et saisir les notes
+                {busy ? <Spinner /> : <Plus size={15} />} {t("acd.eval.create")}
               </Button>
             </div>
           </form>
@@ -191,7 +183,7 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
       {rows === null ? (
         <Spinner className="h-6 w-6 text-primary" />
       ) : rows.length === 0 ? (
-        <EmptyState title="Aucune évaluation" description="Créez la première évaluation de cette matière pour ce trimestre." />
+        <EmptyState title={t("acd.eval.emptyTitle")} description={t("acd.eval.emptyDesc")} />
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (
@@ -199,15 +191,23 @@ export function EvaluationsTab({ context }: { context: GradeContext }) {
               <button type="button" onClick={() => setOpen(row.id)} className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-semibold text-ink">{row.titre}</p>
                 <p className="text-xs text-ink-muted">
-                  {row.date} · sur {row.bareme} · coefficient {row.coefficient} · {row.notes} note(s), {row.absents} absent(s), {row.dispenses} dispensé(s) sur {row.effectif}
+                  {t("acd.eval.rowMeta", {
+                    date: row.date,
+                    bareme: row.bareme,
+                    coef: row.coefficient,
+                    notes: row.notes,
+                    absents: row.absents,
+                    dispenses: row.dispenses,
+                    total: row.effectif,
+                  })}
                 </p>
               </button>
               <div className="flex items-center gap-2">
                 <Button variant="secondary" onClick={() => setOpen(row.id)}>
-                  {row.periode === "OUVERT" ? "Saisir" : "Voir"}
+                  {row.periode === "OUVERT" ? t("acd.eval.enter") : t("acd.eval.view")}
                 </Button>
                 {canEnter && row.periode === "OUVERT" && (
-                  <Button variant="ghost" onClick={() => remove(row)} aria-label={`Supprimer ${row.titre}`}>
+                  <Button variant="ghost" onClick={() => remove(row)} aria-label={t("acd.eval.deleteAria", { title: row.titre })}>
                     <Trash2 size={15} />
                   </Button>
                 )}

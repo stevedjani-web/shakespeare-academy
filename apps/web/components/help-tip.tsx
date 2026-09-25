@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HelpCircle, X } from "lucide-react";
 import { HELP_CONTENT } from "@/lib/help-content";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 const PANEL_WIDTH = 288; // w-72
 const MARGIN = 16;
@@ -19,6 +20,7 @@ const MARGIN = 16;
  * second cas dès que la fenêtre n'est pas très large (repéré en vérifiant sur un dossier élève réel).
  */
 export function HelpTip({ id }: { id: string }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -53,7 +55,7 @@ export function HelpTip({ id }: { id: string }) {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label={`Aide : ${entry.title}`}
+        aria-label={t("cnt.help.aria", { title: t(entry.titleKey) })}
         aria-expanded={open}
         className="sa-interactive inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border text-ink-muted hover:border-primary/40 hover:bg-primary-soft hover:text-primary"
       >
@@ -65,7 +67,7 @@ export function HelpTip({ id }: { id: string }) {
           {/* Referme au clic en dehors, sans écouteur global à retirer soi-même. */}
           <button
             type="button"
-            aria-label="Fermer l'aide"
+            aria-label={t("cnt.help.closeHelp")}
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setOpen(false)}
             tabIndex={-1}
@@ -75,21 +77,21 @@ export function HelpTip({ id }: { id: string }) {
             className="fixed z-50 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-4 text-left shadow-[var(--shadow-soft)]"
           >
             <div className="mb-2 flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-ink">{entry.title}</p>
+              <p className="text-sm font-semibold text-ink">{t(entry.titleKey)}</p>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Fermer"
+                aria-label={t("cnt.help.close")}
                 className="sa-interactive shrink-0 text-ink-muted hover:text-ink"
               >
                 <X size={14} />
               </button>
             </div>
             <ul className="space-y-1.5 text-xs leading-relaxed text-ink-muted">
-              {entry.tips.map((tip, i) => (
+              {entry.tipKeys.map((tipKey, i) => (
                 <li key={i} className="flex gap-1.5">
                   <span className="mt-0.5 text-primary">•</span>
-                  <span>{tip}</span>
+                  <span>{t(tipKey)}</span>
                 </li>
               ))}
             </ul>
@@ -98,7 +100,7 @@ export function HelpTip({ id }: { id: string }) {
               onClick={() => setOpen(false)}
               className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
             >
-              Voir le guide complet →
+              {t("cnt.help.full")}
             </Link>
           </div>
         </>

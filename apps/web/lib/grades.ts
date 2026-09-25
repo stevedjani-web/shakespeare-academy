@@ -1,4 +1,6 @@
 // Lot 15 : notes, évaluations et bulletins. Types des réponses de l'API et petites fonctions d'affichage.
+import { translate, type MessageKey } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
 
 export interface GradeTerm {
   id: string;
@@ -164,16 +166,35 @@ export interface GradeSettings {
   sections: Array<{ id: string; nom: string; affichageLettres: boolean }>;
 }
 
-export const PERIOD_LABEL: Record<PeriodStatus, string> = {
-  OUVERT: "Ouvert (saisie en cours)",
-  VALIDE: "Validé (figé, non publié)",
-  PUBLIE: "Publié aux parents",
+const PERIOD_KEY: Record<PeriodStatus, MessageKey> = {
+  OUVERT: "acd.period.OUVERT",
+  VALIDE: "acd.period.VALIDE",
+  PUBLIE: "acd.period.PUBLIE",
 };
 
-/** « 13,11 » : la virgule décimale française, deux décimales ; « - » quand il n'y a pas de moyenne (jamais 0). */
+/** Libellé d'un état de trimestre dans la langue courante. */
+export function periodLabel(status: PeriodStatus): string {
+  return translate(PERIOD_KEY[status]);
+}
+
+/** Même table qu'avant, mais lue au moment de l'accès : la langue courante s'applique (les getters ne sont pas évalués au chargement). */
+export const PERIOD_LABEL: Record<PeriodStatus, string> = {
+  get OUVERT() {
+    return periodLabel("OUVERT");
+  },
+  get VALIDE() {
+    return periodLabel("VALIDE");
+  },
+  get PUBLIE() {
+    return periodLabel("PUBLIE");
+  },
+};
+
+/** « 13,11 » en français (virgule décimale), « 13.11 » en anglais ; « - » quand il n'y a pas de moyenne (jamais 0). */
 export function formatNote(value: number | null | undefined): string {
   if (value === null || value === undefined) return "-";
-  return value.toFixed(2).replace(".", ",");
+  const text = value.toFixed(2);
+  return getLocale() === "fr" ? text.replace(".", ",") : text;
 }
 
 /** Une note saisie « 12,5 » ou « 12.5 » ; `null` si le texte n'est pas un nombre. */
@@ -184,10 +205,16 @@ export function parseNote(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** « 1er », « 2e » en français ; « 1st », « 2nd », « 3rd », « 4th » en anglais. */
+function ordinal(n: number): string {
+  if (getLocale() === "fr") return `${n}${n === 1 ? "er" : "e"}`;
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`;
+  return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
+}
+
 export function rankLabel(rang: number | null | undefined, effectif?: number): string {
   if (rang === null || rang === undefined) return "-";
-  const suffix = rang === 1 ? "er" : "e";
-  return effectif ? `${rang}${suffix} sur ${effectif}` : `${rang}${suffix}`;
+  return effectif ? translate("bulletin.rankOf", { rank: ordinal(rang), total: effectif }) : ordinal(rang);
 }
 
 // Dossier élève, vue 360° (GET /students/:id/bulletins, GRADE_READ) : tous les bulletins de l'élève,

@@ -10,180 +10,132 @@ import {
   Users2,
 } from "lucide-react";
 import { CopyrightFooter } from "@/components/copyright-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 
 type RoleKey = "direction" | "secretariat" | "surveillance" | "enseignant" | "parent";
 
 interface RoleGuide {
   key: RoleKey;
-  label: string;
+  label: MessageKey;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  intro: string;
-  sections: Array<{ titre: string; etapes: string[] }>;
+  intro: MessageKey;
+  sections: Array<{ titre: MessageKey; etapes: MessageKey[] }>;
 }
 
 // Page publique (aucun compte requis, comme /preinscription) : un mode d'emploi pour chaque acteur de
 // l'application, avec le vocabulaire exact des écrans réels (mêmes libellés que components/app-shell.tsx
 // et la nav de l'espace parents) — pour qu'un lecteur reconnaisse immédiatement l'écran décrit. Aucun
 // détail sensible n'y figure (aucune donnée d'élève, aucun identifiant) : uniquement des explications
-// d'usage, comme le formulaire de préinscription lui-même.
+// d'usage, comme le formulaire de préinscription lui-même. Les textes sont des CLÉS du dictionnaire
+// (`cnt.guide.*`), résolues à l'affichage dans la langue courante.
 const ROLES: RoleGuide[] = [
   {
     key: "direction",
-    label: "Direction",
+    label: "cnt.guide.direction.label",
     icon: Building2,
-    intro:
-      "La Direction valide les décisions sensibles (remises, sorties financières, annulations de paiement, bulletins, sanctions) et consulte la vue d'ensemble de l'école.",
+    intro: "cnt.guide.direction.intro",
     sections: [
       {
-        titre: "Décisions à approuver",
-        etapes: [
-          "Une demande de remise (dossier de l'élève concerné, carte « Situation financière ») s'approuve ou se rejette avec « Approuver » / « Rejeter ».",
-          "Une sortie financière (« Sorties financières ») s'approuve avant d'entrer dans la clôture de journée.",
-          "Une annulation de paiement (« Annuler » sur un reçu) n'est possible que depuis un compte Direction.",
-        ],
+        titre: "cnt.guide.direction.s1.t",
+        etapes: ["cnt.guide.direction.s1.e1", "cnt.guide.direction.s1.e2", "cnt.guide.direction.s1.e3"],
       },
       {
-        titre: "Vie scolaire et discipline",
-        etapes: [
-          "« Notes et bulletins », onglet Bulletins : valider un trimestre fige les moyennes et rangs, publier le rend visible aux parents.",
-          "« Discipline », onglet À traiter : décider d'une sanction sur un incident signalé, puis la publier pour qu'elle apparaisse au parent.",
-          "« Messagerie », onglet Supervision : consulter (sans en modifier le contenu) les échanges entre enseignants et parents ; chaque ouverture est journalisée.",
-        ],
+        titre: "cnt.guide.direction.s2.t",
+        etapes: ["cnt.guide.direction.s2.e1", "cnt.guide.direction.s2.e2", "cnt.guide.direction.s2.e3"],
       },
       {
-        titre: "Pilotage et administration",
-        etapes: [
-          "« Pilotage 360° » : assiduité, ponctualité des enseignants et alertes de décrochage, recalculés en direct — aucune saisie propre à cet écran.",
-          "« Utilisateurs & rôles » : créer un compte, lui attribuer un rôle, réinitialiser un mot de passe.",
-          "« Liens utiles » et « Guide d'utilisation » (cette page) : à transmettre aux familles et au personnel.",
-        ],
+        titre: "cnt.guide.direction.s3.t",
+        etapes: ["cnt.guide.direction.s3.e1", "cnt.guide.direction.s3.e2", "cnt.guide.direction.s3.e3"],
       },
     ],
   },
   {
     key: "secretariat",
-    label: "Secrétariat & comptabilité",
+    label: "cnt.guide.secretariat.label",
     icon: Wallet,
-    intro:
-      "Le secrétariat inscrit les élèves, encaisse les paiements et gère les comptes parents ; la comptabilité enregistre les sorties et suit la clôture de journée.",
+    intro: "cnt.guide.secretariat.intro",
     sections: [
       {
-        titre: "Élèves et inscriptions",
-        etapes: [
-          "« Élèves » : rechercher un élève par matricule, nom ou téléphone d'un responsable ; ouvrir son dossier.",
-          "« Préinscriptions » : examiner les demandes reçues via le formulaire public, choisir une classe et « Accepter » pour créer l'élève et son inscription, ou « Rejeter » avec un motif.",
-          "Depuis le dossier d'un élève, l'assistant « Nouvelle inscription » couvre à la fois une première inscription et une réinscription.",
-        ],
+        titre: "cnt.guide.secretariat.s1.t",
+        etapes: ["cnt.guide.secretariat.s1.e1", "cnt.guide.secretariat.s1.e2", "cnt.guide.secretariat.s1.e3"],
       },
       {
-        titre: "Paiements et reçus",
-        etapes: [
-          "Sur la carte « Situation financière » du dossier élève, bouton « Payer » sur la ligne concernée : montant, mode de paiement, référence si Mobile Money.",
-          "Chaque paiement génère un reçu numéroté, imprimable et vérifiable par QR code ; « Réimprimer » le ressort à l'identique.",
-          "« Paiements en ligne » : suivre les paiements initiés par les parents eux-mêmes depuis leur espace.",
-        ],
+        titre: "cnt.guide.secretariat.s2.t",
+        etapes: ["cnt.guide.secretariat.s2.e1", "cnt.guide.secretariat.s2.e2", "cnt.guide.secretariat.s2.e3"],
       },
       {
-        titre: "Comptes parents et sorties",
-        etapes: [
-          "« Comptes parents » : générer un code d'activation pour un responsable (ou toute une classe d'un coup), à lui remettre en main propre ou par lettre imprimée.",
-          "« Sorties financières » : enregistrer une dépense (elle attend l'approbation de la Direction avant d'apparaître dans la clôture).",
-          "« Clôture de journée » : entrées, sorties et solde du jour, recalculés à la demande.",
-        ],
+        titre: "cnt.guide.secretariat.s3.t",
+        etapes: ["cnt.guide.secretariat.s3.e1", "cnt.guide.secretariat.s3.e2", "cnt.guide.secretariat.s3.e3"],
       },
     ],
   },
   {
     key: "surveillance",
-    label: "Vie scolaire (surveillance)",
+    label: "cnt.guide.surveillance.label",
     icon: ShieldAlert,
-    intro:
-      "La vie scolaire fait l'appel quand l'enseignant ne le fait pas lui-même, traite les justificatifs, gère la discipline et valide le pointage des enseignants.",
+    intro: "cnt.guide.surveillance.intro",
     sections: [
       {
-        titre: "Appel et absences",
-        etapes: [
-          "« Appel et absences » : choisir le jour et la classe, faire l'appel (tout le monde est présent par défaut, ne signaler que les exceptions).",
-          "Une correction après la fin de la journée exige un motif, conservé dans l'historique.",
-          "Onglet « Absences et justificatifs » : accepter ou refuser un justificatif déposé.",
-        ],
+        titre: "cnt.guide.surveillance.s1.t",
+        etapes: ["cnt.guide.surveillance.s1.e1", "cnt.guide.surveillance.s1.e2", "cnt.guide.surveillance.s1.e3"],
       },
       {
-        titre: "Discipline",
-        etapes: [
-          "Signaler un incident ou une valorisation depuis « Discipline » : classe, élève, description.",
-          "Envoyer une convocation à une famille avec un motif et une date de rendez-vous.",
-          "Le dossier de l'élève (carte « Vie scolaire ») garde l'historique complet, chaque ouverture y étant journalisée.",
-        ],
+        titre: "cnt.guide.surveillance.s2.t",
+        etapes: ["cnt.guide.surveillance.s2.e1", "cnt.guide.surveillance.s2.e2", "cnt.guide.surveillance.s2.e3"],
       },
       {
-        titre: "Pointage des enseignants",
-        etapes: [
-          "« Pointage enseignants » : valider ou rejeter les pointages du jour, saisir un pointage oublié avec un motif.",
-          "Onglet « QR codes et règles » : afficher ou imprimer les QR codes des salles et de l'entrée à installer dans l'école.",
-        ],
+        titre: "cnt.guide.surveillance.s3.t",
+        etapes: ["cnt.guide.surveillance.s3.e1", "cnt.guide.surveillance.s3.e2"],
       },
     ],
   },
   {
     key: "enseignant",
-    label: "Enseignant",
+    label: "cnt.guide.enseignant.label",
     icon: GraduationCap,
-    intro:
-      "Un enseignant se connecte avec le même écran que le reste du personnel. Il ne voit que ses propres classes et matières.",
+    intro: "cnt.guide.enseignant.intro",
     sections: [
       {
-        titre: "Pointage",
-        etapes: [
-          "« Mon pointage » : scanner le QR code de la salle (ou de l'entrée, selon l'école) en arrivant et en repartant.",
-          "Ouvrir directement un QR avec l'appareil photo du téléphone pointe automatiquement, y compris juste après une connexion.",
-        ],
+        titre: "cnt.guide.enseignant.s1.t",
+        etapes: ["cnt.guide.enseignant.s1.e1", "cnt.guide.enseignant.s1.e2"],
       },
       {
-        titre: "Classe et pédagogie",
+        titre: "cnt.guide.enseignant.s2.t",
         etapes: [
-          "« Appel et absences » : faire l'appel de ses propres séances, si l'école le lui confie.",
-          "« Cahier de textes » : noter le contenu du cours et le travail à faire — visible aussitôt des parents.",
-          "« Notes et bulletins » : saisir les notes de ses évaluations tant que le trimestre n'est pas validé par la Direction.",
-          "« Discipline » : signaler un incident ou une valorisation pour un élève de l'une de ses classes.",
+          "cnt.guide.enseignant.s2.e1",
+          "cnt.guide.enseignant.s2.e2",
+          "cnt.guide.enseignant.s2.e3",
+          "cnt.guide.enseignant.s2.e4",
         ],
       },
     ],
   },
   {
     key: "parent",
-    label: "Parent",
+    label: "cnt.guide.parent.label",
     icon: Users2,
-    intro:
-      "Un parent dispose de son propre espace, distinct de celui du personnel, accessible depuis « Espace parents ».",
+    intro: "cnt.guide.parent.intro",
     sections: [
       {
-        titre: "Activation et connexion",
-        etapes: [
-          "Avec le code remis par le secrétariat, ouvrir « Espace parents » puis « Activer mon compte » : numéro de téléphone, code, mot de passe à choisir.",
-          "Ensuite, se connecter avec ce même numéro et ce mot de passe.",
-        ],
+        titre: "cnt.guide.parent.s1.t",
+        etapes: ["cnt.guide.parent.s1.e1", "cnt.guide.parent.s1.e2"],
       },
       {
-        titre: "Suivre ses enfants",
-        etapes: [
-          "La fiche de chaque enfant réunit emploi du temps, absences, notes et bulletins publiés, cahier de textes, discipline et documents.",
-          "« Finances et reçus » : solde par tranche, historique des paiements, et paiement en ligne par Mobile Money quand l'école l'a activé.",
-          "« Documents » : demander une attestation de scolarité directement depuis l'espace parents.",
-        ],
+        titre: "cnt.guide.parent.s2.t",
+        etapes: ["cnt.guide.parent.s2.e1", "cnt.guide.parent.s2.e2", "cnt.guide.parent.s2.e3"],
       },
       {
-        titre: "Messages et notifications",
-        etapes: [
-          "« Messages » : écrire à l'enseignant d'une classe de son enfant, ou au secrétariat de l'école.",
-          "« Notifications » : activer les alertes sur son téléphone pour être prévenu d'une absence, d'un changement d'emploi du temps ou d'un nouveau message.",
-        ],
+        titre: "cnt.guide.parent.s3.t",
+        etapes: ["cnt.guide.parent.s3.e1", "cnt.guide.parent.s3.e2"],
       },
     ],
   },
 ];
 
 export default function GuidePage() {
+  const { t } = useI18n();
   const [active, setActive] = useState<RoleKey>("direction");
   const role = ROLES.find((r) => r.key === active)!;
 
@@ -194,11 +146,10 @@ export default function GuidePage() {
           S
         </span>
         <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
+        <LanguageSwitcher className="ml-auto" />
       </div>
-      <h1 className="font-display text-2xl font-semibold text-ink">Guide d&apos;utilisation</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        Choisissez votre rôle pour voir comment utiliser l&apos;application au quotidien.
-      </p>
+      <h1 className="font-display text-2xl font-semibold text-ink">{t("nav.guide")}</h1>
+      <p className="mt-1 text-sm text-ink-muted">{t("cnt.guide.subtitle")}</p>
 
       <div className="mt-6 flex flex-wrap gap-2">
         {ROLES.map((r) => {
@@ -211,25 +162,25 @@ export default function GuidePage() {
                 active === r.key ? "bg-primary text-white" : "border border-border bg-surface text-ink-muted hover:text-ink"
               }`}
             >
-              <Icon size={16} /> {r.label}
+              <Icon size={16} /> {t(r.label)}
             </button>
           );
         })}
       </div>
 
-      <p className="mt-6 rounded-2xl border border-border bg-surface p-4 text-sm text-ink-muted">{role.intro}</p>
+      <p className="mt-6 rounded-2xl border border-border bg-surface p-4 text-sm text-ink-muted">{t(role.intro)}</p>
 
       <div className="mt-6 space-y-6">
         {role.sections.map((section) => (
           <div key={section.titre}>
-            <h2 className="font-display text-base font-semibold text-ink">{section.titre}</h2>
+            <h2 className="font-display text-base font-semibold text-ink">{t(section.titre)}</h2>
             <ol className="mt-2 space-y-2">
               {section.etapes.map((etape, i) => (
-                <li key={i} className="flex gap-3 text-sm text-ink">
+                <li key={etape} className="flex gap-3 text-sm text-ink">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
                     {i + 1}
                   </span>
-                  <span className="pt-0.5">{etape}</span>
+                  <span className="pt-0.5">{t(etape)}</span>
                 </li>
               ))}
             </ol>
@@ -239,11 +190,11 @@ export default function GuidePage() {
 
       <p className="mt-8 text-center text-sm text-ink-muted">
         <Link href="/login" className="font-medium text-primary underline">
-          Connexion du personnel
+          {t("cnt.guide.staffLogin")}
         </Link>
         {" · "}
         <Link href="/parents/connexion" className="font-medium text-primary underline">
-          Espace parents
+          {t("parent.nav.space")}
         </Link>
       </p>
       <div className="mt-4">

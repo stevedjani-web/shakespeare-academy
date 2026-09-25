@@ -8,6 +8,8 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Spinner, SuccessMessage } from "@/components/ui";
 import { ExpandButton, useExpanded } from "@/components/expand";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface Enfant {
   id: string;
@@ -26,12 +28,14 @@ interface Me {
 
 export default function ParentHomePage() {
   const { parent, loading } = useParent();
+  const { t } = useI18n();
   const router = useRouter();
   const expand = useExpanded();
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pwd, setPwd] = useState({ ancien: "", nouveau: "" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [langSaved, setLangSaved] = useState(false);
 
   useEffect(() => {
     if (!loading && !parent) router.replace("/parents/connexion");
@@ -56,7 +60,7 @@ export default function ParentHomePage() {
     try {
       await portalApi.patch("/portal/change-password", { ancienMotDePasse: pwd.ancien, nouveauMotDePasse: pwd.nouveau });
       setPwd({ ancien: "", nouveau: "" });
-      setNotice("Mot de passe modifié.");
+      setNotice(t("parent.home.pwdDone"));
     } catch (err) {
       setError(describePortalError(err));
     }
@@ -72,13 +76,11 @@ export default function ParentHomePage() {
 
   return (
     <div>
-      <PageTitle subtitle="Choisissez un enfant pour voir son emploi du temps, ses absences et sa situation financière.">
-        {me ? `Bonjour ${me.responsable.prenom}` : "Bonjour"}
-      </PageTitle>
+      <PageTitle subtitle={t("parent.home.subtitle")}>{me ? t("parent.home.hello", { name: me.responsable.prenom ?? "" }) : t("parent.home.helloAnon")}</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
 
       {me && me.enfants.length === 0 && (
-        <EmptyState icon={<GraduationCap />} title="Aucun enfant à afficher." description="Si vous pensez qu'il y a une erreur, contactez le secrétariat de l'école." />
+        <EmptyState icon={<GraduationCap />} title={t("parent.home.noChildren")} description={t("parent.home.noChildrenHelp")} />
       )}
 
       <ul className="space-y-3">
@@ -95,7 +97,7 @@ export default function ParentHomePage() {
                       {e.prenom} {e.nom}
                     </p>
                     <p className="text-sm text-ink-muted">
-                      {e.classe ?? "Pas de classe cette année"}
+                      {e.classe ?? t("parent.home.noClass")}
                       {e.anneeScolaire ? ` · ${e.anneeScolaire}` : ""}
                     </p>
                   </div>
@@ -108,21 +110,38 @@ export default function ParentHomePage() {
       </ul>
 
       <Card className="mt-6">
+        <h2 className="text-sm font-semibold text-ink">{t("lang.label")}</h2>
+        <p className="mb-3 mt-1 text-sm text-ink-muted">{t("lang.intro")}</p>
+        <LanguageSwitcher
+          onChoose={async (langue) => {
+            setLangSaved(false);
+            await portalApi.patch("/portal/language", { langue });
+            setLangSaved(true);
+          }}
+        />
+        {langSaved && (
+          <div className="mt-3">
+            <SuccessMessage>{t("lang.saved")}</SuccessMessage>
+          </div>
+        )}
+      </Card>
+
+      <Card className="mt-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <ExpandButton open={expand.isOpen("pwd")} onClick={() => expand.toggle("pwd")} label="le changement de mot de passe" />
-          Changer mon mot de passe
+          <ExpandButton open={expand.isOpen("pwd")} onClick={() => expand.toggle("pwd")} label={t("parent.home.pwdToggle")} />
+          {t("parent.home.pwdTitle")}
         </h2>
         {expand.isOpen("pwd") && (
           <form onSubmit={changePassword} className="mt-3 space-y-3">
             {notice && <SuccessMessage>{notice}</SuccessMessage>}
-            <Field label="Mot de passe actuel">
+            <Field label={t("parent.home.pwdCurrent")}>
               <Input type="password" autoComplete="current-password" required value={pwd.ancien} onChange={(e) => setPwd({ ...pwd, ancien: e.target.value })} />
             </Field>
-            <Field label="Nouveau mot de passe (8 caractères au moins)">
+            <Field label={t("parent.home.pwdNew")}>
               <Input type="password" autoComplete="new-password" required minLength={8} value={pwd.nouveau} onChange={(e) => setPwd({ ...pwd, nouveau: e.target.value })} />
             </Field>
             <Button type="submit" variant="secondary">
-              Enregistrer
+              {t("parent.home.pwdSave")}
             </Button>
           </form>
         )}

@@ -10,6 +10,7 @@ import { Badge, Button, Card, EmptyState, ErrorMessage, Field, PageTitle, Select
 import { formatDateTime } from "@/components/messaging/message-list";
 import { PrioritySelect } from "@/components/messaging/priority-select";
 import { PRIORITY_META, priorityText, type MessagePriority } from "@/lib/message-priority";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface Thread {
   id: string;
@@ -33,11 +34,10 @@ interface Contacts {
   ecole: boolean;
 }
 
-const NOTICE = "Vos messages peuvent être consultés par la Direction de l'école. Les numéros de téléphone ne s'échangent pas ici. Texte seulement, sans pièce jointe.";
-
 // Messagerie du responsable (Lot 13) : conversations avec les enseignants de la classe de son enfant et avec l'école.
 export default function ParentMessagesPage() {
   const { parent, loading } = useParent();
+  const { t } = useI18n();
   const router = useRouter();
   const [threads, setThreads] = useState<Thread[] | null>(null);
   const [delai, setDelai] = useState<number | null>(null);
@@ -82,20 +82,20 @@ export default function ParentMessagesPage() {
   return (
     <div>
       <Link href="/parents" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
-        <ArrowLeft size={15} /> Mes enfants
+        <ArrowLeft size={15} /> {t("parent.nav.myChildren")}
       </Link>
-      <PageTitle subtitle="Écrivez aux enseignants de la classe de votre enfant ou à l'école.">Messages</PageTitle>
+      <PageTitle subtitle={t("parent.msg.subtitle")}>{t("parent.msg.title")}</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
       <p className="mb-3 rounded-xl bg-info-soft p-3 text-sm text-info">
-        {NOTICE} {delai ? `Délai de réponse indicatif : ${delai} jour${delai > 1 ? "s" : ""} ouvré${delai > 1 ? "s" : ""}.` : ""}
+        {t("parent.msg.notice")} {delai ? t("parent.msg.delay", { n: delai }) : ""}
       </p>
 
       <div className="mb-4 flex flex-wrap gap-2">
         <Button onClick={() => setComposing((v) => !v)}>
-          <MessageSquarePlus size={16} /> Nouveau message
+          <MessageSquarePlus size={16} /> {t("parent.msg.new")}
         </Button>
         <Link href="/parents/annonces">
-          <Button variant="secondary">Annonces de la classe</Button>
+          <Button variant="secondary">{t("parent.msg.announcements")}</Button>
         </Link>
       </div>
 
@@ -116,39 +116,39 @@ export default function ParentMessagesPage() {
         </div>
       )}
       {threads && threads.length === 0 && !composing && (
-        <EmptyState icon={<MessagesSquare />} title="Aucune conversation." description="Écrivez un premier message avec le bouton ci-dessus." />
+        <EmptyState icon={<MessagesSquare />} title={t("parent.msg.empty")} description={t("parent.msg.emptyHelp")} />
       )}
 
       <ul className="space-y-2.5">
-        {threads?.map((t) => (
-          <li key={t.id}>
-            <Link href={`/parents/messages/${t.id}`}>
+        {threads?.map((th) => (
+          <li key={th.id}>
+            <Link href={`/parents/messages/${th.id}`}>
               <Card
                 className={`transition-colors hover:border-primary/40 ${
-                  t.prioriteNonLus === "URGENTE"
+                  th.prioriteNonLus === "URGENTE"
                     ? "border-2 border-danger bg-danger-soft"
-                    : t.prioriteNonLus === "IMPORTANTE"
+                    : th.prioriteNonLus === "IMPORTANTE"
                       ? "border-2 border-warning bg-warning-soft"
-                      : t.nonLus > 0
+                      : th.nonLus > 0
                         ? "border-primary/40 bg-primary-soft/40"
                         : ""
                 }`}
               >
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                   <span className="flex items-center gap-2">
-                    <span className="font-medium text-ink">{t.interlocuteur}</span>
-                    <Badge color="primary">{t.enfant.prenom}</Badge>
-                    {t.prioriteNonLus && t.prioriteNonLus !== "NORMALE" && (
-                      <Badge color={PRIORITY_META[t.prioriteNonLus].badge}>{priorityText(t.prioriteNonLus)}</Badge>
+                    <span className="font-medium text-ink">{th.interlocuteur}</span>
+                    <Badge color="primary">{th.enfant.prenom}</Badge>
+                    {th.prioriteNonLus && th.prioriteNonLus !== "NORMALE" && (
+                      <Badge color={PRIORITY_META[th.prioriteNonLus].badge}>{priorityText(th.prioriteNonLus)}</Badge>
                     )}
-                    {t.nonLus > 0 && <Badge color="orange">{t.nonLus} nouveau{t.nonLus > 1 ? "x" : ""}</Badge>}
+                    {th.nonLus > 0 && <Badge color="orange">{t("parent.msg.newBadge", { n: th.nonLus })}</Badge>}
                   </span>
-                  {t.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(t.dernierMessage.date)}</span>}
+                  {th.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(th.dernierMessage.date)}</span>}
                 </div>
-                {t.dernierMessage && (
+                {th.dernierMessage && (
                   <p className="truncate text-sm text-ink-muted">
-                    {t.dernierMessage.auteur === "PARENT" ? "Vous : " : ""}
-                    {t.dernierMessage.apercu ?? "Message retiré"}
+                    {th.dernierMessage.auteur === "PARENT" ? t("parent.msg.you") : ""}
+                    {th.dernierMessage.apercu ?? t("parent.msg.removedPreview")}
                   </p>
                 )}
               </Card>
@@ -161,6 +161,7 @@ export default function ParentMessagesPage() {
 }
 
 function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (threadId: string) => Promise<void> }) {
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState("");
   const [contacts, setContacts] = useState<Contacts | null>(null);
   const [who, setWho] = useState("");
@@ -198,9 +199,9 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
     <Card className="mb-4">
       <form onSubmit={submit} className="space-y-3">
         <ErrorMessage>{error}</ErrorMessage>
-        <Field label="À propos de quel enfant ?">
+        <Field label={t("parent.msg.aboutChild")}>
           <Select value={studentId} onChange={(e) => setStudentId(e.target.value)} required>
-            <option value="">Choisir…</option>
+            <option value="">{t("parent.msg.choose")}</option>
             {childrenList.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.prenom} {c.nom}
@@ -210,17 +211,17 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
         </Field>
         {contacts && contacts.enseignants.length === 0 && (
           <p className="rounded-xl bg-info-soft p-3 text-sm text-info">
-            Aucun enseignant{contacts.classe ? ` de la classe ${contacts.classe}` : ""} n&apos;est joignable pour le moment (il doit avoir un compte sur la plateforme et être affecté à la classe). Vous pouvez écrire à l&apos;école.
+            {contacts.classe ? t("parent.msg.noTeacherClass", { class: contacts.classe }) : t("parent.msg.noTeacher")}
           </p>
         )}
         {contacts && (
-          <Field label="À qui écrivez-vous ?">
+          <Field label={t("parent.msg.whoTo")}>
             <Select value={who} onChange={(e) => setWho(e.target.value)} required>
-              <option value="">Choisir…</option>
-              {contacts.ecole && <option value="ecole">L&apos;école (Direction et vie scolaire)</option>}
-              {contacts.enseignants.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.prenom} {t.nom} ({t.matieres.join(", ")})
+              <option value="">{t("parent.msg.choose")}</option>
+              {contacts.ecole && <option value="ecole">{t("parent.msg.schoolOption")}</option>}
+              {contacts.enseignants.map((te) => (
+                <option key={te.id} value={te.id}>
+                  {te.prenom} {te.nom} ({te.matieres.join(", ")})
                 </option>
               ))}
             </Select>
@@ -228,7 +229,7 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
         )}
         {who && (
           <>
-            <Field label="Votre message">
+            <Field label={t("parent.msg.yourMessage")}>
               <textarea
                 className="min-h-28 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink"
                 maxLength={2000}
@@ -238,9 +239,9 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
               />
             </Field>
             <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent={false} />
-            <p className="text-xs text-ink-muted">Ne mettez pas de numéro de téléphone : ils ne s&apos;échangent pas dans la messagerie.</p>
+            <p className="text-xs text-ink-muted">{t("parent.msg.noPhone")}</p>
             <Button type="submit" disabled={busy || !texte.trim()}>
-              Envoyer
+              {t("parent.msg.send")}
             </Button>
           </>
         )}

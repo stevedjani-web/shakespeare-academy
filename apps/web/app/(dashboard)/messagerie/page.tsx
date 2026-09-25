@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Eye, Flag, MessageSquarePlus, Send, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, Spinner, SuccessMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { MessageList, formatDateTime, type ThreadMessage } from "@/components/messaging/message-list";
 import { PrioritySelect } from "@/components/messaging/priority-select";
+import { AssistantSuggest } from "@/components/messaging/assistant-suggest";
 import { PRIORITY_META, priorityText, type MessagePriority } from "@/lib/message-priority";
 
 interface Thread {
@@ -85,11 +87,11 @@ interface Report {
 type Tab = "conversations" | "supervision" | "signalements";
 
 const TEXTAREA = "min-h-24 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink";
-const NO_NUMBER = "Ne mettez pas de numéro de téléphone : ils ne s'échangent pas dans la messagerie.";
 
 // Messagerie sécurisée du personnel (Lot 13). Un enseignant n'écrit qu'aux responsables des élèves de ses classes ;
 // la vie scolaire et la Direction tiennent le guichet de l'école ; la Direction supervise (chaque lecture est journalisée).
 export default function MessageriePage() {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canUse = hasPermission("MESSAGE_USE");
   const canSupervise = hasPermission("MESSAGE_SUPERVISE");
@@ -107,35 +109,32 @@ export default function MessageriePage() {
   if (!canUse) {
     return (
       <div>
-        <PageTitle eyebrow="Communication">Messagerie</PageTitle>
-        <p className="text-sm text-ink-muted">Vous n&apos;avez pas la permission d&apos;utiliser la messagerie.</p>
+        <PageTitle eyebrow={t("acd.msg.eyebrow")}>{t("acd.msg.title")}</PageTitle>
+        <p className="text-sm text-ink-muted">{t("acd.msg.noPermission")}</p>
       </div>
     );
   }
 
-  const tabClass = (t: Tab) =>
-    `rounded-full px-4 py-2 text-sm font-medium ${tab === t ? "bg-primary text-white" : "border border-border bg-surface text-ink hover:bg-surface-muted"}`;
+  const tabClass = (key: Tab) =>
+    `rounded-full px-4 py-2 text-sm font-medium ${tab === key ? "bg-primary text-white" : "border border-border bg-surface text-ink hover:bg-surface-muted"}`;
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Communication"
-        subtitle="Échangez avec les responsables des élèves. Seuls les couples autorisés peuvent se parler, et aucun numéro de téléphone n'est échangé."
-        helpId="messagerie"
-      >
-        Messagerie
+      <PageTitle eyebrow={t("acd.msg.eyebrow")} subtitle={t("acd.msg.subtitle")} helpId="messagerie">
+        {t("acd.msg.title")}
       </PageTitle>
       <div className="mb-4 flex flex-wrap gap-2">
         <button type="button" className={tabClass("conversations")} onClick={() => setTab("conversations")}>
-          Conversations
+          {t("acd.msg.tabConversations")}
         </button>
         {canSupervise && (
           <>
             <button type="button" className={tabClass("supervision")} onClick={() => setTab("supervision")}>
-              <ShieldCheck size={14} className="mr-1 inline" /> Supervision
+              <ShieldCheck size={14} className="mr-1 inline" /> {t("acd.msg.tabSupervision")}
             </button>
             <button type="button" className={tabClass("signalements")} onClick={() => setTab("signalements")}>
-              <Flag size={14} className="mr-1 inline" /> Signalements{reportsCount > 0 ? ` (${reportsCount})` : ""}
+              <Flag size={14} className="mr-1 inline" /> {t("acd.msg.tabReports")}
+              {reportsCount > 0 ? ` (${reportsCount})` : ""}
             </button>
           </>
         )}
@@ -150,6 +149,7 @@ export default function MessageriePage() {
 // ---------------------------------------------------------------------------------- Conversations
 
 function Conversations() {
+  const { t } = useI18n();
   const [threads, setThreads] = useState<Thread[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
@@ -187,7 +187,7 @@ function Conversations() {
       <ErrorMessage>{error}</ErrorMessage>
       <div className="mb-4">
         <Button onClick={() => setComposing((v) => !v)}>
-          <MessageSquarePlus size={16} /> Nouveau message
+          <MessageSquarePlus size={16} /> {t("acd.msg.newMessage")}
         </Button>
       </div>
       {composing && (
@@ -200,22 +200,22 @@ function Conversations() {
       )}
       {!threads && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("acd.msg.loading")}
         </p>
       )}
-      {threads && threads.length === 0 && !composing && <EmptyState title="Aucune conversation." description="Écrivez à un responsable avec « Nouveau message »." />}
+      {threads && threads.length === 0 && !composing && <EmptyState title={t("acd.msg.emptyTitle")} description={t("acd.msg.emptyDesc")} />}
       <ul className="space-y-2">
-        {threads?.map((t) => (
-          <li key={t.id}>
+        {threads?.map((th) => (
+          <li key={th.id}>
             <button
               type="button"
-              onClick={() => setOpenId(t.id)}
+              onClick={() => setOpenId(th.id)}
               className={`w-full rounded-2xl border p-3 text-left hover:border-primary/40 ${
-                t.prioriteNonLus === "URGENTE"
+                th.prioriteNonLus === "URGENTE"
                   ? "border-2 border-danger bg-danger-soft"
-                  : t.prioriteNonLus === "IMPORTANTE"
+                  : th.prioriteNonLus === "IMPORTANTE"
                     ? "border-2 border-warning bg-warning-soft"
-                    : t.nonLus > 0
+                    : th.nonLus > 0
                       ? "border-primary/40 bg-primary-soft/40"
                       : "border-border bg-surface"
               }`}
@@ -223,24 +223,24 @@ function Conversations() {
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-ink">
-                    {t.responsable.prenom} {t.responsable.nom}
-                    {t.responsable.lien ? ` (${t.responsable.lien})` : ""}
+                    {th.responsable.prenom} {th.responsable.nom}
+                    {th.responsable.lien ? ` (${th.responsable.lien})` : ""}
                   </span>
                   <Badge color="primary">
-                    {t.enfant.prenom} {t.enfant.nom}
+                    {th.enfant.prenom} {th.enfant.nom}
                   </Badge>
-                  {t.type === "ECOLE" && <Badge color="slate">Guichet de l&apos;école</Badge>}
-                  {t.prioriteNonLus && t.prioriteNonLus !== "NORMALE" && (
-                    <Badge color={PRIORITY_META[t.prioriteNonLus].badge}>{priorityText(t.prioriteNonLus)}</Badge>
+                  {th.type === "ECOLE" && <Badge color="slate">{t("acd.msg.desk")}</Badge>}
+                  {th.prioriteNonLus && th.prioriteNonLus !== "NORMALE" && (
+                    <Badge color={PRIORITY_META[th.prioriteNonLus].badge}>{priorityText(th.prioriteNonLus)}</Badge>
                   )}
-                  {t.nonLus > 0 && <Badge color="orange">{t.nonLus} non lu{t.nonLus > 1 ? "s" : ""}</Badge>}
+                  {th.nonLus > 0 && <Badge color="orange">{t(th.nonLus > 1 ? "acd.msg.unreadMany" : "acd.msg.unreadOne", { n: th.nonLus })}</Badge>}
                 </span>
-                {t.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(t.dernierMessage.date)}</span>}
+                {th.dernierMessage && <span className="text-xs text-ink-muted">{formatDateTime(th.dernierMessage.date)}</span>}
               </div>
-              {t.dernierMessage && (
+              {th.dernierMessage && (
                 <p className="truncate text-sm text-ink-muted">
-                  {t.dernierMessage.auteur === "PERSONNEL" ? "Vous : " : ""}
-                  {t.dernierMessage.apercu ?? "Message retiré"}
+                  {th.dernierMessage.auteur === "PERSONNEL" ? t("acd.msg.you") : ""}
+                  {th.dernierMessage.apercu ?? t("acd.msg.removedShort")}
                 </p>
               )}
             </button>
@@ -252,6 +252,7 @@ function Conversations() {
 }
 
 function NewThread({ onDone }: { onDone: (id: string) => void }) {
+  const { t } = useI18n();
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState<Recipient[]>([]);
@@ -300,9 +301,9 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
     <Card className="mb-4">
       <form onSubmit={submit} className="space-y-3">
         <ErrorMessage>{error}</ErrorMessage>
-        <Field label="Classe">
+        <Field label={t("acd.msg.new.class")}>
           <Select value={classId} onChange={(e) => setClassId(e.target.value)} required>
-            <option value="">Choisir…</option>
+            <option value="">{t("acd.msg.choose")}</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nom} ({c.anneeScolaire})
@@ -311,22 +312,22 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
           </Select>
         </Field>
         {classId && (
-          <Field label="Élève">
+          <Field label={t("acd.msg.new.student")}>
             <Select value={studentId} onChange={(e) => setStudentId(e.target.value)} required>
-              <option value="">Choisir…</option>
+              <option value="">{t("acd.msg.choose")}</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.responsables.length === 0}>
                   {s.prenom} {s.nom}
-                  {s.responsables.length === 0 ? " (aucun responsable joignable)" : ""}
+                  {s.responsables.length === 0 ? t("acd.msg.new.noGuardian") : ""}
                 </option>
               ))}
             </Select>
           </Field>
         )}
         {student && (
-          <Field label="Responsable">
+          <Field label={t("acd.msg.new.guardian")}>
             <Select value={guardianId} onChange={(e) => setGuardianId(e.target.value)} required>
-              <option value="">Choisir…</option>
+              <option value="">{t("acd.msg.choose")}</option>
               {student.responsables.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.prenom} {g.nom} ({g.lien})
@@ -337,13 +338,13 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
         )}
         {guardianId && (
           <>
-            <Field label="Message">
+            <Field label={t("acd.msg.new.message")}>
               <textarea className={TEXTAREA} maxLength={2000} required value={texte} onChange={(e) => setTexte(e.target.value)} />
             </Field>
             <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent />
-            <p className="text-xs text-ink-muted">{NO_NUMBER}</p>
+            <p className="text-xs text-ink-muted">{t("acd.msg.noNumber")}</p>
             <Button type="submit" disabled={busy || !texte.trim()}>
-              <Send size={16} /> Envoyer
+              <Send size={16} /> {t("acd.msg.send")}
             </Button>
           </>
         )}
@@ -353,6 +354,7 @@ function NewThread({ onDone }: { onDone: (id: string) => void }) {
 }
 
 function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
+  const { t } = useI18n();
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [texte, setTexte] = useState("");
   const [priorite, setPriorite] = useState<MessagePriority>("NORMALE");
@@ -391,10 +393,10 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
   }
 
   async function report(messageId: string) {
-    const motif = window.prompt("Pourquoi signalez-vous ce message à la Direction ? (facultatif)") ?? undefined;
+    const motif = window.prompt(t("acd.msg.thread.reportPrompt")) ?? undefined;
     try {
       await api.post(`/messaging/messages/${messageId}/report`, motif ? { motif } : {});
-      setNotice("Le message a été signalé à la Direction.");
+      setNotice(t("acd.msg.thread.reported"));
       await load();
     } catch (err) {
       setError(describeError(err));
@@ -404,13 +406,13 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
   return (
     <div>
       <Button variant="ghost" onClick={onBack} className="mb-3">
-        Retour aux conversations
+        {t("acd.msg.thread.back")}
       </Button>
       <ErrorMessage>{error}</ErrorMessage>
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
       {!thread && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("acd.msg.loading")}
         </p>
       )}
       {thread && (
@@ -420,24 +422,25 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
               {thread.responsable.prenom} {thread.responsable.nom}
               {thread.responsable.lien ? ` (${thread.responsable.lien})` : ""}
             </span>{" "}
-            à propos de {thread.enfant.prenom} {thread.enfant.nom}
-            {thread.type === "ECOLE" && <Badge color="slate"> Guichet de l&apos;école</Badge>}
+            {t("acd.msg.thread.about", { child: `${thread.enfant.prenom} ${thread.enfant.nom}` })}
+            {thread.type === "ECOLE" && <Badge color="slate"> {t("acd.msg.desk")}</Badge>}
           </p>
           <Card className="mb-4">
             <MessageList messages={thread.messages} onReport={(mid) => void report(mid)} />
           </Card>
           {thread.peutRepondre ? (
             <form onSubmit={send} className="space-y-2">
-              <textarea className={TEXTAREA} placeholder="Votre réponse" maxLength={2000} value={texte} onChange={(e) => setTexte(e.target.value)} />
+              <AssistantSuggest threadId={id} currentText={texte} onUse={setTexte} />
+              <textarea className={TEXTAREA} placeholder={t("acd.msg.thread.replyPlaceholder")} maxLength={2000} value={texte} onChange={(e) => setTexte(e.target.value)} />
               <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent />
-              <p className="text-xs text-ink-muted">{NO_NUMBER}</p>
+              <p className="text-xs text-ink-muted">{t("acd.msg.noNumber")}</p>
               <Button type="submit" disabled={busy || !texte.trim()}>
-                <Send size={16} /> Envoyer
+                <Send size={16} /> {t("acd.msg.send")}
               </Button>
             </form>
           ) : (
             <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning">
-              Vous ne pouvez plus écrire dans cette conversation : vous n&apos;êtes plus affecté à la classe de l&apos;élève, ou le responsable n&apos;a plus de compte actif.
+              {t("acd.msg.thread.cannotWrite")}
             </p>
           )}
         </>
@@ -449,6 +452,7 @@ function ThreadPanel({ id, onBack }: { id: string; onBack: () => void }) {
 // ------------------------------------------------------------------------------------ Supervision
 
 function Supervision({ initialId }: { initialId?: string }) {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [threads, setThreads] = useState<SupervisedThread[] | null>(null);
   const [view, setView] = useState<SupervisedThreadView | null>(null);
@@ -489,7 +493,7 @@ function Supervision({ initialId }: { initialId?: string }) {
     if (!motif || !view) return;
     try {
       await api.post(`/messaging/supervision/messages/${messageId}/withdraw`, { motif });
-      setNotice("Message retiré. Il n'est plus lisible pour les participants, sa trace est conservée.");
+      setNotice(t("acd.msg.sup.withdrawnNotice"));
       await read(view.id);
     } catch (err) {
       setError(describeError(err));
@@ -500,37 +504,42 @@ function Supervision({ initialId }: { initialId?: string }) {
     return (
       <div>
         <Button variant="ghost" onClick={() => setView(null)} className="mb-3">
-          Retour à la supervision
+          {t("acd.msg.sup.back")}
         </Button>
         <ErrorMessage>{error}</ErrorMessage>
         {notice && <SuccessMessage>{notice}</SuccessMessage>}
         <p className="mb-3 rounded-xl bg-warning-soft p-3 text-sm text-warning">
-          <Eye size={14} className="mr-1 inline" /> Cette lecture est enregistrée dans le journal d&apos;audit.
+          <Eye size={14} className="mr-1 inline" /> {t("acd.msg.sup.logged")}
         </p>
         <p className="mb-3 text-sm text-ink">
-          {view.responsable} et {view.interlocuteur}, à propos de {view.enfant}
+          {t("acd.msg.sup.participants", { guardian: view.responsable, other: view.interlocuteur, child: view.enfant })}
         </p>
         <ul className="space-y-3">
           {view.messages.map((m) => (
             <li key={m.id} className="rounded-2xl border border-border bg-surface p-3">
               <p className="mb-1 text-xs font-medium text-ink-muted">
-                {m.auteur} ({m.cote === "PARENT" ? "responsable" : "personnel"}) · {formatDateTime(m.date)}
+                {t("acd.msg.sup.author", {
+                  author: m.auteur,
+                  side: m.cote === "PARENT" ? t("acd.msg.sup.sideGuardian") : t("acd.msg.sup.sideStaff"),
+                  date: formatDateTime(m.date),
+                })}
                 {m.priorite && m.priorite !== "NORMALE" && (
                   <span className="ml-2 font-semibold text-ink">{priorityText(m.priorite)}</span>
                 )}
-                {m.signalementsOuverts > 0 && <span className="ml-2 text-danger">signalé</span>}
+                {m.signalementsOuverts > 0 && <span className="ml-2 text-danger">{t("acd.msg.sup.flagged")}</span>}
               </p>
               <p className="whitespace-pre-wrap text-sm text-ink">{m.texte}</p>
               {m.retire ? (
                 <p className="mt-2 text-xs text-ink-muted">
-                  Retiré le {formatDateTime(m.retire.le)}
-                  {m.retire.par ? ` par ${m.retire.par}` : ""}. Motif : {m.retire.motif}
+                  {m.retire.par
+                    ? t("acd.msg.sup.withdrawnOnBy", { date: formatDateTime(m.retire.le), by: m.retire.par, reason: m.retire.motif ?? "" })
+                    : t("acd.msg.sup.withdrawnOn", { date: formatDateTime(m.retire.le), reason: m.retire.motif ?? "" })}
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap items-end gap-2">
-                  <Input className="!w-72" placeholder="Motif du retrait (obligatoire)" value={motifs[m.id] ?? ""} onChange={(e) => setMotifs({ ...motifs, [m.id]: e.target.value })} />
+                  <Input className="!w-72" placeholder={t("acd.msg.sup.reasonPlaceholder")} value={motifs[m.id] ?? ""} onChange={(e) => setMotifs({ ...motifs, [m.id]: e.target.value })} />
                   <Button variant="danger" disabled={!(motifs[m.id] ?? "").trim()} onClick={() => void withdraw(m.id)}>
-                    Retirer ce message
+                    {t("acd.msg.sup.withdrawMessage")}
                   </Button>
                 </div>
               )}
@@ -545,33 +554,37 @@ function Supervision({ initialId }: { initialId?: string }) {
     <div>
       <ErrorMessage>{error}</ErrorMessage>
       <p className="mb-3 text-sm text-ink-muted">
-        La liste ne montre que des repères. Ouvrir une conversation en affiche le contenu, et cette lecture est enregistrée dans le journal d&apos;audit.
+        {t("acd.msg.sup.intro")}
       </p>
       <Card className="mb-4">
-        <Field label="Rechercher (élève, responsable ou enseignant)">
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nom…" />
+        <Field label={t("acd.msg.sup.search")}>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("acd.msg.sup.searchPlaceholder")} />
         </Field>
       </Card>
       {!threads && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("acd.msg.loading")}
         </p>
       )}
-      {threads && threads.length === 0 && <EmptyState title="Aucune conversation." />}
+      {threads && threads.length === 0 && <EmptyState title={t("acd.msg.emptyTitle")} />}
       <ul className="space-y-2">
-        {threads?.map((t) => (
-          <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface p-3">
+        {threads?.map((th) => (
+          <li key={th.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface p-3">
             <div>
-              <p className="text-sm font-medium text-ink">
-                {t.responsable} et {t.interlocuteur}
-              </p>
+              <p className="text-sm font-medium text-ink">{t("acd.msg.sup.pair", { guardian: th.responsable, other: th.interlocuteur })}</p>
               <p className="text-xs text-ink-muted">
-                À propos de {t.enfant} · {t.nombreMessages} message{t.nombreMessages > 1 ? "s" : ""} · dernier le {formatDateTime(t.dernierMessageAt)}
-                {t.signalementsOuverts > 0 && <span className="ml-2 font-medium text-danger">{t.signalementsOuverts} signalement(s)</span>}
+                {t("acd.msg.sup.aboutLine", {
+                  child: th.enfant,
+                  count: t(th.nombreMessages > 1 ? "acd.msg.sup.countMany" : "acd.msg.sup.countOne", { n: th.nombreMessages }),
+                  date: formatDateTime(th.dernierMessageAt),
+                })}
+                {th.signalementsOuverts > 0 && (
+                  <span className="ml-2 font-medium text-danger">{t("acd.msg.sup.reportsCount", { n: th.signalementsOuverts })}</span>
+                )}
               </p>
             </div>
-            <Button variant="secondary" onClick={() => void read(t.id)}>
-              <Eye size={16} /> Lire (enregistré)
+            <Button variant="secondary" onClick={() => void read(th.id)}>
+              <Eye size={16} /> {t("acd.msg.sup.read")}
             </Button>
           </li>
         ))}
@@ -583,6 +596,7 @@ function Supervision({ initialId }: { initialId?: string }) {
 // ------------------------------------------------------------------------------------ Signalements
 
 function Reports({ onChange }: { onChange: (n: number) => void }) {
+  const { t } = useI18n();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openThread, setOpenThread] = useState<string | null>(null);
@@ -615,7 +629,7 @@ function Reports({ onChange }: { onChange: (n: number) => void }) {
     return (
       <div>
         <Button variant="ghost" onClick={() => setOpenThread(null)} className="mb-3">
-          Retour aux signalements
+          {t("acd.msg.rep.back")}
         </Button>
         <Supervision initialId={openThread} />
       </div>
@@ -627,26 +641,26 @@ function Reports({ onChange }: { onChange: (n: number) => void }) {
       <ErrorMessage>{error}</ErrorMessage>
       {!reports && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("acd.msg.loading")}
         </p>
       )}
-      {reports && reports.length === 0 && <EmptyState title="Aucun signalement en attente." />}
+      {reports && reports.length === 0 && <EmptyState title={t("acd.msg.rep.empty")} />}
       <ul className="space-y-2">
         {reports?.map((r) => (
           <li key={r.id} className="rounded-2xl border border-border bg-surface p-3">
             <p className="text-sm font-medium text-ink">
-              Signalé par {r.signalePar}, à propos de {r.enfant}
+              {t("acd.msg.rep.reportedBy", { by: r.signalePar, child: r.enfant })}
             </p>
             <p className="text-xs text-ink-muted">
-              {formatDateTime(r.date)} · message {r.messageDe === "PARENT" ? "d'un responsable" : "du personnel"}
-              {r.motif ? ` · motif : ${r.motif}` : ""}
+              {t(r.messageDe === "PARENT" ? "acd.msg.rep.fromGuardian" : "acd.msg.rep.fromStaff", { date: formatDateTime(r.date) })}
+              {r.motif ? ` · ${t("acd.msg.rep.reason", { reason: r.motif })}` : ""}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setOpenThread(r.conversationId)}>
-                <Eye size={16} /> Ouvrir la conversation (enregistré)
+                <Eye size={16} /> {t("acd.msg.rep.open")}
               </Button>
               <Button variant="ghost" onClick={() => void resolve(r.id)}>
-                Marquer comme traité
+                {t("acd.msg.rep.markHandled")}
               </Button>
             </div>
           </li>

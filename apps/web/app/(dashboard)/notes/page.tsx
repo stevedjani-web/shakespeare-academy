@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BookOpenCheck, ClipboardList, FileText, Settings2, Table2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { GradeContext } from "@/lib/grades";
 import { PageTitle, Spinner, ErrorMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
@@ -17,6 +18,7 @@ type Tab = "evaluations" | "resultats" | "bulletins" | "reglages";
 // Notes, évaluations et bulletins (Lot 15). L'enseignant saisit les notes de SES matières ; la Direction voit toute
 // l'école, valide, publie et corrige. La saisie fonctionne sans Internet : elle est envoyée au retour du réseau.
 export default function NotesPage() {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canEnter = hasPermission("GRADE_ENTER");
   const canRead = hasPermission("GRADE_READ");
@@ -37,27 +39,23 @@ export default function NotesPage() {
   if (!canEnter && !canRead) {
     return (
       <div>
-        <PageTitle eyebrow="Vie scolaire">Notes et bulletins</PageTitle>
-        <p className="text-sm text-ink-muted">Vous n&apos;avez pas la permission de consulter les notes.</p>
+        <PageTitle eyebrow={t("acd.grades.eyebrow")}>{t("acd.grades.title")}</PageTitle>
+        <p className="text-sm text-ink-muted">{t("acd.grades.noPermission")}</p>
       </div>
     );
   }
 
   const tabs = [
-    ...(canEnter ? [{ key: "evaluations" as const, label: "Évaluations et notes", icon: ClipboardList }] : []),
-    { key: "resultats" as const, label: "Résultats", icon: Table2 },
-    ...(canBulletins ? [{ key: "bulletins" as const, label: "Bulletins", icon: FileText }] : []),
-    ...(canSettings ? [{ key: "reglages" as const, label: "Réglages", icon: Settings2 }] : []),
+    ...(canEnter ? [{ key: "evaluations" as const, label: t("acd.grades.tabEvaluations"), icon: ClipboardList }] : []),
+    { key: "resultats" as const, label: t("acd.grades.tabResults"), icon: Table2 },
+    ...(canBulletins ? [{ key: "bulletins" as const, label: t("acd.grades.tabBulletins"), icon: FileText }] : []),
+    ...(canSettings ? [{ key: "reglages" as const, label: t("acd.grades.tabSettings"), icon: Settings2 }] : []),
   ];
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle="Évaluations, notes, moyennes et bulletins par trimestre."
-        helpId="notes"
-      >
-        Notes et bulletins
+      <PageTitle eyebrow={t("acd.grades.eyebrow")} subtitle={t("acd.grades.subtitle")} helpId="notes">
+        {t("acd.grades.title")}
       </PageTitle>
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
         {tabs.map(({ key, label, icon: Icon }) => (
@@ -81,7 +79,7 @@ export default function NotesPage() {
         !error && <Spinner className="h-6 w-6 text-primary" />
       ) : !context.annee ? (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <BookOpenCheck size={16} /> Aucune année scolaire n&apos;est active : les notes se saisissent dans l&apos;année active.
+          <BookOpenCheck size={16} /> {t("acd.grades.noYear")}
         </p>
       ) : (
         <>

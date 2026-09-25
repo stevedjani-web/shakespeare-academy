@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Field, Select } from "@/components/ui";
 import type { AcademicYear, Class, Cycle, Level, Section } from "@/lib/types";
 
@@ -10,6 +11,7 @@ import type { AcademicYear, Class, Cycle, Level, Section } from "@/lib/types";
  * clôturées (RG01) — même cascade que l'assistant d'inscription du dashboard.
  */
 export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: string | null; onChange: (classId: string) => void }) {
+  const { t } = useI18n();
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [cycles, setCycles] = useState<Cycle[]>([]);
@@ -70,17 +72,17 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      <Field label="Année scolaire">
+      <Field label={t("stu.pre.fYear")}>
         <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
-          <option value="">Choisir…</option>
+          <option value="">{t("stu.pre.choose")}</option>
           {years.map((y) => (
             <option key={y.id} value={y.id}>
-              {y.libelle} {y.statut === "ACTIVE" ? "(active)" : "(brouillon)"}
+              {y.libelle} {y.statut === "ACTIVE" ? t("stu.pre.yearActive") : t("stu.pre.yearDraft")}
             </option>
           ))}
         </Select>
       </Field>
-      <Field label="Section">
+      <Field label={t("stu.pre.fSection")}>
         <Select
           value={sectionId}
           onChange={(e) => {
@@ -89,7 +91,7 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
             setLevelId("");
           }}
         >
-          <option value="">Choisir…</option>
+          <option value="">{t("stu.pre.choose")}</option>
           {sections.map((s) => (
             <option key={s.id} value={s.id}>
               {s.nom}
@@ -97,7 +99,7 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
           ))}
         </Select>
       </Field>
-      <Field label="Cycle">
+      <Field label={t("stu.pre.fCycle")}>
         <Select
           value={cycleId}
           onChange={(e) => {
@@ -106,7 +108,7 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
           }}
           disabled={!sectionId}
         >
-          <option value="">Choisir…</option>
+          <option value="">{t("stu.pre.choose")}</option>
           {cyclesForSection.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
@@ -114,9 +116,9 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
           ))}
         </Select>
       </Field>
-      <Field label="Niveau">
+      <Field label={t("stu.pre.fLevel")}>
         <Select value={levelId} onChange={(e) => setLevelId(e.target.value)} disabled={!cycleId}>
-          <option value="">Choisir…</option>
+          <option value="">{t("stu.pre.choose")}</option>
           {levelsForCycle.map((l) => (
             <option key={l.id} value={l.id}>
               {l.nom}
@@ -124,7 +126,7 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
           ))}
         </Select>
       </Field>
-      <Field label="Classe">
+      <Field label={t("stu.pre.fClass")}>
         <Select
           value={classId}
           onChange={(e) => {
@@ -133,7 +135,7 @@ export function ClassPicker({ initialLevelId, onChange }: { initialLevelId?: str
           }}
           disabled={!levelId}
         >
-          <option value="">Choisir…</option>
+          <option value="">{t("stu.pre.choose")}</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}

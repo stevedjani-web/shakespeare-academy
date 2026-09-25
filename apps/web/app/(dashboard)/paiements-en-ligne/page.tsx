@@ -6,6 +6,10 @@ import { RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { formatMontant } from "@/lib/format";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Input, PageTitle, Select, SuccessMessage } from "@/components/ui";
 
 type Statut = "EN_ATTENTE" | "CONFIRME" | "ECHOUE" | "A_TRAITER";
@@ -25,19 +29,20 @@ interface OnlinePaymentRow {
   paiement: { id: string; numeroRecu: string } | null;
 }
 
-const STATUT: Record<Statut, { label: string; color: "blue" | "green" | "red" | "orange" }> = {
-  EN_ATTENTE: { label: "En attente", color: "blue" },
-  CONFIRME: { label: "Confirmé", color: "green" },
-  ECHOUE: { label: "Échoué", color: "red" },
-  A_TRAITER: { label: "À traiter", color: "orange" },
+const STATUT: Record<Statut, { labelKey: MessageKey; color: "blue" | "green" | "red" | "orange" }> = {
+  EN_ATTENTE: { labelKey: "fin.online.status.EN_ATTENTE", color: "blue" },
+  CONFIRME: { labelKey: "fin.online.status.CONFIRME", color: "green" },
+  ECHOUE: { labelKey: "fin.online.status.ECHOUE", color: "red" },
+  A_TRAITER: { labelKey: "fin.online.status.A_TRAITER", color: "orange" },
 };
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return new Date(iso).toLocaleString(INTL_LOCALE[getLocale()], { dateStyle: "short", timeStyle: "short" });
 }
 
 /** Suivi des paiements faits par les parents : vérifier une tentative en attente, clôturer un paiement sans solde à imputer. */
 export default function OnlinePaymentsPage() {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canResolve = hasPermission("PAYMENT_CANCEL_APPROVE");
   const [rows, setRows] = useState<OnlinePaymentRow[]>([]);
@@ -54,7 +59,7 @@ export default function OnlinePaymentsPage() {
       setRows(await api.get<OnlinePaymentRow[]>(`/online-payments${filter ? `?statut=${filter}` : ""}`));
       setError(null);
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : translate("common.error"));
     } finally {
       setLoaded(true);
     }
@@ -70,10 +75,14 @@ export default function OnlinePaymentsPage() {
     setError(null);
     try {
       const res = await api.post<{ statut: Statut }>(`/online-payments/${id}/reconcile`, {});
-      setNotice(res.statut === "EN_ATTENTE" ? "Toujours en attente chez l'opérateur." : `État mis à jour : ${STATUT[res.statut].label.toLowerCase()}.`);
+      setNotice(
+        res.statut === "EN_ATTENTE"
+          ? t("fin.online.stillPending")
+          : t("fin.online.statusUpdated", { status: t(STATUT[res.statut].labelKey).toLowerCase() }),
+      );
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setBusyId(null);
     }
@@ -87,10 +96,10 @@ export default function OnlinePaymentsPage() {
       await api.post(`/online-payments/${id}/resolve`, { motif });
       setResolving(null);
       setMotif("");
-      setNotice("Paiement clôturé.");
+      setNotice(t("fin.online.closed"));
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setBusyId(null);
     }
@@ -100,24 +109,23 @@ export default function OnlinePaymentsPage() {
 
   return (
     <div>
-      <PageTitle subtitle="Les paiements de scolarité faits par les parents par Mobile Money." helpId="paiements-en-ligne">
-        Paiements en ligne
+      <PageTitle subtitle={t("fin.online.subtitle")} helpId="paiements-en-ligne">
+        {t("fin.online.title")}
       </PageTitle>
 
       {toTreat > 0 && (
         <p className="mb-4 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
-          {toTreat} paiement{toTreat > 1 ? "s" : ""} reçu{toTreat > 1 ? "s" : ""} sans solde à imputer : le parent a payé une tranche déjà réglée. Rembourser
-          le parent (hors de l&apos;application) puis faire clôturer par la Direction, avec un motif.
+          {t(toTreat > 1 ? "fin.online.toTreatMany" : "fin.online.toTreatOne", { n: toTreat })}
         </p>
       )}
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="w-48">
-          <Select value={filter} onChange={(e) => setFilter(e.target.value as "" | Statut)} aria-label="Filtrer par état">
-            <option value="">Tous les états</option>
+          <Select value={filter} onChange={(e) => setFilter(e.target.value as "" | Statut)} aria-label={t("fin.online.filterAria")}>
+            <option value="">{t("fin.online.allStatuses")}</option>
             {(Object.keys(STATUT) as Statut[]).map((s) => (
               <option key={s} value={s}>
-                {STATUT[s].label}
+                {t(STATUT[s].labelKey)}
               </option>
             ))}
           </Select>
@@ -129,14 +137,14 @@ export default function OnlinePaymentsPage() {
             void load();
           }}
         >
-          <RefreshCw size={16} /> Actualiser
+          <RefreshCw size={16} /> {t("fin.online.refresh")}
         </Button>
       </div>
 
       <ErrorMessage>{error}</ErrorMessage>
       <SuccessMessage>{notice}</SuccessMessage>
 
-      {loaded && rows.length === 0 && <EmptyState title="Aucun paiement en ligne" description="Les paiements faits par les parents apparaîtront ici." />}
+      {loaded && rows.length === 0 && <EmptyState title={t("fin.online.emptyTitle")} description={t("fin.online.emptyText")} />}
 
       <ul className="space-y-3">
         {rows.map((r) => (
@@ -151,27 +159,27 @@ export default function OnlinePaymentsPage() {
                     {r.tranche} · {formatMontant(r.montant)} · {when(r.createdAt)}
                   </p>
                   <p className="text-xs text-ink-muted">
-                    Payé par {r.responsable.prenom} {r.responsable.nom}, numéro débité {r.telephone}
+                    {t("fin.online.paidBy", { name: `${r.responsable.prenom} ${r.responsable.nom}`, phone: r.telephone })}
                   </p>
                 </div>
-                <Badge color={r.cloture ? "slate" : STATUT[r.statut].color}>{r.cloture ? "Clôturé" : STATUT[r.statut].label}</Badge>
+                <Badge color={r.cloture ? "slate" : STATUT[r.statut].color}>{r.cloture ? t("fin.online.closedBadge") : t(STATUT[r.statut].labelKey)}</Badge>
               </div>
 
               {r.statut === "CONFIRME" && r.paiement && (
                 <p className="mt-2 text-sm">
-                  Reçu{" "}
+                  {t("fin.online.receipt")}{" "}
                   <Link className="font-mono text-primary hover:underline" href={`/recus/${r.paiement.id}`}>
                     {r.paiement.numeroRecu}
                   </Link>
                 </p>
               )}
               {r.statut === "ECHOUE" && r.motifEchec && <p className="mt-2 text-sm text-ink-muted">{r.motifEchec}</p>}
-              {r.cloture && r.motifCloture && <p className="mt-2 text-sm text-ink-muted">Motif de clôture : {r.motifCloture}</p>}
+              {r.cloture && r.motifCloture && <p className="mt-2 text-sm text-ink-muted">{t("fin.online.closingReason", { reason: r.motifCloture })}</p>}
 
               {r.statut === "EN_ATTENTE" && (
                 <div className="mt-3">
                   <Button variant="secondary" disabled={busyId === r.id} onClick={() => void reconcile(r.id)}>
-                    {busyId === r.id ? "Vérification…" : "Vérifier auprès de l'opérateur"}
+                    {busyId === r.id ? t("fin.online.checking") : t("fin.online.checkWithOperator")}
                   </Button>
                 </div>
               )}
@@ -186,19 +194,19 @@ export default function OnlinePaymentsPage() {
                         void resolve(r.id);
                       }}
                     >
-                      <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (par exemple : remboursé au parent le 12/10)" required minLength={3} />
+                      <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("fin.online.reasonPlaceholder")} required minLength={3} />
                       <div className="flex flex-wrap gap-2">
                         <Button type="submit" disabled={busyId === r.id}>
-                          Clôturer
+                          {t("fin.online.close")}
                         </Button>
                         <Button type="button" variant="secondary" onClick={() => setResolving(null)}>
-                          Annuler
+                          {t("fin.cancel")}
                         </Button>
                       </div>
                     </form>
                   ) : (
                     <Button variant="secondary" onClick={() => setResolving(r.id)}>
-                      Clôturer
+                      {t("fin.online.close")}
                     </Button>
                   )}
                 </div>

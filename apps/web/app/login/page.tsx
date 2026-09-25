@@ -7,10 +7,13 @@ import { useAuth, isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
 import { CopyrightFooter } from "@/components/copyright-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { ExpandButton, useExpanded } from "@/components/expand";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
@@ -29,7 +32,7 @@ export default function LoginPage() {
       const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
       router.push(doitChangerMotDePasse ? "/changer-mot-de-passe" : target);
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -52,18 +55,16 @@ export default function LoginPage() {
           </span>
           <div>
             <p className="font-display text-lg font-semibold">Shakespeare Academy</p>
-            <p className="text-xs uppercase tracking-[0.2em] text-white/50">Gestion scolaire</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-white/50">{t("shell.tagline")}</p>
           </div>
         </div>
         <div className="relative max-w-md">
           <p className="font-display text-3xl font-medium leading-snug lg:text-4xl">
-            Chaque inscription, chaque paiement, <span className="italic text-accent">chaque élève</span> — au bon
-            endroit.
+            {t("login.heroBefore")}
+            <span className="italic text-accent">{t("login.heroEmphasis")}</span>
+            {t("login.heroAfter")}
           </p>
-          <p className="mt-4 text-sm text-white/60">
-            Dossiers élèves, inscriptions, tarifs et solvabilité réunis dans un seul espace, pensé pour le
-            secrétariat au quotidien.
-          </p>
+          <p className="mt-4 text-sm text-white/60">{t("login.heroBody")}</p>
         </div>
         <p className="relative text-xs text-white/40">© {new Date().getFullYear()} Shakespeare Academy</p>
       </div>
@@ -71,19 +72,20 @@ export default function LoginPage() {
       {/* Formulaire */}
       <div className="flex flex-1 items-center justify-center bg-bg px-4 py-12 sm:px-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 md:hidden">
-            <div className="mb-4 flex items-center gap-2.5">
+          <div className="mb-8 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 md:hidden">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
                 S
               </span>
               <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
             </div>
+            <LanguageSwitcher className="ml-auto" />
           </div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Connexion</h1>
-          <p className="mt-1 text-sm text-ink-muted">Accédez à l&apos;espace de gestion.</p>
+          <h1 className="font-display text-2xl font-semibold text-ink">{t("login.title")}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{t("login.subtitle")}</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <Field label="Identifiant (e-mail)">
+            <Field label={t("login.email")}>
               <Input
                 type="email"
                 autoComplete="username"
@@ -92,7 +94,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </Field>
-            <Field label="Mot de passe">
+            <Field label={t("login.password")}>
               <Input
                 type="password"
                 autoComplete="current-password"
@@ -103,26 +105,23 @@ export default function LoginPage() {
             </Field>
             <ErrorMessage>{error}</ErrorMessage>
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Connexion…" : "Se connecter"}
+              {submitting ? t("login.submitting") : t("login.submit")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-ink-muted">
-            Vous êtes parent d&apos;élève ?{" "}
+            {t("login.parentQuestion")}{" "}
             <Link href="/parents/connexion" className="font-medium text-primary underline">
-              Accéder à l&apos;espace parents
+              {t("login.parentLink")}
             </Link>
           </p>
           <div className="mt-5 rounded-2xl border border-border bg-surface p-3">
             <div className="flex items-center gap-2.5">
-              <ExpandButton open={help.isOpen("aide")} onClick={() => help.toggle("aide")} label="l'aide et l'installation" />
-              <span className="text-sm font-medium text-ink">Installer l&apos;application et travailler sans Internet</span>
+              <ExpandButton open={help.isOpen("aide")} onClick={() => help.toggle("aide")} label={t("login.expandLabel")} />
+              <span className="text-sm font-medium text-ink">{t("login.installTitle")}</span>
             </div>
             {help.isOpen("aide") && (
               <div className="mt-3 space-y-3 border-t border-border pt-3">
-                <p className="text-xs text-ink-muted">
-                  Sans Internet, la connexion n&apos;est possible qu&apos;avec une session déjà ouverte sur cet appareil : ouvrez
-                  l&apos;application installée, elle reprendra votre dernière session.
-                </p>
+                <p className="text-xs text-ink-muted">{t("login.installHelp")}</p>
                 <InstallAppButton />
               </div>
             )}

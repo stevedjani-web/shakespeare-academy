@@ -8,32 +8,32 @@ import { submitOrQueue } from "@/lib/offline-actions";
 import { listOutbox, useOnOutboxChange } from "@/lib/outbox";
 import type { CheckinStatus, MyCheckins, ScanResult } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Spinner } from "@/components/ui";
+import type { MessageKey } from "@/lib/i18n";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { formatIso } from "@/components/emploi-du-temps/shared";
 import { QrScanner, extractCode } from "@/components/qr-scanner";
 
-const TYPE_LABEL: Record<ScanResult["type"], string> = {
-  DEBUT: "Début de séance enregistré",
-  FIN: "Fin de séance enregistrée",
-  ARRIVEE: "Arrivée enregistrée",
-  DEPART: "Départ enregistré",
+const TYPE_KEY: Record<ScanResult["type"], MessageKey> = {
+  DEBUT: "tt.me.type.DEBUT",
+  FIN: "tt.me.type.FIN",
+  ARRIVEE: "tt.me.type.ARRIVEE",
+  DEPART: "tt.me.type.DEPART",
 };
 
-const STATUS_BADGE: Record<CheckinStatus, { label: string; color: "orange" | "green" | "red" }> = {
-  EN_ATTENTE: { label: "En attente de validation", color: "orange" },
-  VALIDE: { label: "Validé", color: "green" },
-  REJETE: { label: "Rejeté", color: "red" },
+const STATUS_BADGE: Record<CheckinStatus, { key: MessageKey; color: "orange" | "green" | "red" }> = {
+  EN_ATTENTE: { key: "tt.me.status.EN_ATTENTE", color: "orange" },
+  VALIDE: { key: "tt.me.status.VALIDE", color: "green" },
+  REJETE: { key: "tt.me.status.REJETE", color: "red" },
 };
-
-function hhmm(iso: Date): string {
-  return iso.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-}
 
 // Pointage de l'enseignant (Lot 10) : scanner le QR de la salle (début et fin de chaque cours) ou de
 // l'entrée de l'école (arrivée et départ). Sans Internet, le scan est gardé sur l'appareil, avec son
 // heure, et confirmé à la synchronisation. Un tiers valide ensuite le pointage.
 export default function PointagePage() {
   const { user, hasPermission } = useAuth();
+  const { t, locale } = useI18n();
   const canScan = hasPermission("TEACHER_CHECKIN_SELF");
   const [me, setMe] = useState<MyCheckins | null>(null);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -44,6 +44,11 @@ export default function PointagePage() {
   const [manual, setManual] = useState("");
   const [pending, setPending] = useState(0);
   const autoScanned = useRef(false);
+
+  const hhmm = useCallback(
+    (d: Date): string => d.toLocaleTimeString(INTL_LOCALE[locale], { hour: "2-digit", minute: "2-digit" }),
+    [locale],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -72,7 +77,7 @@ export default function PointagePage() {
       setQueuedAt(null);
       try {
         const res = await submitOrQueue<ScanResult>(
-          { kind: "checkin", method: "POST", path: "/teacher-checkins/scan", body: { code }, label: "Scan de pointage" },
+          { kind: "checkin", method: "POST", path: "/teacher-checkins/scan", body: { code }, label: t("tt.me.scanLabel") },
           // L'heure du scan sur l'appareil accompagne le scan envoyé plus tard.
           () => ({ body: { code, scanneLe: new Date().toISOString() } }),
         );
@@ -88,7 +93,7 @@ export default function PointagePage() {
         setBusy(false);
       }
     },
-    [load],
+    [load, hhmm, t],
   );
 
   // Un QR ouvert avec l'appareil photo du téléphone arrive ici avec ?c=... : on pointe tout de suite.
@@ -104,8 +109,8 @@ export default function PointagePage() {
   if (!canScan) {
     return (
       <div>
-        <PageTitle eyebrow="Vie scolaire">Mon pointage</PageTitle>
-        <p className="text-sm text-ink-muted">Ce compte n&apos;est pas celui d&apos;un enseignant : il n&apos;a pas de pointage à faire.</p>
+        <PageTitle eyebrow={t("tt.eyebrow")}>{t("tt.me.title")}</PageTitle>
+        <p className="text-sm text-ink-muted">{t("tt.me.notTeacher")}</p>
       </div>
     );
   }
@@ -114,21 +119,13 @@ export default function PointagePage() {
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle={
-          journee
-            ? "Scannez le QR de l'entrée de l'école à votre arrivée et à votre départ."
-            : "Scannez le QR de la salle au début et à la fin de chaque cours."
-        }
-        helpId="pointage"
-      >
-        Mon pointage
+      <PageTitle eyebrow={t("tt.eyebrow")} subtitle={journee ? t("tt.me.subtitleDay") : t("tt.me.subtitleSession")} helpId="pointage">
+        {t("tt.me.title")}
       </PageTitle>
 
       {busy && (
         <p className="mb-3 flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Enregistrement…
+          <Spinner /> {t("tt.me.saving")}
         </p>
       )}
       <ErrorMessage>{error}</ErrorMessage>
@@ -136,7 +133,7 @@ export default function PointagePage() {
       {result && (
         <Card className="mb-4 border-success/40">
           <p className="flex items-center gap-2 font-display text-lg font-semibold text-success">
-            <CheckCircle2 size={20} /> {TYPE_LABEL[result.type]} à {result.heure}
+            <CheckCircle2 size={20} /> {t("tt.me.resultAt", { label: t(TYPE_KEY[result.type]), time: result.heure ?? "" })}
           </p>
           {result.seance && (
             <p className="mt-1 text-sm text-ink">
@@ -145,27 +142,27 @@ export default function PointagePage() {
           )}
           {result.retardMinutes > 0 && (
             <p className={`mt-1 text-sm ${result.retardSignale ? "text-warning" : "text-ink-muted"}`}>
-              Retard de {result.retardMinutes} minute(s){result.retardSignale ? " : il sera signalé." : "."}
+              {result.retardSignale
+                ? t("tt.me.lateFlagged", { count: result.retardMinutes })
+                : t("tt.me.late", { count: result.retardMinutes })}
             </p>
           )}
-          {result.ecartSalle && <p className="mt-1 text-sm text-warning">Ce n&apos;est pas la salle prévue : la vie scolaire le vérifiera.</p>}
-          <p className="mt-2 text-xs text-ink-muted">En attente de validation par la vie scolaire.</p>
-          {result.type === "FIN" && result.mode === "SEANCE" && (
-            <p className="mt-1 text-xs text-ink-muted">Pour le cours suivant, scannez à nouveau au moment de commencer.</p>
-          )}
+          {result.ecartSalle && <p className="mt-1 text-sm text-warning">{t("tt.me.otherRoom")}</p>}
+          <p className="mt-2 text-xs text-ink-muted">{t("tt.me.awaitingValidation")}</p>
+          {result.type === "FIN" && result.mode === "SEANCE" && <p className="mt-1 text-xs text-ink-muted">{t("tt.me.nextCourse")}</p>}
         </Card>
       )}
 
       {queuedAt && (
         <p className="mb-4 flex items-start gap-2 rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning">
           <CloudOff size={16} className="mt-0.5 shrink-0" />
-          Scan de {queuedAt} gardé sur cet appareil : il sera confirmé dès que la connexion reviendra.
+          {t("tt.me.queuedAt", { time: queuedAt })}
         </p>
       )}
       {pending > 0 && !queuedAt && (
         <p className="mb-4 flex items-start gap-2 rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning">
           <CloudOff size={16} className="mt-0.5 shrink-0" />
-          {pending} scan(s) en attente d&apos;envoi sur cet appareil.
+          {t("tt.me.pending", { count: pending })}
         </p>
       )}
 
@@ -175,7 +172,7 @@ export default function PointagePage() {
         </div>
       ) : (
         <Button className="mb-4 w-full py-4 text-base" onClick={() => setCamera(true)} disabled={busy}>
-          <ScanLine size={20} /> Scanner un QR code
+          <ScanLine size={20} /> {t("tt.me.scanButton")}
         </Button>
       )}
 
@@ -189,43 +186,43 @@ export default function PointagePage() {
               setManual("");
               void scan(code);
             } else {
-              setError("Ce code n'est pas valide.");
+              setError(t("tt.me.invalidCode"));
             }
           }}
         >
-          <Field label="Pas de caméra ? Saisissez le code imprimé sous le QR">
-            <Input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Code du QR" autoComplete="off" />
+          <Field label={t("tt.me.noCamera")}>
+            <Input value={manual} onChange={(e) => setManual(e.target.value)} placeholder={t("tt.me.codePlaceholder")} autoComplete="off" />
           </Field>
           <Button type="submit" variant="secondary" disabled={!manual.trim() || busy}>
-            <QrCode size={16} /> Pointer avec ce code
+            <QrCode size={16} /> {t("tt.me.checkWithCode")}
           </Button>
         </form>
       </Card>
 
       {!me && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("tt.loading")}
         </p>
       )}
 
       {me && (
         <Card>
-          <h2 className="font-display text-lg font-semibold text-ink">Aujourd&apos;hui, {formatIso(me.date)}</h2>
-          {me.sansClasse && <p className="mt-2 text-sm text-ink-muted">Pas de cours : {me.sansClasse.libelle}.</p>}
+          <h2 className="font-display text-lg font-semibold text-ink">{t("tt.me.todayHeading", { date: formatIso(me.date) })}</h2>
+          {me.sansClasse && <p className="mt-2 text-sm text-ink-muted">{t("tt.me.noClass", { label: me.sansClasse.libelle })}</p>}
           {journee ? (
             me.journee ? (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-ink">
-                  Arrivée {me.journee.arrivee ?? "-"} · Départ {me.journee.depart ?? "-"}
+                  {t("tt.ck.arrivalDeparture", { arrival: me.journee.arrivee ?? "-", departure: me.journee.depart ?? "-" })}
                 </span>
-                <Badge color={STATUS_BADGE[me.journee.statut].color}>{STATUS_BADGE[me.journee.statut].label}</Badge>
-                {me.journee.retardSignale && <Badge color="orange">Retard {me.journee.retardMinutes} min</Badge>}
+                <Badge color={STATUS_BADGE[me.journee.statut].color}>{t(STATUS_BADGE[me.journee.statut].key)}</Badge>
+                {me.journee.retardSignale && <Badge color="orange">{t("tt.ck.lateMin", { min: me.journee.retardMinutes ?? 0 })}</Badge>}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-ink-muted">Aucun pointage pour l&apos;instant.</p>
+              <p className="mt-2 text-sm text-ink-muted">{t("tt.me.noCheckinYet")}</p>
             )
           ) : me.seances.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">Aucune séance aujourd&apos;hui.</p>
+            <p className="mt-2 text-sm text-ink-muted">{t("tt.me.noSessionToday")}</p>
           ) : (
             <ul className="mt-2 space-y-2">
               {me.seances.map((s) => (
@@ -234,15 +231,13 @@ export default function PointagePage() {
                     {s.heureDebut} - {s.heureFin} · {s.className} · {s.subjectName}
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-                    <span>
-                      {s.roomName} · Début {s.pointage?.debut ?? "-"} · Fin {s.pointage?.fin ?? "-"}
-                    </span>
+                    <span>{t("tt.me.roomStartEnd", { room: s.roomName, start: s.pointage?.debut ?? "-", end: s.pointage?.fin ?? "-" })}</span>
                     {s.pointage ? (
-                      <Badge color={STATUS_BADGE[s.pointage.statut].color}>{STATUS_BADGE[s.pointage.statut].label}</Badge>
+                      <Badge color={STATUS_BADGE[s.pointage.statut].color}>{t(STATUS_BADGE[s.pointage.statut].key)}</Badge>
                     ) : (
-                      <Badge color="gray">Pas encore pointée</Badge>
+                      <Badge color="gray">{t("tt.me.notYet")}</Badge>
                     )}
-                    {s.pointage?.retardSignale && <Badge color="orange">Retard {s.pointage.retardMinutes} min</Badge>}
+                    {s.pointage?.retardSignale && <Badge color="orange">{t("tt.ck.lateMin", { min: s.pointage.retardMinutes ?? 0 })}</Badge>}
                   </div>
                 </li>
               ))}

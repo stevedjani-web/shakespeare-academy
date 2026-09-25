@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CloudOff, Pencil, Trash2 } from "lucide-react";
 import { api, isOfflineError } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { frDay, frShort, TEXTBOOK_MAX_LENGTH, type TextbookContext, type TextbookRow } from "@/lib/textbook";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select, Spinner, SuccessMessage } from "@/components/ui";
@@ -30,6 +31,7 @@ interface Draft {
  * l'enregistrement. La création fonctionne sans Internet (envoyée au retour du réseau).
  */
 export function TextbookPanel({ context }: { context: TextbookContext }) {
+  const { t } = useI18n();
   const today = context.aujourdhui;
   const [classId, setClassId] = useState(context.classes[0]?.id ?? "");
   const [subjectId, setSubjectId] = useState("");
@@ -64,13 +66,9 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
     } catch (err) {
       // Sans Internet, la liste n'est pas copiée sur l'appareil, mais la saisie d'une entrée reste possible : on le dit
       // calmement plutôt que d'afficher une erreur au-dessus d'un formulaire qui marche.
-      setError(
-        isOfflineError(err)
-          ? "La liste des entrées n'est pas disponible sans Internet. Vous pouvez quand même saisir une entrée : elle sera envoyée au retour du réseau."
-          : describeError(err),
-      );
+      setError(isOfflineError(err) ? t("acd.tb.offlineList") : describeError(err));
     }
-  }, [classId, subjectId, days, today]);
+  }, [classId, subjectId, days, today, t]);
 
   useEffect(() => {
     void load();
@@ -97,13 +95,13 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
         method: "POST",
         path: "/textbook",
         body,
-        label: `Cahier de textes : ${label?.subjectName ?? ""} (${label?.className ?? ""})`,
+        label: t("acd.tb.queueLabel", { subject: label?.subjectName ?? "", class: label?.className ?? "" }),
       });
       setDraft({ date: draft.date, contenu: "", devoirs: "", dateEcheance: "" });
       if (res.queued) {
-        setNotice({ text: "Enregistré sur cet appareil. L'entrée sera envoyée dès le retour d'Internet.", queued: true });
+        setNotice({ text: t("acd.tb.queuedNotice"), queued: true });
       } else {
-        setNotice({ text: "Entrée enregistrée. Les parents la voient dans leur espace.", queued: false });
+        setNotice({ text: t("acd.tb.savedNotice"), queued: false });
         if (tClass !== classId) setClassId(tClass);
         await load();
       }
@@ -132,7 +130,7 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
   }
 
   async function remove(row: TextbookRow) {
-    if (!window.confirm(`Supprimer l'entrée du ${frShort(row.date)} (${row.subjectName}) ?`)) return;
+    if (!window.confirm(t("acd.tb.confirmDelete", { date: frShort(row.date), subject: row.subjectName }))) return;
     try {
       await api.delete(`/textbook/${row.id}`);
       await load();
@@ -142,7 +140,7 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
   }
 
   if (context.classes.length === 0) {
-    return <EmptyState title="Aucune classe" description="Aucune classe n'est accessible dans l'année active." />;
+    return <EmptyState title={t("acd.tb.noClassTitle")} description={t("acd.tb.noClassDesc")} />;
   }
 
   return (
@@ -150,9 +148,9 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
       {context.peutEcrire && mine.length > 0 && (
         <Card>
           <form onSubmit={create} className="space-y-3">
-            <h2 className="text-sm font-semibold text-ink">Nouvelle entrée</h2>
+            <h2 className="text-sm font-semibold text-ink">{t("acd.tb.newEntry")}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Classe et matière">
+              <Field label={t("acd.tb.classAndSubject")}>
                 <Select value={target} onChange={(e) => setTarget(e.target.value)}>
                   {mine.map((a) => (
                     <option key={`${a.classId}:${a.subjectId}`} value={`${a.classId}:${a.subjectId}`}>
@@ -161,7 +159,7 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
                   ))}
                 </Select>
               </Field>
-              <Field label="Date de la séance">
+              <Field label={t("acd.tb.sessionDate")}>
                 <Input
                   type="date"
                   required
@@ -172,36 +170,36 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
                 />
               </Field>
             </div>
-            <Field label="Ce qui a été fait en cours">
+            <Field label={t("acd.tb.doneInClass")}>
               <textarea
                 className={TEXTAREA}
                 rows={3}
                 maxLength={TEXTBOOK_MAX_LENGTH}
                 value={draft.contenu}
                 onChange={(e) => setDraft({ ...draft, contenu: e.target.value })}
-                placeholder="Ex. Les fractions : addition et soustraction."
+                placeholder={t("acd.tb.doneInClassPlaceholder")}
               />
             </Field>
-            <Field label="Travail à faire à la maison">
+            <Field label={t("acd.tb.homework")}>
               <textarea
                 className={TEXTAREA}
                 rows={3}
                 maxLength={TEXTBOOK_MAX_LENGTH}
                 value={draft.devoirs}
                 onChange={(e) => setDraft({ ...draft, devoirs: e.target.value })}
-                placeholder="Ex. Exercices 4 et 5 page 32."
+                placeholder={t("acd.tb.homeworkPlaceholder")}
               />
             </Field>
             {draft.devoirs.trim() && (
               <div className="sm:w-64">
-                <Field label="À rendre pour le (facultatif)">
+                <Field label={t("acd.tb.dueOptional")}>
                   <Input type="date" value={draft.dateEcheance} min={draft.date} onChange={(e) => setDraft({ ...draft, dateEcheance: e.target.value })} />
                 </Field>
               </div>
             )}
-            <p className="text-xs text-ink-muted">Texte seulement. Les parents de la classe voient l&apos;entrée dès qu&apos;elle est enregistrée ; un devoir les prévient par une alerte.</p>
+            <p className="text-xs text-ink-muted">{t("acd.tb.textOnly")}</p>
             <Button type="submit" disabled={busy || (!draft.contenu.trim() && !draft.devoirs.trim())}>
-              {busy && <Spinner />} Enregistrer l&apos;entrée
+              {busy && <Spinner />} {t("acd.tb.saveEntry")}
             </Button>
           </form>
         </Card>
@@ -222,7 +220,7 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Classe">
+          <Field label={t("acd.tb.filterClass")}>
             <Select
               value={classId}
               onChange={(e) => {
@@ -237,9 +235,9 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
               ))}
             </Select>
           </Field>
-          <Field label="Matière">
+          <Field label={t("acd.tb.filterSubject")}>
             <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-              <option value="">Toutes les matières</option>
+              <option value="">{t("acd.tb.allSubjects")}</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nom}
@@ -247,12 +245,12 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
               ))}
             </Select>
           </Field>
-          <Field label="Période">
+          <Field label={t("acd.tb.filterPeriod")}>
             <Select value={days} onChange={(e) => setDays(e.target.value)}>
-              <option value="7">7 derniers jours</option>
-              <option value="30">30 derniers jours</option>
-              <option value="90">90 derniers jours</option>
-              <option value="365">Toute l&apos;année</option>
+              <option value="7">{t("acd.tb.days7")}</option>
+              <option value="30">{t("acd.tb.days30")}</option>
+              <option value="90">{t("acd.tb.days90")}</option>
+              <option value="365">{t("acd.tb.wholeYear")}</option>
             </Select>
           </Field>
         </div>
@@ -261,33 +259,33 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
       {rows === null ? (
         <Spinner className="h-6 w-6 text-primary" />
       ) : rows.length === 0 ? (
-        <EmptyState title="Aucune entrée" description="Rien n'a été noté pour cette classe sur cette période." />
+        <EmptyState title={t("acd.tb.emptyTitle")} description={t("acd.tb.emptyDesc")} />
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (
             <li key={row.id} className="rounded-2xl border border-border bg-surface p-3">
               {editing?.id === row.id ? (
                 <div className="space-y-2">
-                  <Field label="Date de la séance">
+                  <Field label={t("acd.tb.sessionDate")}>
                     <Input type="date" max={today} value={editing.draft.date} onChange={(e) => setEditing({ id: row.id, draft: { ...editing.draft, date: e.target.value } })} />
                   </Field>
-                  <Field label="Ce qui a été fait en cours">
+                  <Field label={t("acd.tb.doneInClass")}>
                     <textarea className={TEXTAREA} rows={3} maxLength={TEXTBOOK_MAX_LENGTH} value={editing.draft.contenu} onChange={(e) => setEditing({ id: row.id, draft: { ...editing.draft, contenu: e.target.value } })} />
                   </Field>
-                  <Field label="Travail à faire à la maison">
+                  <Field label={t("acd.tb.homework")}>
                     <textarea className={TEXTAREA} rows={3} maxLength={TEXTBOOK_MAX_LENGTH} value={editing.draft.devoirs} onChange={(e) => setEditing({ id: row.id, draft: { ...editing.draft, devoirs: e.target.value } })} />
                   </Field>
                   {editing.draft.devoirs.trim() && (
                     <div className="sm:w-64">
-                      <Field label="À rendre pour le">
+                      <Field label={t("acd.tb.due")}>
                         <Input type="date" min={editing.draft.date} value={editing.draft.dateEcheance} onChange={(e) => setEditing({ id: row.id, draft: { ...editing.draft, dateEcheance: e.target.value } })} />
                       </Field>
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button onClick={saveEdit}>Enregistrer</Button>
+                    <Button onClick={saveEdit}>{t("acd.tb.save")}</Button>
                     <Button variant="ghost" onClick={() => setEditing(null)}>
-                      Annuler
+                      {t("acd.tb.cancel")}
                     </Button>
                   </div>
                 </div>
@@ -306,12 +304,12 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
-                          aria-label="Modifier"
+                          aria-label={t("acd.tb.edit")}
                           onClick={() => setEditing({ id: row.id, draft: { date: row.date, contenu: row.contenu ?? "", devoirs: row.devoirs ?? "", dateEcheance: row.dateEcheance ?? "" } })}
                         >
                           <Pencil size={15} />
                         </Button>
-                        <Button variant="ghost" aria-label="Supprimer" onClick={() => remove(row)}>
+                        <Button variant="ghost" aria-label={t("acd.tb.delete")} onClick={() => remove(row)}>
                           <Trash2 size={15} />
                         </Button>
                       </div>
@@ -319,19 +317,17 @@ export function TextbookPanel({ context }: { context: TextbookContext }) {
                   </div>
                   {row.contenu && (
                     <p className="mt-2 whitespace-pre-line text-sm text-ink">
-                      <span className="font-medium">Fait en cours : </span>
+                      <span className="font-medium">{t("acd.tb.doneLabel")}</span>
                       {row.contenu}
                     </p>
                   )}
                   {row.devoirs && (
                     <p className="mt-2 whitespace-pre-line rounded-xl bg-surface-muted px-3 py-2 text-sm text-ink">
-                      <span className="font-medium">À faire : </span>
+                      <span className="font-medium">{t("acd.tb.todoLabel")}</span>
                       {row.devoirs}
                       {row.dateEcheance && (
                         <span className="ml-2 inline-block">
-                          <Badge color="orange">
-                            pour le {frShort(row.dateEcheance)}
-                          </Badge>
+                          <Badge color="orange">{t("acd.tb.dueBadge", { date: frShort(row.dateEcheance) })}</Badge>
                         </span>
                       )}
                     </p>

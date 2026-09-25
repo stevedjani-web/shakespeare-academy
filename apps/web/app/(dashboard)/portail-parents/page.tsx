@@ -11,6 +11,8 @@ import type { School } from "@/lib/types";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { formatDate } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { Rich } from "@/lib/i18n/rich";
 
 interface GuardianRow {
   id: string;
@@ -33,6 +35,7 @@ interface IssuedCode {
 // d'un responsable pour un enfant. Le code n'est affiché qu'une fois, à cet écran.
 export default function PortailParentsPage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canManage = hasPermission("PARENT_ACCOUNT_MANAGE");
   const canRevoke = hasPermission("PARENT_ACCESS_REVOKE");
   const expand = useExpanded();
@@ -108,8 +111,8 @@ export default function PortailParentsPage() {
   if (!canManage) {
     return (
       <div>
-        <PageTitle eyebrow="Vie scolaire">Comptes parents</PageTitle>
-        <p className="text-sm text-ink-muted">Vous n&apos;avez pas la permission de gérer les comptes parents.</p>
+        <PageTitle eyebrow={t("adm.parents.eyebrow")}>{t("adm.parents.title")}</PageTitle>
+        <p className="text-sm text-ink-muted">{t("adm.parents.noPermission")}</p>
       </div>
     );
   }
@@ -119,11 +122,11 @@ export default function PortailParentsPage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle="Remettez un code d'activation à un responsable pour qu'il crée son compte. Un responsable ne voit que ses propres enfants."
+        eyebrow={t("adm.parents.eyebrow")}
+        subtitle={t("adm.parents.subtitle")}
         helpId="portail-parents"
       >
-        Comptes parents
+        {t("adm.parents.title")}
       </PageTitle>
 
       <ErrorMessage>{error}</ErrorMessage>
@@ -143,20 +146,22 @@ export default function PortailParentsPage() {
       {issued && (
         <Card className="mb-4 border-primary/40">
           <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <KeyRound size={16} /> Code d&apos;activation
+            <KeyRound size={16} /> {t("adm.parents.codeTitle")}
           </p>
           <p className="my-3 text-center font-mono text-3xl font-bold tracking-widest text-primary">{issued.code}</p>
           <p className="text-sm text-ink">
-            À remettre en main propre au responsable (numéro {issued.telephone}). Il l&apos;utilise sur <span className="font-medium">{link}</span>. Valable jusqu&apos;au{" "}
-            {formatDate(issued.expireLe)}, à usage unique.
+            <Rich
+              text={t("adm.parents.codeHelp", { phone: issued.telephone, link, date: formatDate(issued.expireLe) })}
+              strongClassName="font-medium"
+            />
           </p>
-          <p className="mt-1 text-xs text-warning">Ce code ne sera plus affiché après cet écran : notez-le ou remettez-le maintenant. Un nouveau code annule celui-ci.</p>
+          <p className="mt-1 text-xs text-warning">{t("adm.parents.codeWarning")}</p>
           <div className="mt-3 flex gap-2">
-            <Button variant="secondary" onClick={() => void navigator.clipboard?.writeText(`Code d'activation : ${issued.code}\nActivez votre compte sur ${link}`)}>
-              <Copy size={16} /> Copier le message
+            <Button variant="secondary" onClick={() => void navigator.clipboard?.writeText(t("adm.parents.copyText", { code: issued.code, link }))}>
+              <Copy size={16} /> {t("adm.parents.copyMessage")}
             </Button>
             <Button variant="ghost" onClick={() => setIssued(null)}>
-              Fermer
+              {t("adm.parents.close")}
             </Button>
           </div>
         </Card>
@@ -164,15 +169,15 @@ export default function PortailParentsPage() {
 
       <Card className="mb-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem_12rem]">
-          <Field label="Rechercher un responsable ou un élève">
+          <Field label={t("adm.parents.searchLabel")}>
             <div className="relative">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-              <Input className="pl-9" placeholder="Nom, téléphone, matricule…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input className="pl-9" placeholder={t("adm.parents.searchPh")} value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </Field>
-          <Field label="Classe">
+          <Field label={t("adm.parents.class")}>
             <Select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-              <option value="">Toutes</option>
+              <option value="">{t("adm.parents.allF")}</option>
               {summary?.classes.map((c) => (
                 <option key={c.classId} value={c.classId}>
                   {c.classe}
@@ -180,12 +185,12 @@ export default function PortailParentsPage() {
               ))}
             </Select>
           </Field>
-          <Field label="État">
+          <Field label={t("adm.parents.state")}>
             <Select value={etatFilter} onChange={(e) => setEtatFilter(e.target.value)}>
-              <option value="">Tous</option>
-              <option value="SANS_COMPTE">Sans compte</option>
-              <option value="CODE_EN_ATTENTE">Code en attente</option>
-              <option value="ACTIF">Compte actif</option>
+              <option value="">{t("adm.parents.allM")}</option>
+              <option value="SANS_COMPTE">{t("adm.parents.noAccount")}</option>
+              <option value="CODE_EN_ATTENTE">{t("adm.parents.codePending")}</option>
+              <option value="ACTIF">{t("adm.parents.accountActive")}</option>
             </Select>
           </Field>
         </div>
@@ -193,10 +198,10 @@ export default function PortailParentsPage() {
 
       {!rows && !error && (
         <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("adm.parents.loading")}
         </p>
       )}
-      {rows && rows.length === 0 && <EmptyState icon={<Users />} title="Aucun responsable trouvé." description="Un responsable existe dès qu'il est rattaché à un élève." />}
+      {rows && rows.length === 0 && <EmptyState icon={<Users />} title={t("adm.parents.empty")} description={t("adm.parents.emptyDesc")} />}
 
       {rows && rows.length > 0 && (
         <>
@@ -214,15 +219,15 @@ export default function PortailParentsPage() {
                           {g.prenom} {g.nom}
                         </p>
                         <p className="text-xs text-ink-muted">
-                          {g.telephone} · {g.enfants.length} enfant(s)
+                          {g.telephone} · {t("adm.parents.childCount", { n: g.enfants.length })}
                         </p>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {!g.compte && <Badge color="gray">Pas de compte</Badge>}
-                      {g.compte?.statut === "ACTIF" && <Badge color="green">Compte actif</Badge>}
-                      {g.compte?.statut === "INACTIF" && <Badge color="red">Compte désactivé</Badge>}
-                      {g.codeEnAttente && <Badge color="orange">Code en attente</Badge>}
+                      {!g.compte && <Badge color="gray">{t("adm.parents.badgeNoAccount")}</Badge>}
+                      {g.compte?.statut === "ACTIF" && <Badge color="green">{t("adm.parents.accountActive")}</Badge>}
+                      {g.compte?.statut === "INACTIF" && <Badge color="red">{t("adm.parents.accountDisabled")}</Badge>}
+                      {g.codeEnAttente && <Badge color="orange">{t("adm.parents.codePending")}</Badge>}
                     </div>
                   </div>
 
@@ -230,36 +235,36 @@ export default function PortailParentsPage() {
                     <div className="mt-3 space-y-3 border-t border-border pt-3">
                       {g.compte && (
                         <p className="text-sm text-ink-muted">
-                          Activé le {formatDate(g.compte.activeLe)}
-                          {g.compte.dernierLoginAt ? ` · dernière connexion le ${formatDate(g.compte.dernierLoginAt)}` : " · jamais connecté depuis"}
-                          {g.compte.consentement ? ` · politique acceptée le ${formatDate(g.compte.consentement.le)} (version ${g.compte.consentement.version})` : ""}
+                          {t("adm.parents.activatedOn", { date: formatDate(g.compte.activeLe) })}
+                          {g.compte.dernierLoginAt ? t("adm.parents.lastLoginOn", { date: formatDate(g.compte.dernierLoginAt) }) : t("adm.parents.neverLoggedIn")}
+                          {g.compte.consentement ? t("adm.parents.consentOn", { date: formatDate(g.compte.consentement.le), version: g.compte.consentement.version }) : ""}
                         </p>
                       )}
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={() => void issueCode(g)}>
-                          <KeyRound size={16} /> {g.compte ? "Nouveau code (mot de passe oublié)" : "Générer un code d'activation"}
+                          <KeyRound size={16} /> {g.compte ? t("adm.parents.newCode") : t("adm.parents.generateCode")}
                         </Button>
                         {g.compte?.statut === "ACTIF" && (
                           <Button
                             variant="danger"
                             onClick={() => {
-                              if (confirm(`Désactiver le compte de ${g.prenom} ${g.nom} ? Il sera déconnecté immédiatement.`)) {
-                                void run(() => api.post(`/parent-accounts/guardians/${g.id}/deactivate`, {}), "Compte désactivé.");
+                              if (confirm(t("adm.parents.confirmDeactivate", { name: `${g.prenom} ${g.nom}` }))) {
+                                void run(() => api.post(`/parent-accounts/guardians/${g.id}/deactivate`, {}), t("adm.parents.deactivated"));
                               }
                             }}
                           >
-                            Désactiver le compte
+                            {t("adm.parents.deactivate")}
                           </Button>
                         )}
                         {g.compte?.statut === "INACTIF" && (
-                          <Button variant="secondary" onClick={() => void run(() => api.post(`/parent-accounts/guardians/${g.id}/reactivate`, {}), "Compte réactivé.")}>
-                            Réactiver le compte
+                          <Button variant="secondary" onClick={() => void run(() => api.post(`/parent-accounts/guardians/${g.id}/reactivate`, {}), t("adm.parents.reactivated"))}>
+                            {t("adm.parents.reactivate")}
                           </Button>
                         )}
                       </div>
 
                       <div>
-                        <p className="mb-1.5 text-sm font-medium text-ink">Enfants</p>
+                        <p className="mb-1.5 text-sm font-medium text-ink">{t("adm.parents.children")}</p>
                         <ul className="space-y-2">
                           {g.enfants.map((e) => (
                             <li key={e.liaisonId} className="rounded-xl bg-surface-muted p-2.5 text-sm">
@@ -267,14 +272,14 @@ export default function PortailParentsPage() {
                                 <span className="text-ink">
                                   {e.prenom} {e.nom} <span className="text-ink-muted">· {e.matricule} · {e.lien}</span>
                                 </span>
-                                {e.accesPortail ? <Badge color="green">Accès accordé</Badge> : <Badge color="red">Accès retiré</Badge>}
+                                {e.accesPortail ? <Badge color="green">{t("adm.parents.accessGranted")}</Badge> : <Badge color="red">{t("adm.parents.accessRevoked")}</Badge>}
                               </div>
-                              {!e.accesPortail && e.accesMotif && <p className="mt-1 text-xs text-ink-muted">Motif : {e.accesMotif}</p>}
+                              {!e.accesPortail && e.accesMotif && <p className="mt-1 text-xs text-ink-muted">{t("adm.parents.reason", { reason: e.accesMotif })}</p>}
                               {canRevoke && (
                                 <div className="mt-2 flex flex-wrap items-end gap-2">
                                   <Input
                                     className="!w-64"
-                                    placeholder="Motif (obligatoire)"
+                                    placeholder={t("adm.parents.reasonPh")}
                                     value={motifs[e.liaisonId] ?? ""}
                                     onChange={(ev) => setMotifs({ ...motifs, [e.liaisonId]: ev.target.value })}
                                   />
@@ -284,18 +289,18 @@ export default function PortailParentsPage() {
                                     onClick={() =>
                                       void run(
                                         () => api.patch(`/parent-accounts/links/${e.liaisonId}/access`, { acces: !e.accesPortail, motif: motifs[e.liaisonId] }),
-                                        e.accesPortail ? "Accès retiré." : "Accès rétabli.",
+                                        e.accesPortail ? t("adm.parents.revokedDone") : t("adm.parents.restoredDone"),
                                       ).then(() => setMotifs((m) => ({ ...m, [e.liaisonId]: "" })))
                                     }
                                   >
-                                    {e.accesPortail ? "Retirer l'accès" : "Rétablir l'accès"}
+                                    {e.accesPortail ? t("adm.parents.revoke") : t("adm.parents.restore")}
                                   </Button>
                                 </div>
                               )}
                             </li>
                           ))}
                         </ul>
-                        {!canRevoke && <p className="mt-2 text-xs text-ink-muted">Seule la Direction peut retirer ou rétablir l&apos;accès d&apos;un responsable pour un enfant.</p>}
+                        {!canRevoke && <p className="mt-2 text-xs text-ink-muted">{t("adm.parents.onlyManagement")}</p>}
                       </div>
                     </div>
                   )}

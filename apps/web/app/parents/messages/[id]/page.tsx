@@ -10,6 +10,7 @@ import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner, SuccessMessage }
 import { MessageList, type ThreadMessage } from "@/components/messaging/message-list";
 import { PrioritySelect } from "@/components/messaging/priority-select";
 import type { MessagePriority } from "@/lib/message-priority";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface ThreadView {
   id: string;
@@ -23,6 +24,7 @@ interface ThreadView {
 export default function ParentThreadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { parent, loading } = useParent();
+  const { t } = useI18n();
   const router = useRouter();
   const [thread, setThread] = useState<ThreadView | null>(null);
   const [texte, setTexte] = useState("");
@@ -67,10 +69,10 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
   }
 
   async function report(messageId: string) {
-    const motif = window.prompt("Pourquoi signalez-vous ce message à la Direction ? (facultatif)") ?? undefined;
+    const motif = window.prompt(t("parent.msg.reportPrompt")) ?? undefined;
     try {
       await portalApi.post(`/portal/messages/messages/${messageId}/report`, motif ? { motif } : {});
-      setNotice("Le message a été signalé à la Direction.");
+      setNotice(t("parent.msg.reported"));
       await load();
     } catch (err) {
       setError(describePortalError(err));
@@ -89,10 +91,10 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
         <Link href="/parents/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
-          <ArrowLeft size={15} /> Toutes les conversations
+          <ArrowLeft size={15} /> {t("parent.msg.allConversations")}
         </Link>
         <Link href="/parents" className="text-sm font-medium text-primary underline">
-          Mes enfants
+          {t("parent.nav.myChildren")}
         </Link>
       </div>
       <ErrorMessage>{error}</ErrorMessage>
@@ -104,11 +106,8 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
       )}
       {thread && (
         <>
-          <PageTitle subtitle={`À propos de ${thread.enfant.prenom}`}>{thread.interlocuteur}</PageTitle>
-          <p className="mb-3 text-xs text-ink-muted">
-            Les échanges peuvent être consultés par la Direction. Délai de réponse indicatif : {thread.delaiReponseJours} jour{thread.delaiReponseJours > 1 ? "s" : ""} ouvré
-            {thread.delaiReponseJours > 1 ? "s" : ""}.
-          </p>
+          <PageTitle subtitle={t("parent.msg.aboutName", { name: thread.enfant.prenom })}>{thread.interlocuteur}</PageTitle>
+          <p className="mb-3 text-xs text-ink-muted">{t("parent.msg.supervision", { n: thread.delaiReponseJours })}</p>
           <Card className="mb-4">
             <MessageList messages={thread.messages} onReport={(mid) => void report(mid)} />
           </Card>
@@ -117,20 +116,21 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
             <form onSubmit={send} className="space-y-2">
               <textarea
                 className="min-h-24 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink"
-                placeholder="Votre réponse"
+                placeholder={t("parent.msg.yourReply")}
                 maxLength={2000}
                 value={texte}
                 onChange={(e) => setTexte(e.target.value)}
               />
               <PrioritySelect value={priorite} onChange={setPriorite} allowUrgent={false} />
-              <p className="text-xs text-ink-muted">Ne mettez pas de numéro de téléphone : ils ne s&apos;échangent pas dans la messagerie.</p>
+              <p className="text-xs text-ink-muted">{t("parent.msg.noPhone")}</p>
               <Button type="submit" disabled={busy || !texte.trim()}>
-                <Send size={16} /> Envoyer
+                <Send size={16} /> {t("parent.msg.send")}
               </Button>
             </form>
           ) : (
             <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning">
-              <Badge color="orange">Lecture seule</Badge> Cet enseignant n&apos;est plus affecté à la classe de votre enfant. Vous pouvez écrire à l&apos;école depuis « Messages ».
+              <Badge color="orange">{t("parent.msg.readOnly")}</Badge>
+              {t("parent.msg.readOnlyBody")}
             </p>
           )}
         </>

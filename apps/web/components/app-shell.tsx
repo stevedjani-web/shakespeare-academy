@@ -35,6 +35,10 @@ import {
 } from "lucide-react";
 import { Link2, LifeBuoy, HelpCircle, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Button } from "@/components/ui";
 import { InstallAppButton } from "@/components/install-app-button";
 import { OfflineStatus } from "@/components/offline-status";
@@ -43,7 +47,7 @@ import { useOutbox } from "@/lib/outbox";
 
 interface NavLink {
   href: string;
-  label: string;
+  labelKey: MessageKey;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   requiredPermission?: string;
   /** Visible dès que le compte détient l'une de ces permissions (ex. l'appel : vie scolaire ou enseignant). */
@@ -51,36 +55,36 @@ interface NavLink {
 }
 
 const LINKS: NavLink[] = [
-  { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/eleves", label: "Élèves", icon: GraduationCap, requiredPermission: "STUDENT_READ" },
-  { href: "/eleves-par-classe", label: "Élèves par classe", icon: School, requiredPermission: "STUDENT_READ" },
-  { href: "/preinscriptions", label: "Préinscriptions", icon: UserPlus, requiredPermission: "ENROLLMENT_MANAGE" },
-  { href: "/vie-scolaire", label: "Vie scolaire", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
-  { href: "/emploi-du-temps", label: "Emploi du temps", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
-  { href: "/appel", label: "Appel et absences", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },
-  { href: "/notes", label: "Notes et bulletins", icon: BookOpenCheck, anyPermission: ["GRADE_ENTER", "GRADE_READ"] },
-  { href: "/discipline", label: "Discipline", icon: ShieldAlert, anyPermission: ["DISCIPLINE_REPORT", "DISCIPLINE_READ", "DISCIPLINE_DECIDE", "DISCIPLINE_CONVOKE"] },
-  { href: "/cahier-de-textes", label: "Cahier de textes", icon: BookOpenText, anyPermission: ["TEXTBOOK_WRITE", "TEXTBOOK_READ"] },
-  { href: "/pointage", label: "Mon pointage", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
-  { href: "/pointage-enseignants", label: "Pointage enseignants", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
-  { href: "/portail-parents", label: "Comptes parents", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
-  { href: "/pilotage", label: "Pilotage 360°", icon: Gauge, requiredPermission: "PILOTAGE_READ" },
-  { href: "/messagerie", label: "Messagerie", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
-  { href: "/annonces", label: "Annonces", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
-  { href: "/tarifs", label: "Tarifs & facturation", icon: Receipt, requiredPermission: "FEE_MANAGE" },
-  { href: "/insolvables", label: "Élèves insolvables", icon: AlertOctagon, requiredPermission: "FINANCE_READ" },
-  { href: "/paiements-en-ligne", label: "Paiements en ligne", icon: Smartphone, requiredPermission: "FINANCE_READ" },
-  { href: "/depenses", label: "Sorties financières", icon: Wallet, requiredPermission: "CASH_CLOSE" },
-  { href: "/cloture", label: "Clôture de journée", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
-  { href: "/parametres/annees", label: "Années scolaires", icon: CalendarRange, requiredPermission: "SETTINGS_READ" },
-  { href: "/parametres/structure", label: "Structure académique", icon: Building2, requiredPermission: "SETTINGS_READ" },
-  { href: "/parametres/utilisateurs", label: "Utilisateurs & rôles", icon: Users, requiredPermission: "USER_MANAGE" },
-  { href: "/parametres/etablissement", label: "Établissement", icon: Building2, requiredPermission: "SETTINGS_READ" },
-  { href: "/hors-ligne", label: "Synchronisation", icon: RefreshCw },
-  { href: "/audit", label: "Journal d'audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
-  { href: "/aide", label: "Aide", icon: HelpCircle },
-  { href: "/liens-utiles", label: "Liens utiles", icon: Link2 },
-  { href: "/guide", label: "Guide d'utilisation", icon: LifeBuoy },
+  { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/eleves", labelKey: "nav.students", icon: GraduationCap, requiredPermission: "STUDENT_READ" },
+  { href: "/eleves-par-classe", labelKey: "nav.studentsByClass", icon: School, requiredPermission: "STUDENT_READ" },
+  { href: "/preinscriptions", labelKey: "nav.preregistrations", icon: UserPlus, requiredPermission: "ENROLLMENT_MANAGE" },
+  { href: "/vie-scolaire", labelKey: "nav.schoolLife", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
+  { href: "/emploi-du-temps", labelKey: "nav.timetable", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
+  { href: "/appel", labelKey: "nav.attendance", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },
+  { href: "/notes", labelKey: "nav.grades", icon: BookOpenCheck, anyPermission: ["GRADE_ENTER", "GRADE_READ"] },
+  { href: "/discipline", labelKey: "nav.discipline", icon: ShieldAlert, anyPermission: ["DISCIPLINE_REPORT", "DISCIPLINE_READ", "DISCIPLINE_DECIDE", "DISCIPLINE_CONVOKE"] },
+  { href: "/cahier-de-textes", labelKey: "nav.textbook", icon: BookOpenText, anyPermission: ["TEXTBOOK_WRITE", "TEXTBOOK_READ"] },
+  { href: "/pointage", labelKey: "nav.myCheckin", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
+  { href: "/pointage-enseignants", labelKey: "nav.teacherCheckins", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
+  { href: "/portail-parents", labelKey: "nav.parentAccounts", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
+  { href: "/pilotage", labelKey: "nav.pilotage", icon: Gauge, requiredPermission: "PILOTAGE_READ" },
+  { href: "/messagerie", labelKey: "nav.messaging", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
+  { href: "/annonces", labelKey: "nav.announcements", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
+  { href: "/tarifs", labelKey: "nav.fees", icon: Receipt, requiredPermission: "FEE_MANAGE" },
+  { href: "/insolvables", labelKey: "nav.insolvent", icon: AlertOctagon, requiredPermission: "FINANCE_READ" },
+  { href: "/paiements-en-ligne", labelKey: "nav.onlinePayments", icon: Smartphone, requiredPermission: "FINANCE_READ" },
+  { href: "/depenses", labelKey: "nav.expenses", icon: Wallet, requiredPermission: "CASH_CLOSE" },
+  { href: "/cloture", labelKey: "nav.closing", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
+  { href: "/parametres/annees", labelKey: "nav.years", icon: CalendarRange, requiredPermission: "SETTINGS_READ" },
+  { href: "/parametres/structure", labelKey: "nav.structure", icon: Building2, requiredPermission: "SETTINGS_READ" },
+  { href: "/parametres/utilisateurs", labelKey: "nav.users", icon: Users, requiredPermission: "USER_MANAGE" },
+  { href: "/parametres/etablissement", labelKey: "nav.school", icon: Building2, requiredPermission: "SETTINGS_READ" },
+  { href: "/hors-ligne", labelKey: "nav.sync", icon: RefreshCw },
+  { href: "/audit", labelKey: "nav.audit", icon: ScrollText, requiredPermission: "AUDIT_LOG_READ" },
+  { href: "/aide", labelKey: "nav.help", icon: HelpCircle },
+  { href: "/liens-utiles", labelKey: "nav.usefulLinks", icon: Link2 },
+  { href: "/guide", labelKey: "nav.guide", icon: LifeBuoy },
 ];
 
 function Brand() {
@@ -98,6 +102,7 @@ function Brand() {
 }
 
 function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname: string; onNavigate?: () => void }) {
+  const { t } = useI18n();
   const { pending, failed } = useOutbox();
   return (
     <nav className="flex flex-1 flex-col gap-1">
@@ -114,7 +119,7 @@ function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname:
             }`}
           >
             <Icon size={18} className={active ? "text-accent" : ""} />
-            {link.label}
+            {t(link.labelKey)}
             {link.href === "/hors-ligne" && pending + failed > 0 && (
               <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${failed > 0 ? "bg-danger" : "bg-info"}`}>
                 {pending + failed}
@@ -129,22 +134,21 @@ function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname:
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout, hasPermission } = useAuth();
+  const { t, locale } = useI18n();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { pending, failed } = useOutbox();
 
   function handleLogout() {
     const waiting = pending + failed;
-    if (
-      waiting > 0 &&
-      !window.confirm(
-        `${waiting} saisie(s) n'ont pas encore été envoyées au serveur. Elles restent sur cet appareil et partiront à votre prochaine connexion. Se déconnecter quand même ?`,
-      )
-    ) {
+    if (waiting > 0 && !window.confirm(t("shell.logoutConfirm", { count: waiting }))) {
       return;
     }
     void logout();
   }
+
+  // Le choix de langue s'applique tout de suite ; il est aussi enregistré sur le compte pour suivre l'utilisateur.
+  const saveLanguage = (langue: string) => api.patch("/auth/language", { langue });
 
   const visibleLinks = LINKS.filter(
     (link) =>
@@ -168,13 +172,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             href="/mon-compte"
             className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
           >
-            <Lock size={14} /> Mon compte et mot de passe
+            <Lock size={14} /> {t("shell.myAccount")}
           </Link>
+          <LanguageSwitcher variant="dark" className="mt-2" onChoose={saveLanguage} />
           <button
             onClick={handleLogout}
             className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
           >
-            <LogOut size={14} /> Déconnexion
+            <LogOut size={14} /> {t("shell.logout")}
           </button>
         </div>
       </aside>
@@ -185,7 +190,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Brand />
           <button
             onClick={() => setDrawerOpen(true)}
-            aria-label="Ouvrir le menu"
+            aria-label={t("shell.openMenu")}
             className="sa-interactive rounded-lg p-2 text-white hover:bg-white/10"
           >
             <Menu size={22} />
@@ -201,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Brand />
                 <button
                   onClick={() => setDrawerOpen(false)}
-                  aria-label="Fermer le menu"
+                  aria-label={t("shell.closeMenu")}
                   className="sa-interactive rounded-lg p-1.5 text-white hover:bg-white/10"
                 >
                   <X size={20} />
@@ -219,10 +224,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   onClick={() => setDrawerOpen(false)}
                   className="sa-interactive mt-2 flex items-center gap-1.5 text-sm font-medium text-white/80 hover:text-accent"
                 >
-                  <Lock size={14} /> Mon compte et mot de passe
+                  <Lock size={14} /> {t("shell.myAccount")}
                 </Link>
+                <LanguageSwitcher variant="dark" className="mt-2" onChoose={saveLanguage} />
                 <Button variant="secondary" className="mt-2 w-full bg-white/10 text-white border-white/10 hover:bg-white/20" onClick={handleLogout}>
-                  <LogOut size={14} /> Déconnexion
+                  <LogOut size={14} /> {t("shell.logout")}
                 </Button>
               </div>
             </div>
@@ -230,7 +236,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <OfflineStatus />
-        <main className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main key={locale} className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          {children}
+        </main>
         <footer className="px-4 pb-4 sm:px-6">
           <CopyrightFooter />
         </footer>

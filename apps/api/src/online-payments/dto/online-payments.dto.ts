@@ -7,18 +7,31 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { msg } from '../../common/language';
 
-const NUMERO_INVALIDE =
-  'Numéro invalide. Saisissez un numéro Mobile Money à 9 chiffres (par exemple 06 123 45 67).';
+const NUMERO_INVALIDE = msg(
+  'Numéro invalide. Saisissez un numéro Mobile Money à 9 chiffres (par exemple 06 123 45 67).',
+  'Invalid number. Enter a 9-digit Mobile Money number (for example 06 123 45 67).',
+);
 
 export class InitiateOnlinePaymentDto {
   // Identifiant de la tranche donné par le portail (jamais un identifiant interne de facturation exposé tel quel).
-  @IsString({ message: 'Tranche invalide.' })
+  @IsString({ message: msg('Tranche invalide.', 'Invalid instalment.') })
   trancheId!: string;
 
   // Montant entier en XAF, pour tout ou partie du solde de la tranche.
-  @IsInt({ message: 'Saisissez un montant entier, sans virgule.' })
-  @Min(1, { message: 'Le montant doit être supérieur à zéro.' })
+  @IsInt({
+    message: msg(
+      'Saisissez un montant entier, sans virgule.',
+      'Enter a whole amount, without decimals.',
+    ),
+  })
+  @Min(1, {
+    message: msg(
+      'Le montant doit être supérieur à zéro.',
+      'The amount must be greater than zero.',
+    ),
+  })
   montant!: number;
 
   // Numéro débité (format local ou international). Le format exact est contrôlé et normalisé par le service, qui

@@ -4,9 +4,11 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
 import { Button, ErrorMessage, Field, Input } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 // Formulaire partagé par le changement forcé (après une réinitialisation) et le changement volontaire (Mon compte).
 export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
+  const { t } = useI18n();
   const [ancienMotDePasse, setAncien] = useState("");
   const [nouveauMotDePasse, setNouveau] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -17,11 +19,11 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     setError(null);
     if (nouveauMotDePasse !== confirmation) {
-      setError("La confirmation ne correspond pas au nouveau mot de passe.");
+      setError(t("pwd.mismatch"));
       return;
     }
     if (nouveauMotDePasse === ancienMotDePasse) {
-      setError("Le nouveau mot de passe doit être différent de l'actuel.");
+      setError(t("pwd.same"));
       return;
     }
     setSubmitting(true);
@@ -32,7 +34,7 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
       setConfirmation("");
       onSuccess();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -40,7 +42,7 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Mot de passe actuel">
+      <Field label={t("pwd.current")}>
         <Input
           type="password"
           autoComplete="current-password"
@@ -49,7 +51,7 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setAncien(e.target.value)}
         />
       </Field>
-      <Field label="Nouveau mot de passe (8 caractères minimum)">
+      <Field label={t("pwd.new")}>
         <Input
           type="password"
           autoComplete="new-password"
@@ -59,7 +61,7 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
           onChange={(e) => setNouveau(e.target.value)}
         />
       </Field>
-      <Field label="Confirmer le nouveau mot de passe">
+      <Field label={t("pwd.confirm")}>
         <Input
           type="password"
           autoComplete="new-password"
@@ -71,7 +73,7 @@ export function ChangePasswordForm({ onSuccess }: { onSuccess: () => void }) {
       </Field>
       <ErrorMessage>{error}</ErrorMessage>
       <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? "Enregistrement…" : "Changer le mot de passe"}
+        {submitting ? t("pwd.saving") : t("pwd.submit")}
       </Button>
     </form>
   );

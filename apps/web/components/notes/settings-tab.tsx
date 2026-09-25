@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { GradeSettings } from "@/lib/grades";
 import { parseNote } from "@/lib/grades";
 import { Button, Card, ErrorMessage, Field, Input, Spinner, SuccessMessage } from "@/components/ui";
@@ -19,6 +20,7 @@ interface SubjectRow {
  * lettres et sections qui les affichent, visibilité du rang pour les parents, coefficient de chaque matière par niveau.
  */
 export function GradeSettingsTab() {
+  const { t } = useI18n();
   const [settings, setSettings] = useState<GradeSettings | null>(null);
   const [bands, setBands] = useState<Array<{ lettre: string; minimum: string }>>([]);
   const [passage, setPassage] = useState("");
@@ -55,12 +57,12 @@ export function GradeSettingsTab() {
     setNotice(null);
     try {
       const passageValue = parseNote(passage);
-      if (passage.trim() !== "" && passageValue === null) throw new Error("La moyenne de passage doit être un nombre.");
+      if (passage.trim() !== "" && passageValue === null) throw new Error(t("acd.gset.errPassNumber"));
       const parsedBands = bands
         .filter((b) => b.lettre.trim() !== "" || b.minimum.trim() !== "")
         .map((b) => {
           const minimum = parseNote(b.minimum);
-          if (!b.lettre.trim() || minimum === null) throw new Error("Chaque tranche a une lettre et un minimum.");
+          if (!b.lettre.trim() || minimum === null) throw new Error(t("acd.gset.errBand"));
           return { lettre: b.lettre.trim(), minimum };
         });
       const updated = await api.put<GradeSettings>("/grades/settings", {
@@ -71,7 +73,7 @@ export function GradeSettingsTab() {
         sections: settings.sections.map((s) => ({ sectionId: s.id, affichageLettres: s.affichageLettres })),
       });
       setSettings(updated);
-      setNotice("Réglages enregistrés.");
+      setNotice(t("acd.gset.saved"));
     } catch (err) {
       setError(err instanceof Error && !("status" in err) ? err.message : describeError(err));
     } finally {
@@ -90,7 +92,7 @@ export function GradeSettingsTab() {
           coefficient: Math.max(1, Math.min(20, Number(coefs[`${subject.id}:${l.levelId}`]) || 1)),
         })),
       });
-      setNotice(`Coefficients de « ${subject.nom} » enregistrés.`);
+      setNotice(t("acd.gset.coefSaved", { name: subject.nom }));
       await load();
     } catch (err) {
       setError(describeError(err));
@@ -105,13 +107,13 @@ export function GradeSettingsTab() {
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
 
       <Card>
-        <h3 className="mb-3 text-sm font-semibold text-ink">Notes et bulletins</h3>
+        <h3 className="mb-3 text-sm font-semibold text-ink">{t("acd.gset.cardTitle")}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Barème par défaut d'une évaluation">
+          <Field label={t("acd.gset.defaultScale")}>
             <Input inputMode="numeric" value={bareme} onChange={(e) => setBareme(e.target.value.replace(/\D/g, ""))} />
           </Field>
-          <Field label="Moyenne de passage (vide : aucune mention admis ou refusé)">
-            <Input inputMode="decimal" value={passage} onChange={(e) => setPassage(e.target.value)} placeholder="Ex. 10" />
+          <Field label={t("acd.gset.passMark")}>
+            <Input inputMode="decimal" value={passage} onChange={(e) => setPassage(e.target.value)} placeholder={t("acd.gset.passMarkPlaceholder")} />
           </Field>
         </div>
         <label className="mt-3 flex items-start gap-2 text-sm">
@@ -121,39 +123,37 @@ export function GradeSettingsTab() {
             checked={settings.bulletinAfficheRang}
             onChange={(e) => setSettings({ ...settings, bulletinAfficheRang: e.target.checked })}
           />
-          <span>Les parents voient le rang de leur enfant et les statistiques de la classe sur le bulletin (désactivé par défaut).</span>
+          <span>{t("acd.gset.showRank")}</span>
         </label>
       </Card>
 
       <Card>
-        <h3 className="mb-1 text-sm font-semibold text-ink">Lettres (A à F)</h3>
-        <p className="mb-3 text-sm text-ink-muted">
-          La lettre s&apos;applique à partir du minimum indiqué (moyenne sur 20). Tant qu&apos;aucune tranche n&apos;est saisie, aucune lettre n&apos;est affichée.
-        </p>
+        <h3 className="mb-1 text-sm font-semibold text-ink">{t("acd.gset.lettersTitle")}</h3>
+        <p className="mb-3 text-sm text-ink-muted">{t("acd.gset.lettersDesc")}</p>
         <ul className="space-y-2">
           {bands.map((b, i) => (
             <li key={i} className="flex items-end gap-2">
               <div className="w-24">
-                <Field label="Lettre">
+                <Field label={t("acd.gset.letter")}>
                   <Input value={b.lettre} maxLength={3} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, lettre: e.target.value } : x)))} />
                 </Field>
               </div>
               <div className="w-32">
-                <Field label="À partir de">
+                <Field label={t("acd.gset.from")}>
                   <Input inputMode="decimal" value={b.minimum} onChange={(e) => setBands(bands.map((x, j) => (j === i ? { ...x, minimum: e.target.value } : x)))} />
                 </Field>
               </div>
-              <Button variant="ghost" onClick={() => setBands(bands.filter((_, j) => j !== i))} aria-label="Retirer la tranche">
+              <Button variant="ghost" onClick={() => setBands(bands.filter((_, j) => j !== i))} aria-label={t("acd.gset.removeBand")}>
                 <Trash2 size={15} />
               </Button>
             </li>
           ))}
         </ul>
         <Button variant="secondary" className="mt-3" onClick={() => setBands([...bands, { lettre: "", minimum: "" }])}>
-          <Plus size={15} /> Ajouter une tranche
+          <Plus size={15} /> {t("acd.gset.addBand")}
         </Button>
         <div className="mt-4 space-y-1">
-          <p className="text-sm font-medium text-ink">Sections qui affichent les lettres sur leurs bulletins</p>
+          <p className="text-sm font-medium text-ink">{t("acd.gset.sectionsTitle")}</p>
           {settings.sections.map((s) => (
             <label key={s.id} className="flex items-center gap-2 text-sm">
               <input
@@ -170,13 +170,13 @@ export function GradeSettingsTab() {
       </Card>
 
       <Button onClick={saveSettings} disabled={busy}>
-        {busy && <Spinner />} Enregistrer les réglages
+        {busy && <Spinner />} {t("acd.gset.saveSettings")}
       </Button>
 
       <Card>
-        <h3 className="mb-1 text-sm font-semibold text-ink">Coefficients des matières</h3>
-        <p className="mb-3 text-sm text-ink-muted">Le coefficient d&apos;une matière pèse dans la moyenne générale de chaque niveau où elle est enseignée (1 par défaut).</p>
-        {subjects.length === 0 && <p className="text-sm text-ink-muted">Aucune matière n&apos;est rattachée à un niveau.</p>}
+        <h3 className="mb-1 text-sm font-semibold text-ink">{t("acd.gset.coefTitle")}</h3>
+        <p className="mb-3 text-sm text-ink-muted">{t("acd.gset.coefDesc")}</p>
+        {subjects.length === 0 && <p className="text-sm text-ink-muted">{t("acd.gset.noSubjects")}</p>}
         <div className="space-y-3">
           {subjects.map((subject) => (
             <div key={subject.id} className="rounded-2xl border border-border p-3">
@@ -194,7 +194,7 @@ export function GradeSettingsTab() {
                   </div>
                 ))}
                 <Button variant="secondary" onClick={() => saveCoefficients(subject)}>
-                  Enregistrer
+                  {t("acd.gset.save")}
                 </Button>
               </div>
             </div>

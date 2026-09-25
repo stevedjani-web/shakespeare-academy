@@ -3,6 +3,7 @@ import type { NotificationType, ParentNotification } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { dayInTimezone } from '../attendance/attendance.util';
 import { toDateOnly } from '../pedagogy/pedagogy.util';
+import { currentLanguage, type AppLanguage } from '../common/language';
 import { PUSH_SENDER, type PushSender } from './push-sender.interface';
 import {
   PUSH_TITLE,
@@ -13,6 +14,7 @@ import {
   mergedBody,
   notificationTitle,
   publishedBody,
+  urgentMessageTitle,
   announcementBody,
   bulletinBody,
   homeworkBody,
@@ -43,7 +45,8 @@ interface Draft {
   type: NotificationType;
   /** Jour scolaire de l'événement (« AAAA-MM-JJ »). */
   jour: string;
-  corps: string;
+  /** Détail lisible dans l'application, produit dans chacune des deux langues. */
+  corps: (lang: AppLanguage) => string;
   /** Si renseigné, seul ce responsable est prévenu (un message ne concerne qu'un destinataire). */
   onlyGuardianId?: string;
   /** Message urgent : jamais regroupé, toujours une nouvelle notification et une nouvelle alerte. */
@@ -116,10 +119,10 @@ export class NotificationsService {
           prenom: p,
           type: i.statut === 'ABSENT' ? 'ABSENCE' : 'RETARD',
           jour: i.date,
-          corps:
+          corps: (l) =>
             i.statut === 'ABSENT'
-              ? absenceBody({ prenom: p, ...i })
-              : retardBody({ prenom: p, ...i }, i.minutesRetard),
+              ? absenceBody({ prenom: p, ...i }, l)
+              : retardBody({ prenom: p, ...i }, i.minutesRetard, l),
         };
       });
       await this.deliver(drafts);
@@ -151,14 +154,15 @@ export class NotificationsService {
         prenom: s.prenom,
         type,
         jour: change.date,
-        corps:
+        corps: (l) =>
           change.kind === 'ANNULEE'
-            ? canceledBody({ prenom: s.prenom, ...change })
+            ? canceledBody({ prenom: s.prenom, ...change }, l)
             : change.kind === 'REMPLACEE'
-              ? replacedBody({ prenom: s.prenom, ...change })
+              ? replacedBody({ prenom: s.prenom, ...change }, l)
               : roomChangedBody(
                   { prenom: s.prenom, ...change },
                   change.salle ?? '',
+                  l,
                 ),
       }));
       await this.deliver(drafts);
@@ -173,7 +177,8 @@ export class NotificationsService {
   async notifyMessage(
     studentId: string,
     guardianId: string,
-    from: string,
+    /** Nom de l'expéditeur ; une paire {fr, en} quand il dépend de la langue (« L'école » / « The school »). */
+    from: string | Record<AppLanguage, string>,
     urgent = false,
   ): Promise<void> {
     try {
@@ -193,7 +198,13 @@ export class NotificationsService {
           prenom: student.prenom,
           type: 'MESSAGE_RECU',
           jour: dayInTimezone(new Date(), school.fuseauHoraire),
-          corps: messageReceivedBody(student.prenom, from, urgent),
+          corps: (l) =>
+            messageReceivedBody(
+              student.prenom,
+              typeof from === 'string' ? from : from[l],
+              urgent,
+              l,
+            ),
           onlyGuardianId: guardianId,
           urgent,
         },
@@ -219,7 +230,7 @@ export class NotificationsService {
           prenom: s.prenom,
           type: 'ANNONCE' as const,
           jour,
-          corps: announcementBody(s.prenom, titre),
+          corps: (l) => announcementBody(s.prenom, titre, l),
         })),
       );
     } catch (err) {
@@ -250,7 +261,7 @@ export class NotificationsService {
           prenom: s.prenom,
           type: 'DEVOIR_DONNE' as const,
           jour,
-          corps: homeworkBody(s.prenom, matiere, echeance),
+          corps: (l) => homeworkBody(s.prenom, matiere, echeance, l),
         })),
       );
     } catch (err) {
@@ -283,7 +294,7 @@ export class NotificationsService {
           prenom: student.prenom,
           type: 'DISCIPLINE',
           jour: dayInTimezone(new Date(), school.fuseauHoraire),
-          corps: disciplineBody(student.prenom),
+          corps: (l) => disciplineBody(student.prenom, l),
         },
       ]);
     } catch (err) {
@@ -312,7 +323,7 @@ export class NotificationsService {
           prenom: s.prenom,
           type: 'BULLETIN_DISPONIBLE' as const,
           jour,
-          corps: bulletinBody(s.prenom, trimestre),
+          corps: (l) => bulletinBody(s.prenom, trimestre, l),
         })),
       );
     } catch (err) {
@@ -346,7 +357,7 @@ export class NotificationsService {
           prenom: student.prenom,
           type: 'EMPLOI_DU_TEMPS_MODIFIE',
           jour: dateEffet,
-          corps: publishedBody(student.prenom, dateEffet),
+          corps: (l) => publishedBody(student.prenom, dateEffet, l),
         });
       }
       await this.deliver(drafts);
@@ -447,6 +458,14 @@ export class NotificationsService {
                 draft.prenom,
                 count,
                 policy === 'JOUR' ? draft.jour : today,
+                'fr',
+              ),
+              corpsEn: mergedBody(
+                draft.type,
+                draft.prenom,
+                count,
+                policy === 'JOUR' ? draft.jour : today,
+                'en',
               ),
             },
           });
@@ -460,8 +479,12 @@ export class NotificationsService {
             jour: toDateOnly(draft.jour),
             titre: draft.urgent
               ? URGENT_MESSAGE_TITLE
-              : notificationTitle(draft.type),
-            corps: draft.corps,
+              : notificationTitle(draft.type, 'fr'),
+            titreEn: draft.urgent
+              ? urgentMessageTitle('en')
+              : notificationTitle(draft.type, 'en'),
+            corps: draft.corps('fr'),
+            corpsEn: draft.corps('en'),
           },
         });
         created.push({ row, prenom: draft.prenom });
@@ -484,12 +507,16 @@ export class NotificationsService {
         groups.set(key, [...(groups.get(key) ?? []), c]);
       }
       const accountIds = [...new Set(created.map((c) => c.row.accountId))];
-      const [prefs, subs] = await Promise.all([
+      const [prefs, subs, accounts] = await Promise.all([
         this.prisma.parentNotificationPreference.findMany({
           where: { accountId: { in: accountIds } },
         }),
         this.prisma.parentPushSubscription.findMany({
           where: { accountId: { in: accountIds } },
+        }),
+        this.prisma.parentAccount.findMany({
+          where: { id: { in: accountIds } },
+          select: { id: true, langue: true },
         }),
       ]);
       await Promise.all(
@@ -515,12 +542,16 @@ export class NotificationsService {
             if (devices.length === 0)
               return void (await setStatus('AUCUN_APPAREIL'));
 
+            // L'alerte suit la langue choisie par le parent ; sans choix enregistré, le français.
+            const account = accounts.find((a) => a.id === accountId);
+            const lang: AppLanguage = account?.langue === 'en' ? 'en' : 'fr';
             const payload = {
               title: PUSH_TITLE,
               body: pushBody(
                 type,
                 group.map((g) => g.prenom),
                 urgent,
+                lang,
               ),
               url: PUSH_URL,
               tag: urgent ? `sa-${type}-urgent` : `sa-${type}`,
@@ -580,7 +611,12 @@ export class NotificationsService {
    * Notifications d'un responsable. Une notification sur un enfant dont l'accès a été retiré
    * disparaît de la liste (RV08, D67) : elle contient le prénom et le détail de la séance.
    */
-  async list(accountId: string, guardianId: string, limit = 50) {
+  async list(
+    accountId: string,
+    guardianId: string,
+    limit = 50,
+    lang: AppLanguage = currentLanguage(),
+  ) {
     const children = await this.accessibleChildren(guardianId);
     const where = { accountId, studentId: { in: children } };
     const [rows, nonLues] = await Promise.all([
@@ -597,8 +633,9 @@ export class NotificationsService {
       notifications: rows.map((r) => ({
         id: r.id,
         type: r.type,
-        titre: r.titre,
-        corps: r.corps,
+        // Une notification créée avant la version bilingue n'a que son texte français.
+        titre: lang === 'en' ? (r.titreEn ?? r.titre) : r.titre,
+        corps: lang === 'en' ? (r.corpsEn ?? r.corps) : r.corps,
         occurrences: r.occurrences,
         enfant: { id: r.student.id, prenom: r.student.prenom },
         lue: r.luAt !== null,
@@ -648,7 +685,7 @@ export class NotificationsService {
       appareils,
       preferences: NOTIFICATION_TYPES.map((type) => ({
         type,
-        libelle: notificationTitle(type),
+        libelle: notificationTitle(type, currentLanguage()),
         // Sans ligne enregistrée, l'alerte push est activée par défaut.
         push: prefs.find((p) => p.type === type)?.push ?? true,
       })),

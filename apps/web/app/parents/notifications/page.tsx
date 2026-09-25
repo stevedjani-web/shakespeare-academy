@@ -10,6 +10,11 @@ import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Spinner } fro
 import { ParentPushOptIn } from "@/components/parent-push-opt-in";
 import type { UnreadPreview } from "@/components/parents/parent-alert";
 import { notificationTarget } from "@/lib/parent-alerts";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { getLocale } from "@/lib/i18n/store";
+import { translate } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 
 interface Notification {
   id: string;
@@ -28,17 +33,9 @@ interface Preferences {
   preferences: Array<{ type: Notification["type"]; libelle: string; push: boolean }>;
 }
 
-const TYPE_HELP: Record<Notification["type"], string> = {
-  ABSENCE: "Quand une absence est saisie pour votre enfant",
-  RETARD: "Quand un retard est saisi pour votre enfant",
-  ENSEIGNANT_ABSENT: "Quand un cours de sa classe est annulé ou remplacé",
-  EMPLOI_DU_TEMPS_MODIFIE: "Quand l'emploi du temps de sa classe change (regroupé)",
-  MESSAGE_RECU: "Quand vous recevez un message d'un enseignant ou de l'école",
-  ANNONCE: "Quand une annonce est publiée pour la classe de votre enfant (regroupé)",
-  BULLETIN_DISPONIBLE: "Quand un bulletin de votre enfant est publié (jamais la note dans l'alerte)",
-  DEVOIR_DONNE: "Quand un devoir est donné à la classe de votre enfant (regroupé)",
-  DISCIPLINE: "Quand un élément de vie scolaire est disponible pour votre enfant (sanction, convocation)",
-};
+// Libellé et explication de chaque type : dans la langue courante (les dictionnaires ont une clé par type).
+const typeLabel = (type: Notification["type"]) => translate(`parent.notif.label.${type}` as MessageKey);
+const typeHelp = (type: Notification["type"]) => translate(`parent.notif.help.${type}` as MessageKey);
 
 const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "primary" | "green"> = {
   ABSENCE: "red",
@@ -54,15 +51,17 @@ const TYPE_COLOR: Record<Notification["type"], "red" | "orange" | "blue" | "prim
 
 function formatWhen(value: string): string {
   const d = new Date(value);
+  const intl = INTL_LOCALE[getLocale()];
   const sameDay = new Date().toDateString() === d.toDateString();
   return sameDay
-    ? `aujourd'hui à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-    : d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    ? translate("parent.notif.today", { time: d.toLocaleTimeString(intl, { hour: "2-digit", minute: "2-digit" }) })
+    : d.toLocaleDateString(intl, { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 // Notifications du responsable (Lot 12) : le détail, réservé à l'application connectée, et les préférences.
 export default function ParentNotificationsPage() {
   const { parent, loading } = useParent();
+  const { t } = useI18n();
   const router = useRouter();
   const [items, setItems] = useState<Notification[] | null>(null);
   const [unread, setUnread] = useState(0);
@@ -153,16 +152,16 @@ export default function ParentNotificationsPage() {
   return (
     <div>
       <Link href="/parents" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
-        <ArrowLeft size={15} /> Mes enfants
+        <ArrowLeft size={15} /> {t("parent.nav.myChildren")}
       </Link>
-      <PageTitle subtitle="Absences, retards, cours annulés, changements d'emploi du temps, messages et annonces.">Notifications</PageTitle>
+      <PageTitle subtitle={t("parent.notif.subtitle")}>{t("parent.notif.title")}</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
 
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm text-ink-muted">{unread > 0 ? `${unread} non lue${unread > 1 ? "s" : ""}` : "Tout est lu"}</p>
+        <p className="text-sm text-ink-muted">{unread > 0 ? t("parent.notif.unread", { n: unread }) : t("parent.notif.allRead")}</p>
         {unread > 0 && (
           <Button variant="secondary" onClick={() => void readAll()}>
-            <CheckCheck size={16} /> Tout marquer comme lu
+            <CheckCheck size={16} /> {t("parent.notif.markAll")}
           </Button>
         )}
       </div>
@@ -173,7 +172,7 @@ export default function ParentNotificationsPage() {
         </div>
       )}
       {items && items.length === 0 && (
-        <EmptyState icon={<Bell />} title="Aucune notification." description="Vous serez prévenu ici dès qu'une absence, un retard ou un changement concerne l'un de vos enfants." />
+        <EmptyState icon={<Bell />} title={t("parent.notif.empty")} description={t("parent.notif.emptyHelp")} />
       )}
 
       <ul className="space-y-2.5">
@@ -186,7 +185,7 @@ export default function ParentNotificationsPage() {
             >
               <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
-                  {!n.lue && <span aria-label="Non lue" className="h-2.5 w-2.5 rounded-full bg-accent" />}
+                  {!n.lue && <span aria-label={t("parent.notif.unreadAria")} className="h-2.5 w-2.5 rounded-full bg-accent" />}
                   <span className="font-medium text-ink">{n.titre}</span>
                   <Badge color={TYPE_COLOR[n.type]}>{n.enfant.prenom}</Badge>
                 </span>
@@ -199,10 +198,8 @@ export default function ParentNotificationsPage() {
       </ul>
 
       <Card className="mt-6">
-        <h2 className="mb-1 text-sm font-semibold text-ink">Alertes sur votre téléphone</h2>
-        <p className="mb-3 text-sm text-ink-muted">
-          Les notifications ci-dessus sont toujours dans l&apos;application. L&apos;alerte sur le téléphone est en plus, gratuite, et se règle par type d&apos;événement.
-        </p>
+        <h2 className="mb-1 text-sm font-semibold text-ink">{t("parent.notif.phoneTitle")}</h2>
+        <p className="mb-3 text-sm text-ink-muted">{t("parent.notif.phoneIntro")}</p>
         {prefs && <ParentPushOptIn serverEnabled={prefs.pushDisponible} onChange={() => void loadPrefs()} />}
 
         {prefs && prefs.pushDisponible && (
@@ -210,8 +207,8 @@ export default function ParentNotificationsPage() {
             {prefs.preferences.map((p) => (
               <li key={p.type} className="flex items-center justify-between gap-3 py-3">
                 <label htmlFor={`pref-${p.type}`} className="min-w-0 flex-1 cursor-pointer">
-                  <span className="block text-sm font-medium text-ink">{p.libelle}</span>
-                  <span className="block text-xs text-ink-muted">{TYPE_HELP[p.type]}</span>
+                  <span className="block text-sm font-medium text-ink">{typeLabel(p.type)}</span>
+                  <span className="block text-xs text-ink-muted">{typeHelp(p.type)}</span>
                 </label>
                 <input
                   id={`pref-${p.type}`}

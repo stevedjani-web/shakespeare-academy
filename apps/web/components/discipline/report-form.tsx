@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Button, Card, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { StudentPicker } from "@/components/discipline/student-picker";
-import type { DisciplineGravite, DisciplineNature, DisciplineType } from "@/lib/discipline";
+import { GRAVITE_LABEL, type DisciplineGravite, type DisciplineNature, type DisciplineType } from "@/lib/discipline";
 
 function todayLocal(): string {
   const d = new Date();
@@ -15,6 +16,7 @@ function todayLocal(): string {
 
 /** Signalement d'un incident ou d'une valorisation. Le serveur refuse tout élève hors des classes d'un enseignant. */
 export function ReportForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const { t } = useI18n();
   const [types, setTypes] = useState<DisciplineType[]>([]);
   const [studentId, setStudentId] = useState("");
   const [nature, setNature] = useState<DisciplineNature>("INCIDENT");
@@ -29,13 +31,13 @@ export function ReportForm({ onDone, onCancel }: { onDone: () => void; onCancel:
     void api.get<DisciplineType[]>("/discipline/types").then(setTypes).catch(() => setTypes([]));
   }, []);
 
-  const available = types.filter((t) => t.actif && t.nature === nature);
+  const available = types.filter((ty) => ty.actif && ty.nature === nature);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!studentId) return setError("Choisissez l'élève concerné.");
-    if (!typeId) return setError("Choisissez un type de signalement.");
+    if (!studentId) return setError(t("acd.disc.form.chooseStudent"));
+    if (!typeId) return setError(t("acd.disc.form.chooseType"));
     setBusy(true);
     try {
       await api.post("/discipline/records", {
@@ -55,11 +57,11 @@ export function ReportForm({ onDone, onCancel }: { onDone: () => void; onCancel:
 
   return (
     <Card className="mb-4 border-primary/40">
-      <h2 className="mb-3 font-display text-base font-semibold text-ink">Nouveau signalement</h2>
+      <h2 className="mb-3 font-display text-base font-semibold text-ink">{t("acd.disc.form.title")}</h2>
       <form onSubmit={submit} className="space-y-3">
         <StudentPicker value={studentId} onChange={setStudentId} />
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Nature">
+          <Field label={t("acd.disc.form.kind")}>
             <Select
               value={nature}
               onChange={(e) => {
@@ -67,55 +69,53 @@ export function ReportForm({ onDone, onCancel }: { onDone: () => void; onCancel:
                 setTypeId("");
               }}
             >
-              <option value="INCIDENT">Incident</option>
-              <option value="VALORISATION">Valorisation (point positif)</option>
+              <option value="INCIDENT">{t("acd.disc.form.incident")}</option>
+              <option value="VALORISATION">{t("acd.disc.form.commendation")}</option>
             </Select>
           </Field>
-          <Field label="Type">
+          <Field label={t("acd.disc.form.type")}>
             <Select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-              <option value="">Choisir…</option>
-              {available.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nom}
+              <option value="">{t("acd.disc.form.choose")}</option>
+              {available.map((ty) => (
+                <option key={ty.id} value={ty.id}>
+                  {ty.nom}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Date des faits">
+          <Field label={t("acd.disc.form.date")}>
             <Input type="date" max={todayLocal()} value={dateFaits} onChange={(e) => setDateFaits(e.target.value)} />
           </Field>
         </div>
         {available.length === 0 && (
-          <p className="text-xs text-ink-muted">
-            Aucun type {nature === "INCIDENT" ? "d'incident" : "de valorisation"} n&apos;est défini : demandez à la Direction de les créer dans l&apos;onglet Catalogues.
-          </p>
+          <p className="text-xs text-ink-muted">{nature === "INCIDENT" ? t("acd.disc.form.noIncidentType") : t("acd.disc.form.noCommendationType")}</p>
         )}
         {nature === "INCIDENT" && (
-          <Field label="Gravité">
+          <Field label={t("acd.disc.form.severity")}>
             <Select value={gravite} onChange={(e) => setGravite(e.target.value as DisciplineGravite)}>
-              <option value="LEGER">Léger</option>
-              <option value="MOYEN">Moyen</option>
-              <option value="GRAVE">Grave</option>
+              <option value="LEGER">{GRAVITE_LABEL.LEGER}</option>
+              <option value="MOYEN">{GRAVITE_LABEL.MOYEN}</option>
+              <option value="GRAVE">{GRAVITE_LABEL.GRAVE}</option>
             </Select>
           </Field>
         )}
-        <Field label={nature === "INCIDENT" ? "Description des faits" : "Commentaire (facultatif)"}>
+        <Field label={nature === "INCIDENT" ? t("acd.disc.form.descriptionIncident") : t("acd.disc.form.commentOptional")}>
           <textarea
             className="min-h-24 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink"
             maxLength={2000}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Faits constatés, sans numéro de téléphone ni jugement de valeur."
+            placeholder={t("acd.disc.form.descriptionPlaceholder")}
           />
         </Field>
-        <p className="text-xs text-ink-muted">Ce texte est confidentiel : la famille ne le voit jamais, seuls la vie scolaire et la Direction le lisent.</p>
+        <p className="text-xs text-ink-muted">{t("acd.disc.form.confidential")}</p>
         <ErrorMessage>{error}</ErrorMessage>
         <div className="flex gap-2">
           <Button type="submit" disabled={busy}>
-            {busy ? "Enregistrement…" : "Enregistrer le signalement"}
+            {busy ? t("acd.disc.form.saving") : t("acd.disc.form.save")}
           </Button>
           <Button type="button" variant="secondary" onClick={onCancel}>
-            Annuler
+            {t("acd.disc.form.cancel")}
           </Button>
         </div>
       </form>

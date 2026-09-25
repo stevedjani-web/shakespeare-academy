@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import type { PedagogySummary } from "@/lib/types";
 import { PageTitle } from "@/components/ui";
-import { BookOpen, CalendarDays, Clock, DoorOpen, LayoutList, ListChecks, UserX, Users } from "lucide-react";
+import { BookOpen, CalendarDays, Clock, DoorOpen, LayoutList, ListChecks, Sparkles, UserX, Users } from "lucide-react";
 import { RecapTab, type VieScolaireTab } from "@/components/vie-scolaire/recap-tab";
 import { HorairesTab } from "@/components/vie-scolaire/horaires-tab";
 import { MatieresTab } from "@/components/vie-scolaire/matieres-tab";
@@ -14,23 +16,26 @@ import { AffectationsTab } from "@/components/vie-scolaire/affectations-tab";
 import { CalendrierTab } from "@/components/vie-scolaire/calendrier-tab";
 import { SallesTab } from "@/components/vie-scolaire/salles-tab";
 import { AssiduiteTab } from "@/components/vie-scolaire/assiduite-tab";
+import { AssistantTab } from "@/components/vie-scolaire/assistant-tab";
 import { describeError, useStructure } from "@/components/vie-scolaire/shared";
 
-const TABS: Array<{ key: VieScolaireTab; label: string; icon: typeof Clock }> = [
-  { key: "recap", label: "Suivi de la saisie", icon: LayoutList },
-  { key: "horaires", label: "Horaires", icon: Clock },
-  { key: "matieres", label: "Matières", icon: BookOpen },
-  { key: "enseignants", label: "Enseignants", icon: Users },
-  { key: "affectations", label: "Affectations", icon: ListChecks },
-  { key: "calendrier", label: "Calendrier", icon: CalendarDays },
-  { key: "salles", label: "Salles", icon: DoorOpen },
-  { key: "assiduite", label: "Assiduité", icon: UserX },
+const TABS: Array<{ key: VieScolaireTab; label: MessageKey; icon: typeof Clock }> = [
+  { key: "recap", label: "sl.tab.recap", icon: LayoutList },
+  { key: "horaires", label: "sl.tab.horaires", icon: Clock },
+  { key: "matieres", label: "sl.tab.matieres", icon: BookOpen },
+  { key: "enseignants", label: "sl.tab.enseignants", icon: Users },
+  { key: "affectations", label: "sl.tab.affectations", icon: ListChecks },
+  { key: "calendrier", label: "sl.tab.calendrier", icon: CalendarDays },
+  { key: "salles", label: "sl.tab.salles", icon: DoorOpen },
+  { key: "assiduite", label: "sl.tab.assiduite", icon: UserX },
+  { key: "assistant", label: "acd.ai.tab", icon: Sparkles },
 ];
 
 // Espace de saisie du référentiel pédagogique (Lot 7, addendum v1.1) : la Direction y saisit elle-même
 // horaires, matières, enseignants, affectations, calendrier et salles. Rien n'est prérempli.
 export default function VieScolairePage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canManage = hasPermission("PEDAGOGY_MANAGE");
   const structure = useStructure();
   const [tab, setTab] = useState<VieScolaireTab>("recap");
@@ -58,10 +63,10 @@ export default function VieScolairePage() {
   if (!canManage) {
     return (
       <div>
-        <PageTitle eyebrow="Vie scolaire" subtitle="Saisie des horaires, matières, enseignants et calendrier.">
-          Vie scolaire
+        <PageTitle eyebrow={t("sl.page.title")} subtitle={t("sl.page.noAccessSubtitle")}>
+          {t("sl.page.title")}
         </PageTitle>
-        <p className="text-sm text-ink-muted">Vous n&apos;avez pas la permission de gérer la vie scolaire.</p>
+        <p className="text-sm text-ink-muted">{t("sl.page.noPermission")}</p>
       </div>
     );
   }
@@ -69,11 +74,11 @@ export default function VieScolairePage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle="Espace de saisie : horaires, matières, enseignants, affectations, calendrier et salles. Rien n'est prérempli, tout est saisi par la Direction."
+        eyebrow={t("sl.page.title")}
+        subtitle={t("sl.page.subtitle")}
         helpId="vie-scolaire"
       >
-        Vie scolaire
+        {t("sl.page.title")}
       </PageTitle>
 
       <div className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
@@ -86,7 +91,7 @@ export default function VieScolairePage() {
             }`}
           >
             <Icon size={15} />
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>
@@ -127,6 +132,7 @@ export default function VieScolairePage() {
       )}
       {tab === "salles" && <SallesTab onChanged={() => void loadSummary()} />}
       {tab === "assiduite" && <AssiduiteTab onChanged={() => void loadSummary()} />}
+      {tab === "assistant" && <AssistantTab />}
     </div>
   );
 }

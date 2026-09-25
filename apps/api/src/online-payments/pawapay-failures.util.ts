@@ -24,3 +24,36 @@ export const GENERIC_FAILURE =
 export function failureMessage(code?: string): string {
   return (code && MESSAGES[code]) || GENERIC_FAILURE;
 }
+
+// Version anglaise des mêmes phrases. Le motif est enregistré en français au moment du retour du
+// fournisseur (aucune langue de requête à ce moment-là) : à l'affichage, `localizeFailure` retrouve la
+// phrase anglaise correspondante.
+const MESSAGES_EN: Record<string, string> = {
+  PAYER_LIMIT_REACHED:
+    'The payment limit of your Mobile Money account has been reached.',
+  INSUFFICIENT_BALANCE: 'Insufficient balance on your Mobile Money account.',
+  PAYMENT_NOT_APPROVED: 'The payment was not approved on your phone in time.',
+  PAYER_NOT_FOUND: 'This number does not have a Mobile Money account.',
+  TRANSACTION_ALREADY_IN_PROCESS:
+    'A payment is already in progress on this number.',
+  AMOUNT_TOO_SMALL: 'The amount is below the minimum accepted by the operator.',
+  AMOUNT_TOO_LARGE: 'The amount is above the maximum accepted by the operator.',
+  INVALID_AMOUNT: 'The amount is not accepted by the operator.',
+  INVALID_PHONE_NUMBER: 'This number is not valid.',
+  PROVIDER_TEMPORARILY_UNAVAILABLE:
+    'The operator is temporarily unavailable. Please try again later.',
+};
+
+const GENERIC_FAILURE_EN =
+  'The payment did not go through. You were not charged for this attempt, please try again or contact the school office.';
+
+/** Phrase d'échec enregistrée (français) rendue dans la langue demandée ; inconnue : renvoyée telle quelle. */
+export function localizeFailure(
+  stored: string | null,
+  lang: 'fr' | 'en',
+): string | null {
+  if (!stored || lang === 'fr') return stored;
+  if (stored === GENERIC_FAILURE) return GENERIC_FAILURE_EN;
+  const code = Object.keys(MESSAGES).find((c) => MESSAGES[c] === stored);
+  return code ? MESSAGES_EN[code] : stored;
+}

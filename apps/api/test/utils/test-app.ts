@@ -8,6 +8,8 @@ import { ONLINE_PAYMENT_PROVIDER } from '../../src/online-payments/online-paymen
 import { PAWAPAY_PUBLIC_KEY_PROVIDER } from '../../src/online-payments/pawapay-public-key-provider.interface';
 import { FakeOnlinePaymentProvider } from './fake-online-payment-provider';
 import { FakePawaPayPublicKeyProvider } from './fake-pawapay-public-key.provider';
+import { ASSISTANT_PROVIDER } from '../../src/assistant/assistant-provider.interface';
+import { FakeAssistantProvider } from './fake-assistant-provider';
 
 export async function createTestApp(): Promise<NestExpressApplication> {
   const moduleRef = await Test.createTestingModule({
@@ -22,6 +24,9 @@ export async function createTestApp(): Promise<NestExpressApplication> {
     .useValue(new FakeOnlinePaymentProvider())
     .overrideProvider(PAWAPAY_PUBLIC_KEY_PROVIDER)
     .useValue(new FakePawaPayPublicKeyProvider())
+    // Lot 22 : aucun appel réel à l'IA dans la suite de tests ; le faux se retrouve avec app.get(ASSISTANT_PROVIDER).
+    .overrideProvider(ASSISTANT_PROVIDER)
+    .useValue(new FakeAssistantProvider())
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({
     rawBody: true,

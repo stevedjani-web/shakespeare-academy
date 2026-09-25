@@ -7,6 +7,7 @@ import { downloadBulletinPdf } from "@/lib/bulletin-pdf";
 import { formatNote, type BulletinData } from "@/lib/grades";
 import { Button, Card, ErrorMessage, Spinner } from "@/components/ui";
 import { BulletinView } from "@/components/notes/bulletin-view";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface Summary {
   id: string;
@@ -19,6 +20,7 @@ interface Summary {
 
 /** Bulletins publiés d'un enfant : uniquement ce que la Direction a validé puis publié, jamais les notes en direct. */
 export function ParentBulletinsTab({ studentId }: { studentId: string }) {
+  const { t } = useI18n();
   const [list, setList] = useState<Summary[] | null>(null);
   const [bulletin, setBulletin] = useState<BulletinData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +49,10 @@ export function ParentBulletinsTab({ studentId }: { studentId: string }) {
       <div>
         <div className="mb-3 flex flex-wrap gap-2">
           <Button variant="ghost" onClick={() => setBulletin(null)}>
-            <ArrowLeft size={15} /> Mes bulletins
+            <ArrowLeft size={15} /> {t("parent.reportCards.back")}
           </Button>
           <Button variant="secondary" onClick={() => void downloadBulletinPdf(bulletin)}>
-            <Download size={15} /> Télécharger en PDF
+            <Download size={15} /> {t("parent.reportCards.download")}
           </Button>
         </div>
         <BulletinView bulletin={bulletin} />
@@ -63,7 +65,7 @@ export function ParentBulletinsTab({ studentId }: { studentId: string }) {
       <ErrorMessage>{error}</ErrorMessage>
       {!list && !error && <Spinner />}
       {list && list.length === 0 && (
-        <p className="text-sm text-ink-muted">Aucun bulletin n&apos;est encore disponible. Vous serez prévenu dès qu&apos;un bulletin est publié.</p>
+        <p className="text-sm text-ink-muted">{t("parent.reportCards.none")}</p>
       )}
       <ul className="space-y-2">
         {list?.map((b) => (
@@ -77,11 +79,11 @@ export function ParentBulletinsTab({ studentId }: { studentId: string }) {
                       {b.trimestre}, {b.annee}
                     </span>
                     <span className="block text-xs text-ink-muted">
-                      Classe {b.classe} · moyenne générale {formatNote(b.moyenneGenerale)} / 20
+                      {t("parent.reportCards.line", { class: b.classe, avg: formatNote(b.moyenneGenerale) })}
                     </span>
                   </span>
                 </span>
-                <span className="text-sm font-medium text-primary">Voir</span>
+                <span className="text-sm font-medium text-primary">{t("parent.reportCards.view")}</span>
               </button>
             </Card>
           </li>

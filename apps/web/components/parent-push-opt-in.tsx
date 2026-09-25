@@ -5,6 +5,7 @@ import { BellRing, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui";
 import { describePortalError } from "@/lib/portal-api";
 import { currentSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "@/lib/push";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 type State = "loading" | "on" | "off" | "denied";
 
@@ -14,6 +15,7 @@ type State = "loading" | "on" | "off" | "denied";
  * l'écran d'accueil : on l'explique au lieu d'afficher un bouton qui ne pourrait pas marcher.
  */
 export function ParentPushOptIn({ serverEnabled, onChange }: { serverEnabled: boolean; onChange?: () => void }) {
+  const { t } = useI18n();
   const [support, setSupport] = useState<PushSupport>("supported");
   const [state, setState] = useState<State>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +40,8 @@ export function ParentPushOptIn({ serverEnabled, onChange }: { serverEnabled: bo
       const result = await enablePush();
       if (result === "denied") setState("denied");
       else if (result === "enabled") setState("on");
-      else if (result === "no-key") setError("Les alertes ne sont pas encore disponibles sur ce service. Vous les verrez dans l'application.");
-      else setError("Cet appareil ne peut pas recevoir d'alertes pour le moment. Ouvrez l'application installée, ou réessayez plus tard.");
+      else if (result === "no-key") setError(t("parent.push.noKey"));
+      else setError(t("parent.push.cannot"));
       onChange?.();
     } catch (err) {
       setError(describePortalError(err));
@@ -58,28 +60,21 @@ export function ParentPushOptIn({ serverEnabled, onChange }: { serverEnabled: bo
   }
 
   if (!serverEnabled) {
-    return <p className="text-sm text-ink-muted">Les alertes sur téléphone ne sont pas encore activées par l&apos;école. Vos notifications restent visibles ici.</p>;
+    return <p className="text-sm text-ink-muted">{t("parent.push.notEnabled")}</p>;
   }
   if (support === "needs-install") {
     return (
       <div className="flex gap-3 rounded-xl bg-info-soft p-3 text-sm text-info">
         <Smartphone className="mt-0.5 shrink-0" size={18} />
-        <p>
-          Sur iPhone et iPad, les alertes fonctionnent seulement depuis l&apos;icône de l&apos;application. Dans Safari, touchez « Partager », puis « Sur l&apos;écran d&apos;accueil », ouvrez
-          l&apos;application depuis cette icône et revenez ici.
-        </p>
+        <p>{t("parent.push.needsInstall")}</p>
       </div>
     );
   }
   if (support === "unsupported") {
-    return <p className="text-sm text-ink-muted">Ce navigateur ne sait pas recevoir d&apos;alertes. Vos notifications restent visibles dans cette page.</p>;
+    return <p className="text-sm text-ink-muted">{t("parent.push.unsupported")}</p>;
   }
   if (state === "denied") {
-    return (
-      <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning">
-        Les notifications sont bloquées pour ce site dans votre navigateur. Autorisez-les dans les réglages du navigateur, puis revenez ici.
-      </p>
-    );
+    return <p className="rounded-xl bg-warning-soft p-3 text-sm text-warning">{t("parent.push.denied")}</p>;
   }
 
   return (
@@ -88,18 +83,18 @@ export function ParentPushOptIn({ serverEnabled, onChange }: { serverEnabled: bo
       {state === "on" ? (
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-2 text-sm font-medium text-success">
-            <BellRing size={16} /> Alertes activées sur cet appareil
+            <BellRing size={16} /> {t("parent.push.on")}
           </span>
           <Button variant="secondary" onClick={() => void turnOff()} disabled={busy}>
-            Désactiver
+            {t("parent.push.disable")}
           </Button>
         </div>
       ) : (
         <Button onClick={() => void turnOn()} disabled={busy || state === "loading"}>
-          <BellRing size={16} /> Activer les alertes sur ce téléphone
+          <BellRing size={16} /> {t("parent.push.enable")}
         </Button>
       )}
-      <p className="mt-2 text-xs text-ink-muted">L&apos;alerte donne seulement le prénom de l&apos;enfant. Le détail s&apos;affiche dans l&apos;application, après connexion.</p>
+      <p className="mt-2 text-xs text-ink-muted">{t("parent.push.note")}</p>
     </div>
   );
 }

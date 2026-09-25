@@ -7,6 +7,8 @@ import { MessageCircle, Printer, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { Badge, Button } from "@/components/ui";
 import { activationUrl, whatsappLink, type ActivationLetter, type BulkCodesResult } from "@/lib/parent-activation";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { formatDate } from "@/lib/format";
 
 export interface LetterSchool {
   nom: string;
@@ -129,13 +131,14 @@ const PRINT_CSS = `
  * affichés qu'ici, une seule fois (seule leur empreinte est conservée) : fermer cette fenêtre les fait disparaître.
  */
 export function ActivationLetters({ result, school, onClose }: { result: BulkCodesResult; school: LetterSchool; onClose: () => void }) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const { generes, ignores } = result;
 
   function close() {
-    if (window.confirm("Les codes ne pourront plus être affichés après la fermeture. Avez-vous imprimé les lettres ou envoyé les messages ?")) onClose();
+    if (window.confirm(t("adm.letters.confirmClose"))) onClose();
   }
 
   if (!mounted) return null;
@@ -146,16 +149,16 @@ export function ActivationLetters({ result, school, onClose }: { result: BulkCod
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-display text-lg font-semibold text-ink">
-              {generes.length} lettre{generes.length > 1 ? "s" : ""} d&apos;activation
+              {generes.length > 1 ? t("adm.letters.countMany", { n: generes.length }) : t("adm.letters.countOne", { n: generes.length })}
             </p>
-            <p className="text-xs text-ink-muted">Codes valables jusqu&apos;au {frDate(result.expireLe)} ({result.validiteJours} jours).</p>
+            <p className="text-xs text-ink-muted">{t("adm.letters.validUntil", { date: formatDate(result.expireLe), days: result.validiteJours })}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => window.print()} disabled={generes.length === 0}>
-              <Printer size={16} /> Imprimer ou enregistrer en PDF
+              <Printer size={16} /> {t("adm.letters.print")}
             </Button>
             <Button variant="secondary" onClick={close}>
-              <X size={16} /> Fermer
+              <X size={16} /> {t("adm.letters.close")}
             </Button>
           </div>
         </div>
@@ -164,29 +167,28 @@ export function ActivationLetters({ result, school, onClose }: { result: BulkCod
       <div className="mx-auto max-w-5xl px-4 py-4">
         <div className="mb-4 space-y-2 print:hidden">
           <p className="rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
-            Ces codes ne seront plus affichables après la fermeture de cette fenêtre : imprimez les lettres (ou enregistrez-les en PDF) et envoyez les messages
-            maintenant. Si vous les perdez, il faudra en générer de nouveaux, ce qui annule les anciens.
+            {t("adm.letters.warning")}
           </p>
           {(ignores.avecCompte > 0 || ignores.codeEnAttente > 0 || ignores.sansAcces > 0) && (
             <p className="text-xs text-ink-muted">
-              Non concernées :
-              {ignores.avecCompte > 0 && ` ${ignores.avecCompte} famille(s) ont déjà un compte ;`}
-              {ignores.codeEnAttente > 0 && ` ${ignores.codeEnAttente} ont déjà un code en attente (leur lettre reste valable) ;`}
-              {ignores.sansAcces > 0 && ` ${ignores.sansAcces} n'ont plus accès au portail.`}
+              {t("adm.letters.notConcerned")}
+              {ignores.avecCompte > 0 && t("adm.letters.withAccount", { n: ignores.avecCompte })}
+              {ignores.codeEnAttente > 0 && t("adm.letters.withPending", { n: ignores.codeEnAttente })}
+              {ignores.sansAcces > 0 && t("adm.letters.noPortal", { n: ignores.sansAcces })}
             </p>
           )}
         </div>
 
         {generes.length === 0 ? (
-          <p className="rounded-xl bg-surface p-4 text-sm text-ink-muted print:hidden">Aucune famille à qui générer un code.</p>
+          <p className="rounded-xl bg-surface p-4 text-sm text-ink-muted print:hidden">{t("adm.letters.none")}</p>
         ) : (
           <>
             <section className="mb-6 rounded-2xl border border-border bg-surface p-4 print:hidden">
               <h3 className="mb-1 flex items-center gap-2 font-display text-base font-semibold text-ink">
-                <MessageCircle size={16} /> Envoyer par WhatsApp
+                <MessageCircle size={16} /> {t("adm.letters.whatsappTitle")}
               </h3>
               <p className="mb-3 text-xs text-ink-muted">
-                Un lien par famille ouvre WhatsApp avec le message déjà écrit : vous choisissez d&apos;envoyer. Rien n&apos;est envoyé automatiquement.
+                {t("adm.letters.whatsappHelp")}
               </p>
               <ul className="divide-y divide-border">
                 {generes.map((l) => {
@@ -203,10 +205,10 @@ export function ActivationLetters({ result, school, onClose }: { result: BulkCod
                           rel="noopener noreferrer"
                           className="sa-interactive inline-flex items-center gap-1.5 rounded-full bg-success px-3 py-1.5 text-xs font-medium text-white"
                         >
-                          <MessageCircle size={14} /> Ouvrir WhatsApp
+                          <MessageCircle size={14} /> {t("adm.letters.openWhatsapp")}
                         </a>
                       ) : (
-                        <Badge color="orange">Numéro inutilisable pour WhatsApp</Badge>
+                        <Badge color="orange">{t("adm.letters.badNumber")}</Badge>
                       )}
                     </li>
                   );
@@ -214,7 +216,7 @@ export function ActivationLetters({ result, school, onClose }: { result: BulkCod
               </ul>
             </section>
 
-            <h3 className="mb-2 font-display text-base font-semibold text-ink print:hidden">Lettres à imprimer</h3>
+            <h3 className="mb-2 font-display text-base font-semibold text-ink print:hidden">{t("adm.letters.toPrint")}</h3>
             {generes.map((l) => (
               <Letter key={l.guardianId} letter={l} school={school} origin={origin} />
             ))}

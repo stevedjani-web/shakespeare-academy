@@ -8,6 +8,8 @@ import { ScrollText } from "lucide-react";
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
 
 function actionColor(action: string): "green" | "blue" | "orange" | "red" | "slate" {
   if (action.endsWith("_CREATE") || action.endsWith("_APPROVE") || action.endsWith("_REQUEST")) return "green";
@@ -30,6 +32,8 @@ function ValueBlock({ label, value }: { label: string; value: unknown }) {
 }
 
 export default function AuditLogPage() {
+  const { t, locale } = useI18n();
+  const fmtDateTime = (iso: string) => new Date(iso).toLocaleString(INTL_LOCALE[locale]);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [entiteFilter, setEntiteFilter] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -47,18 +51,18 @@ export default function AuditLogPage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Lot 1"
-        subtitle="Traçabilité des actions sensibles (RG15) — journal en lecture seule, jamais modifiable."
+        eyebrow={t("adm.audit.eyebrow")}
+        subtitle={t("adm.audit.subtitle")}
         helpId="audit"
       >
-        Journal d&apos;audit
+        {t("adm.audit.title")}
       </PageTitle>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex max-w-xs items-center gap-2">
-        <label className="shrink-0 text-sm text-ink-muted">Objet :</label>
+        <label className="shrink-0 text-sm text-ink-muted">{t("adm.audit.objectColon")}</label>
         <Select value={entiteFilter} onChange={(e) => setEntiteFilter(e.target.value)}>
-          <option value="">Tous</option>
+          <option value="">{t("adm.audit.all")}</option>
           {entites.map((e) => (
             <option key={e} value={e}>
               {e}
@@ -67,19 +71,19 @@ export default function AuditLogPage() {
         </Select>
       </div>
         <ExportButtons
-          fileName="journal-audit"
-          title="Journal d'audit"
+          fileName={t("adm.audit.exportFile")}
+          title={t("adm.audit.title")}
           landscape
           disabled={!loaded}
           sections={[
             buildSection(
-              "Journal d'audit",
+              t("adm.audit.title"),
               [
-                { header: "Date", value: (l: AuditLogEntry) => new Date(l.createdAt).toLocaleString("fr-FR") },
-                { header: "Utilisateur", value: (l: AuditLogEntry) => (l.user ? `${l.user.prenom} ${l.user.nom}` : "") },
-                { header: "Action", value: (l: AuditLogEntry) => l.action },
-                { header: "Objet", value: (l: AuditLogEntry) => l.entite },
-                { header: "Référence", value: (l: AuditLogEntry) => l.entiteId ?? "" },
+                { header: t("adm.audit.colDate"), value: (l: AuditLogEntry) => fmtDateTime(l.createdAt) },
+                { header: t("adm.audit.colUser"), value: (l: AuditLogEntry) => (l.user ? `${l.user.prenom} ${l.user.nom}` : "") },
+                { header: t("adm.audit.colAction"), value: (l: AuditLogEntry) => l.action },
+                { header: t("adm.audit.colObject"), value: (l: AuditLogEntry) => l.entite },
+                { header: t("adm.audit.reference"), value: (l: AuditLogEntry) => l.entiteId ?? "" },
               ],
               logs,
             ),
@@ -88,7 +92,7 @@ export default function AuditLogPage() {
       </div>
 
       {loaded && logs.length === 0 ? (
-        <EmptyState icon={<ScrollText />} title="Aucune entrée." description="Rien à signaler pour ce filtre." />
+        <EmptyState icon={<ScrollText />} title={t("adm.audit.empty")} description={t("adm.audit.emptyDesc")} />
       ) : (
         <Card>
           <ExpandAll count={logs.length} onOpenAll={() => expand.openAll(logs.map((l) => l.id))} onCloseAll={expand.closeAll} />
@@ -96,11 +100,11 @@ export default function AuditLogPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-ink-muted">
-                  <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Utilisateur</th>
-                  <th className="py-2 pr-4">Action</th>
-                  <th className="py-2 pr-4">Objet</th>
+                  <th className="w-10 py-2 pr-2" aria-label={t("adm.audit.details")}></th>
+                  <th className="py-2 pr-4">{t("adm.audit.colDate")}</th>
+                  <th className="py-2 pr-4">{t("adm.audit.colUser")}</th>
+                  <th className="py-2 pr-4">{t("adm.audit.colAction")}</th>
+                  <th className="py-2 pr-4">{t("adm.audit.colObject")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,10 +115,10 @@ export default function AuditLogPage() {
                     <Fragment key={log.id}>
                       <tr className="border-b border-border align-top last:border-0 hover:bg-surface-muted">
                         <td className="py-2.5 pr-2">
-                          <ExpandButton open={expanded} onClick={() => expand.toggle(log.id)} label={`${log.action} du ${new Date(log.createdAt).toLocaleString("fr-FR")}`} />
+                          <ExpandButton open={expanded} onClick={() => expand.toggle(log.id)} label={t("adm.audit.rowLabel", { action: log.action, date: fmtDateTime(log.createdAt) })} />
                         </td>
                         <td className="whitespace-nowrap py-2.5 pr-4 text-ink-muted">
-                          {new Date(log.createdAt).toLocaleString("fr-FR")}
+                          {fmtDateTime(log.createdAt)}
                         </td>
                         <td className="py-2.5 pr-4 text-ink">{who}</td>
                         <td className="py-2.5 pr-4">
@@ -131,22 +135,22 @@ export default function AuditLogPage() {
                           <td colSpan={4} className="py-3 pr-4">
                             <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                               <p>
-                                <span className="block text-xs text-ink-muted">Objet</span>
+                                <span className="block text-xs text-ink-muted">{t("adm.audit.colObject")}</span>
                                 <span className="font-medium text-ink">{log.entite}</span>
                               </p>
                               <p>
-                                <span className="block text-xs text-ink-muted">Référence</span>
+                                <span className="block text-xs text-ink-muted">{t("adm.audit.reference")}</span>
                                 <span className="break-all font-mono text-xs font-medium text-ink">{log.entiteId ?? "-"}</span>
                               </p>
                               <p className="sm:col-span-2">
-                                <span className="block text-xs text-ink-muted">Utilisateur</span>
+                                <span className="block text-xs text-ink-muted">{t("adm.audit.colUser")}</span>
                                 <span className="font-medium text-ink">
                                   {who}
                                   {log.user ? ` (${log.user.email})` : ""}
                                 </span>
                               </p>
-                              <ValueBlock label="Avant" value={log.ancienneValeur} />
-                              <ValueBlock label="Après" value={log.nouvelleValeur} />
+                              <ValueBlock label={t("adm.audit.before")} value={log.ancienneValeur} />
+                              <ValueBlock label={t("adm.audit.after")} value={log.nouvelleValeur} />
                             </div>
                           </td>
                         </tr>

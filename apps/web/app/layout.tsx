@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/contexts/auth-context";
 import { PwaRegister } from "@/components/pwa-register";
+import { LocaleSync } from "@/components/locale-sync";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-(--color-bg) text-(--color-ink)">
+        <LocaleSync />
         <PwaRegister />
         <AuthProvider>{children}</AuthProvider>
       </body>

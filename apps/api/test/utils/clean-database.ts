@@ -13,6 +13,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   // Aucune relation Prisma vers Student/Enrollment (simples identifiants informatifs) : seule sa relation
   // vers Level (jamais supprimé par cette fonction) impose de la vider avant l'école, sans contrainte réelle.
   await prisma.preRegistration.deleteMany();
+  await prisma.assistantUsage.deleteMany();
   await prisma.disciplineConvocation.deleteMany();
   await prisma.sanction.deleteMany();
   await prisma.disciplineRecordRevision.deleteMany();

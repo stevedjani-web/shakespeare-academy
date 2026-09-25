@@ -5,14 +5,17 @@ import { Undo2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Occurrence, OccurrenceStatus, Room, Teacher, TimetableWeek } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, Select } from "@/components/ui";
-import { describeError, WEEK_DAYS } from "@/components/vie-scolaire/shared";
+import type { MessageKey } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { weekdayName } from "@/lib/format";
+import { describeError } from "@/components/vie-scolaire/shared";
 import { formatIso } from "./shared";
 
-const STATUS_BADGE: Record<OccurrenceStatus, { label: string; color: "gray" | "red" | "orange" | "blue" | "green" }> = {
-  NORMALE: { label: "Normale", color: "gray" },
-  ANNULEE: { label: "Annulée", color: "red" },
-  REMPLACEE: { label: "Remplacée", color: "orange" },
-  SALLE_MODIFIEE: { label: "Salle changée", color: "blue" },
+const STATUS_BADGE: Record<OccurrenceStatus, { key: MessageKey; color: "gray" | "red" | "orange" | "blue" | "green" }> = {
+  NORMALE: { key: "tt.occ.NORMALE", color: "gray" },
+  ANNULEE: { key: "tt.occ.ANNULEE", color: "red" },
+  REMPLACEE: { key: "tt.occ.REMPLACEE", color: "orange" },
+  SALLE_MODIFIEE: { key: "tt.occ.SALLE_MODIFIEE", color: "blue" },
 };
 
 type ExceptionType = "ANNULEE" | "REMPLACEE" | "SALLE_MODIFIEE";
@@ -34,6 +37,7 @@ export function WeekView({
   rooms: Room[];
   onChanged: () => void;
 }) {
+  const { t, locale } = useI18n();
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [type, setType] = useState<ExceptionType>("ANNULEE");
   const [motif, setMotif] = useState("");
@@ -41,14 +45,14 @@ export function WeekView({
   const [roomId, setRoomId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const activeTeachers = teachers.filter((t) => t.statut === "ACTIF");
+  const activeTeachers = teachers.filter((x) => x.statut === "ACTIF");
   const activeRooms = rooms.filter((r) => r.actif);
 
   function open(key: string, s: Occurrence) {
     setOpenKey(key);
     setType("ANNULEE");
     setMotif("");
-    setTeacherId(activeTeachers.find((t) => t.id !== s.teacherId)?.id ?? "");
+    setTeacherId(activeTeachers.find((x) => x.id !== s.teacherId)?.id ?? "");
     setRoomId(activeRooms.find((r) => r.id !== s.roomId)?.id ?? "");
     setError(null);
   }
@@ -83,19 +87,19 @@ export function WeekView({
   return (
     <div className="space-y-3">
       {week.jours.map((day) => {
-        const label = WEEK_DAYS.find((d) => d.value === new Date(`${day.date}T00:00:00Z`).getUTCDay())?.label ?? "";
+        const label = weekdayName(day.date, locale);
         return (
           <section key={day.date} className="rounded-2xl border border-border bg-surface p-3">
             <header className="mb-2 flex flex-wrap items-center gap-2">
               <h3 className="font-display text-base font-semibold text-ink">
                 {label} {formatIso(day.date)}
               </h3>
-              {day.version && <span className="text-xs text-ink-muted">Version {day.version.numero}</span>}
+              {day.version && <span className="text-xs text-ink-muted">{t("tt.week.version", { n: day.version.numero })}</span>}
               {day.sansClasse && <Badge color="gray">{day.sansClasse.libelle}</Badge>}
             </header>
 
             {day.seances.length === 0 ? (
-              <p className="text-sm text-ink-muted">{day.sansClasse ? "Pas de cours ce jour." : "Aucune séance."}</p>
+              <p className="text-sm text-ink-muted">{day.sansClasse ? t("tt.week.noClass") : t("tt.week.noSession")}</p>
             ) : (
               <ul className="space-y-2">
                 {day.seances.map((s) => {
@@ -113,22 +117,22 @@ export function WeekView({
                           </div>
                           {s.exception && (
                             <div className="mt-1 text-xs text-ink-muted">
-                              {s.statut === "REMPLACEE" && `Enseignant habituel : ${s.exception.enseignantInitial}. `}
-                              {s.statut === "SALLE_MODIFIEE" && `Salle habituelle : ${s.exception.salleInitiale}. `}
-                              Motif : {s.exception.motif}
+                              {s.statut === "REMPLACEE" && `${t("tt.week.usualTeacher", { name: s.exception.enseignantInitial ?? "" })} `}
+                              {s.statut === "SALLE_MODIFIEE" && `${t("tt.week.usualRoom", { name: s.exception.salleInitiale ?? "" })} `}
+                              {t("tt.reasonLine", { reason: s.exception.motif })}
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {s.statut !== "NORMALE" && <Badge color={status.color}>{status.label}</Badge>}
+                          {s.statut !== "NORMALE" && <Badge color={status.color}>{t(status.key)}</Badge>}
                           {canManage && s.exception && (
                             <Button variant="ghost" onClick={() => void restore(s.exception!.id)}>
-                              <Undo2 size={14} /> Rétablir
+                              <Undo2 size={14} /> {t("tt.week.restore")}
                             </Button>
                           )}
                           {canManage && !s.exception && openKey !== key && (
                             <Button variant="secondary" onClick={() => open(key, s)}>
-                              Changement ponctuel
+                              {t("tt.week.oneOff")}
                             </Button>
                           )}
                         </div>
@@ -138,28 +142,28 @@ export function WeekView({
                         <div className="mt-2 space-y-2 rounded-xl bg-surface-muted p-2.5">
                           <ErrorMessage>{error}</ErrorMessage>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            <Field label="Type">
+                            <Field label={t("tt.week.type")}>
                               <Select value={type} onChange={(e) => setType(e.target.value as ExceptionType)}>
-                                <option value="ANNULEE">Annuler la séance</option>
-                                <option value="REMPLACEE">Remplacer l&apos;enseignant</option>
-                                <option value="SALLE_MODIFIEE">Changer de salle</option>
+                                <option value="ANNULEE">{t("tt.week.type.ANNULEE")}</option>
+                                <option value="REMPLACEE">{t("tt.week.type.REMPLACEE")}</option>
+                                <option value="SALLE_MODIFIEE">{t("tt.week.type.SALLE_MODIFIEE")}</option>
                               </Select>
                             </Field>
                             {type === "REMPLACEE" && (
-                              <Field label="Remplaçant">
+                              <Field label={t("tt.week.replacement")}>
                                 <Select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
                                   {activeTeachers
-                                    .filter((t) => t.id !== s.teacherId)
-                                    .map((t) => (
-                                      <option key={t.id} value={t.id}>
-                                        {t.prenom} {t.nom}
+                                    .filter((x) => x.id !== s.teacherId)
+                                    .map((x) => (
+                                      <option key={x.id} value={x.id}>
+                                        {x.prenom} {x.nom}
                                       </option>
                                     ))}
                                 </Select>
                               </Field>
                             )}
                             {type === "SALLE_MODIFIEE" && (
-                              <Field label="Nouvelle salle">
+                              <Field label={t("tt.week.newRoom")}>
                                 <Select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
                                   {activeRooms
                                     .filter((r) => r.id !== s.roomId)
@@ -171,16 +175,16 @@ export function WeekView({
                                 </Select>
                               </Field>
                             )}
-                            <Field label="Motif (obligatoire)">
-                              <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Ex. enseignant absent" />
+                            <Field label={t("tt.reasonRequired")}>
+                              <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("tt.week.reasonPlaceholder")} />
                             </Field>
                           </div>
                           <div className="flex gap-2">
                             <Button disabled={!motif.trim()} onClick={() => void submit(s)}>
-                              Enregistrer
+                              {t("tt.save")}
                             </Button>
                             <Button variant="ghost" onClick={() => setOpenKey(null)}>
-                              Annuler
+                              {t("tt.cancel")}
                             </Button>
                           </div>
                         </div>

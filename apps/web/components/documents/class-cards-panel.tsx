@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { IdCard } from "lucide-react";
 import { api, isOfflineError } from "@/lib/api";
 import { isApiError } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Button, Card, ErrorMessage, Select, SuccessMessage } from "@/components/ui";
 import type { AcademicYear, Class } from "@/lib/types";
 import type { IssuedDocumentView } from "@/lib/documents";
@@ -20,6 +21,7 @@ interface ClassCardsResult {
  * seul PDF, recto et verso pour chaque élève. Relancer complète ce qui manque sans rien dupliquer.
  */
 export function ClassCardsPanel() {
+  const { t } = useI18n();
   const [classes, setClasses] = useState<Class[]>([]);
   const [classId, setClassId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,12 +47,12 @@ export function ClassCardsPanel() {
     setBusy(true);
     setError(null);
     setNotice(null);
-    setProgress("Émission des cartes…");
+    setProgress(t("stu.cards.issuing"));
     try {
       const res = await api.post<ClassCardsResult>(`/documents/class-cards/${classId}`);
       const cards: CardSource[] = [];
       for (const [i, doc] of res.documents.entries()) {
-        setProgress(`Préparation des photos (${i + 1}/${res.documents.length})…`);
+        setProgress(t("stu.cards.preparingPhotos", { current: i + 1, total: res.documents.length }));
         let photo = null;
         try {
           photo = await photoToPdfImage(await api.blob(`/students/${doc.studentId}/photo`));
@@ -59,11 +61,18 @@ export function ClassCardsPanel() {
         }
         cards.push({ doc, photo });
       }
-      setProgress("Création du PDF…");
-      await downloadCardsPdf(cards, `Cartes-${res.classe}`);
-      setNotice(`${res.documents.length} carte(s) pour ${res.classe} : ${res.cartesCreees} nouvelle(s), ${res.documents.length - res.cartesCreees} déjà émise(s).`);
+      setProgress(t("stu.cards.creatingPdf"));
+      await downloadCardsPdf(cards, `${t("stu.cards.filePrefix")}-${res.classe}`);
+      setNotice(
+        t("stu.cards.summary", {
+          count: res.documents.length,
+          classe: res.classe,
+          created: res.cartesCreees,
+          existing: res.documents.length - res.cartesCreees,
+        }),
+      );
     } catch (err) {
-      setError(isOfflineError(err) ? "Cette action nécessite une connexion Internet." : isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isOfflineError(err) ? t("stu.cards.errOffline") : isApiError(err) ? err.message : t("stu.cards.errGeneric"));
     } finally {
       setBusy(false);
       setProgress(null);
@@ -76,10 +85,10 @@ export function ClassCardsPanel() {
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">
           <span className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <IdCard size={16} className="text-primary" /> Cartes d&apos;élèves d&apos;une classe
+            <IdCard size={16} className="text-primary" /> {t("stu.cards.title")}
           </span>
           <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
-            <option value="">Choisir une classe…</option>
+            <option value="">{t("stu.cards.chooseClass")}</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nom}
@@ -88,10 +97,10 @@ export function ClassCardsPanel() {
           </Select>
         </div>
         <Button onClick={() => void generate()} disabled={busy || !classId}>
-          {busy ? (progress ?? "…") : "Produire les cartes (PDF)"}
+          {busy ? (progress ?? "…") : t("stu.cards.produce")}
         </Button>
       </div>
-      <p className="mt-2 text-xs text-ink-muted">Recto (photo, identité) et verso (QR code de vérification) pour chaque élève inscrit dans la classe, au format carte bancaire.</p>
+      <p className="mt-2 text-xs text-ink-muted">{t("stu.cards.hint")}</p>
       <ErrorMessage>{error}</ErrorMessage>
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
     </Card>

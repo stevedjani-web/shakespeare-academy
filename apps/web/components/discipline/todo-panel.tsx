@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Badge, Button, Card, EmptyState, ErrorMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { RecordsPanel } from "@/components/discipline/records-panel";
@@ -9,6 +10,7 @@ import { SANCTION_COLOR, SANCTION_LABEL, dayLabel, studentName, type PendingSanc
 
 /** Ce que la Direction doit traiter : sanctions décidées à publier à la famille, et incidents encore ouverts. */
 export function TodoPanel({ version, onChanged }: { version: number; onChanged: () => void }) {
+  const { t } = useI18n();
   const [pending, setPending] = useState<PendingSanction[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export function TodoPanel({ version, onChanged }: { version: number; onChanged: 
   }, [load, version]);
 
   async function publish(s: PendingSanction) {
-    if (!confirm(`Publier cette sanction à la famille de ${studentName(s.eleve)} ? Elle sera visible dans l'espace parents et le parent sera prévenu.`)) return;
+    if (!confirm(t("acd.disc.todo.confirmPublish", { name: studentName(s.eleve) }))) return;
     setError(null);
     try {
       await api.post(`/discipline/sanctions/${s.id}/publier`);
@@ -38,7 +40,7 @@ export function TodoPanel({ version, onChanged }: { version: number; onChanged: 
   }
 
   async function cancel(s: PendingSanction) {
-    const motif = prompt("Motif de l'annulation de la sanction :");
+    const motif = prompt(t("acd.disc.todo.promptCancel"));
     if (!motif) return;
     setError(null);
     try {
@@ -53,9 +55,9 @@ export function TodoPanel({ version, onChanged }: { version: number; onChanged: 
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="mb-2 font-display text-base font-semibold text-ink">Sanctions à publier</h2>
+        <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("acd.disc.todo.toPublish")}</h2>
         <ErrorMessage>{error}</ErrorMessage>
-        {pending && pending.length === 0 && <EmptyState title="Aucune sanction en attente" description="Les sanctions décidées mais pas encore publiées apparaissent ici." />}
+        {pending && pending.length === 0 && <EmptyState title={t("acd.disc.todo.emptyTitle")} description={t("acd.disc.todo.emptyDesc")} />}
         <div className="space-y-3">
           {pending?.map((s) => (
             <Card key={s.id}>
@@ -65,17 +67,18 @@ export function TodoPanel({ version, onChanged }: { version: number; onChanged: 
                     {studentName(s.eleve)} <span className="font-normal text-ink-muted">· {s.classe}</span>
                   </p>
                   <p className="text-sm text-ink">
-                    {s.type}, du {dayLabel(s.dateDebut)}
-                    {s.dateFin ? ` au ${dayLabel(s.dateFin)}` : ""} · faits du {dayLabel(s.dateFaits)}
+                    {s.dateFin
+                      ? t("acd.disc.todo.lineTo", { type: s.type, start: dayLabel(s.dateDebut), end: dayLabel(s.dateFin), facts: dayLabel(s.dateFaits) })
+                      : t("acd.disc.todo.line", { type: s.type, start: dayLabel(s.dateDebut), facts: dayLabel(s.dateFaits) })}
                   </p>
-                  {s.messageFamille && <p className="mt-1 text-xs text-ink-muted">Message à la famille : {s.messageFamille}</p>}
+                  {s.messageFamille && <p className="mt-1 text-xs text-ink-muted">{t("acd.disc.todo.messageToFamily", { message: s.messageFamille })}</p>}
                 </div>
                 <Badge color={SANCTION_COLOR[s.statut]}>{SANCTION_LABEL[s.statut]}</Badge>
               </div>
               <div className="mt-3 flex gap-2">
-                <Button onClick={() => void publish(s)}>Publier à la famille</Button>
+                <Button onClick={() => void publish(s)}>{t("acd.disc.todo.publish")}</Button>
                 <Button variant="secondary" onClick={() => void cancel(s)}>
-                  Annuler
+                  {t("acd.disc.todo.cancel")}
                 </Button>
               </div>
             </Card>
@@ -83,7 +86,7 @@ export function TodoPanel({ version, onChanged }: { version: number; onChanged: 
         </div>
       </section>
       <section>
-        <h2 className="mb-2 font-display text-base font-semibold text-ink">Incidents ouverts</h2>
+        <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("acd.disc.todo.openIncidents")}</h2>
         <RecordsPanel canDecide showAuthor fixedNature="INCIDENT" fixedStatut="OUVERT" version={version} onChanged={onChanged} />
       </section>
     </div>

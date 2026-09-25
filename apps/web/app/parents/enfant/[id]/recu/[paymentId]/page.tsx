@@ -8,7 +8,9 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { API_URL } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
-import { montantEnLettres } from "@/lib/number-to-words-fr";
+import { amountInWords } from "@/lib/amount-in-words";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 import { Badge, Button, ErrorMessage, Spinner } from "@/components/ui";
 
 interface Receipt {
@@ -26,7 +28,12 @@ interface Receipt {
   ecole: { nom: string; adresse: string | null; telephone: string | null; logoUrl: string | null };
 }
 
-const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money", VIREMENT: "Virement", CHEQUE: "Chèque" };
+const MODE_KEY: Record<string, MessageKey> = {
+  ESPECES: "parent.child.modeCash",
+  MOBILE_MONEY: "parent.child.modeMobile",
+  VIREMENT: "parent.child.modeTransfer",
+  CHEQUE: "parent.child.modeCheque",
+};
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -41,6 +48,7 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function ParentReceiptPage() {
   const { id, paymentId } = useParams<{ id: string; paymentId: string }>();
   const { parent, loading } = useParent();
+  const { t } = useI18n();
   const router = useRouter();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -72,11 +80,11 @@ export default function ParentReceiptPage() {
     <div>
       <div className="mb-4 flex items-center justify-between print:hidden">
         <Link href={`/parents/enfant/${id}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-          <ArrowLeft size={16} /> Retour
+          <ArrowLeft size={16} /> {t("receipt.back")}
         </Link>
         {receipt && (
           <Button variant="secondary" onClick={() => window.print()}>
-            <Printer size={16} /> Imprimer
+            <Printer size={16} /> {t("receipt.print")}
           </Button>
         )}
       </div>
@@ -92,33 +100,31 @@ export default function ParentReceiptPage() {
             <p className="font-display text-lg font-semibold text-ink">{receipt.ecole.nom}</p>
             {receipt.ecole.adresse && <p className="text-xs text-ink-muted">{receipt.ecole.adresse}</p>}
             {receipt.ecole.telephone && <p className="text-xs text-ink-muted">{receipt.ecole.telephone}</p>}
-            <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">Reçu de paiement</p>
+            <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">{t("receipt.title")}</p>
             <p className="font-mono text-sm text-ink">{receipt.numeroRecu}</p>
             <p className="text-xs text-ink-muted">{formatDate(receipt.date)}</p>
             {receipt.statut === "ANNULE" && (
               <p className="mt-2">
-                <Badge color="red">Reçu annulé</Badge>
+                <Badge color="red">{t("receipt.cancelled")}</Badge>
               </p>
             )}
           </div>
 
           <dl className="mt-4 space-y-2 border-t border-dashed border-border pt-4 text-sm">
-            <Row label="Élève" value={`${receipt.eleve.prenom} ${receipt.eleve.nom}`} />
-            <Row label="Matricule" value={receipt.eleve.matricule} />
-            <Row label="Classe" value={`${receipt.classe} (${receipt.anneeScolaire})`} />
-            <Row label="Motif" value={receipt.libelle} />
-            <Row label="Mode de paiement" value={MODE_LABEL[receipt.modePaiement] ?? receipt.modePaiement} />
-            {receipt.referenceExterne && <Row label="Référence" value={receipt.referenceExterne} />}
+            <Row label={t("receipt.student")} value={`${receipt.eleve.prenom} ${receipt.eleve.nom}`} />
+            <Row label={t("receipt.studentId")} value={receipt.eleve.matricule} />
+            <Row label={t("receipt.class")} value={`${receipt.classe} (${receipt.anneeScolaire})`} />
+            <Row label={t("receipt.reason")} value={receipt.libelle} />
+            <Row label={t("receipt.method")} value={MODE_KEY[receipt.modePaiement] ? t(MODE_KEY[receipt.modePaiement]) : receipt.modePaiement} />
+            {receipt.referenceExterne && <Row label={t("receipt.reference")} value={receipt.referenceExterne} />}
           </dl>
 
           <div className="mt-4 flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
-            <span className="text-sm font-medium text-ink">Montant payé</span>
+            <span className="text-sm font-medium text-ink">{t("receipt.amountPaid")}</span>
             <span className="font-display text-xl font-semibold text-ink">{formatMontant(receipt.montant, receipt.devise === "XAF" ? "FCFA" : receipt.devise)}</span>
           </div>
-          <p className="mt-2 text-xs italic text-ink-muted">
-            Arrêté le présent reçu à la somme de : {montantEnLettres(receipt.montant, receipt.devise === "XAF" ? "francs CFA" : receipt.devise)}.
-          </p>
-          <p className="mt-6 text-center text-[11px] text-ink-muted">Document généré électroniquement, valable comme preuve de paiement.</p>
+          <p className="mt-2 text-xs italic text-ink-muted">{t("receipt.inWords", { words: amountInWords(receipt.montant, receipt.devise) })}</p>
+          <p className="mt-6 text-center text-[11px] text-ink-muted">{t("receipt.footer")}</p>
         </div>
       )}
     </div>

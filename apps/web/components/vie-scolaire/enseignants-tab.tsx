@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { LinkableUser, Subject, Teacher } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
@@ -10,6 +11,7 @@ import { describeError, TAB_HINT } from "./shared";
 
 /** Fiches enseignants (D56) : coordonnées et matières. Aucune donnée de paie ni de contrat. */
 export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
+  const { t: tr } = useI18n(); // « t » désigne un enseignant dans tout ce fichier
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [users, setUsers] = useState<LinkableUser[]>([]);
@@ -110,33 +112,33 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
 
   return (
     <Card>
-      <h2 className="font-display text-lg font-semibold text-ink">Enseignants</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">{tr("sl.teachers.title")}</h2>
       <p className={`mb-3 ${TAB_HINT}`}>
-        Une fiche par enseignant : nom, coordonnées et matières qu&apos;il peut enseigner. Les affectations aux classes se font dans l&apos;onglet « Affectations ». Aucune donnée de paie ni de contrat n&apos;est enregistrée.
+        {tr("sl.teachers.hint")}
       </p>
       <ErrorMessage>{error}</ErrorMessage>
 
       <form onSubmit={addTeacher} className="mb-5 space-y-3 border-b border-border pb-4">
-        <p className="text-sm font-semibold text-ink">Ajouter un enseignant</p>
+        <p className="text-sm font-semibold text-ink">{tr("sl.teachers.add.title")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nom">
+          <Field label={tr("sl.teachers.add.lastName")}>
             <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
           </Field>
-          <Field label="Prénom">
+          <Field label={tr("sl.teachers.add.firstName")}>
             <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
           </Field>
-          <Field label="Téléphone (facultatif)">
+          <Field label={tr("sl.teachers.add.phone")}>
             <Input value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
           </Field>
-          <Field label="E-mail (facultatif)">
+          <Field label={tr("sl.teachers.add.email")}>
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </Field>
         </div>
-        <Button type="submit">Ajouter l&apos;enseignant</Button>
+        <Button type="submit">{tr("sl.teachers.add.submit")}</Button>
       </form>
 
       {loaded && teachers.length === 0 ? (
-        <EmptyState icon={<Users />} title="Aucun enseignant." description="Ajoutez la première fiche ci-dessus." />
+        <EmptyState icon={<Users />} title={tr("sl.teachers.empty.title")} description={tr("sl.teachers.empty.description")} />
       ) : (
         <>
           <ExpandAll count={teachers.length} onOpenAll={() => expand.openAll(teachers.map((t) => t.id))} onCloseAll={expand.closeAll} />
@@ -152,30 +154,30 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
                     <span className="font-medium text-ink">
                       {t.prenom} {t.nom}
                     </span>
-                    <Badge color="slate">{t.subjects.length} matière(s)</Badge>
-                    <Badge color={t._count.assignments > 0 ? "green" : "orange"}>{t._count.assignments} affectation(s)</Badge>
-                    {t.statut === "INACTIF" && <Badge color="gray">Inactif</Badge>}
-                    {t.volontairePilote && <Badge color="accent">Volontaire pilote</Badge>}
+                    <Badge color="slate">{tr("sl.teachers.subjectCount", { n: t.subjects.length })}</Badge>
+                    <Badge color={t._count.assignments > 0 ? "green" : "orange"}>{tr("sl.teachers.assignmentCount", { n: t._count.assignments })}</Badge>
+                    {t.statut === "INACTIF" && <Badge color="gray">{tr("sl.teachers.inactive")}</Badge>}
+                    {t.volontairePilote && <Badge color="accent">{tr("sl.teachers.pilotVolunteer")}</Badge>}
                   </div>
                   {expanded && (
                     <div className="mt-3 space-y-4 border-t border-border pt-3">
                       {isEditing ? (
                         <div className="grid gap-2 sm:grid-cols-2">
-                          <Input value={editForm.nom} onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })} placeholder="Nom" />
-                          <Input value={editForm.prenom} onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })} placeholder="Prénom" />
-                          <Input value={editForm.telephone} onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })} placeholder="Téléphone" />
-                          <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="E-mail" />
+                          <Input value={editForm.nom} onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })} placeholder={tr("sl.teachers.add.lastName")} />
+                          <Input value={editForm.prenom} onChange={(e) => setEditForm({ ...editForm, prenom: e.target.value })} placeholder={tr("sl.teachers.add.firstName")} />
+                          <Input value={editForm.telephone} onChange={(e) => setEditForm({ ...editForm, telephone: e.target.value })} placeholder={tr("sl.teachers.editPhone")} />
+                          <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder={tr("sl.teachers.editEmail")} />
                           <div className="flex gap-2 sm:col-span-2">
-                            <Button onClick={() => void saveEdit(t.id)}>Enregistrer</Button>
+                            <Button onClick={() => void saveEdit(t.id)}>{tr("sl.common.save")}</Button>
                             <Button variant="secondary" onClick={() => setEditing(null)}>
-                              Annuler
+                              {tr("sl.common.cancel")}
                             </Button>
                           </div>
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                           <p className="text-ink-muted">
-                            Téléphone : <span className="font-medium text-ink">{t.telephone ?? "-"}</span> · E-mail :{" "}
+                            {tr("sl.teachers.phoneLine")} <span className="font-medium text-ink">{t.telephone ?? "-"}</span> · {tr("sl.teachers.emailLine")}{" "}
                             <span className="font-medium text-ink">{t.email ?? "-"}</span>
                           </p>
                           <div className="flex gap-2">
@@ -186,27 +188,27 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
                                 setEditForm({ nom: t.nom, prenom: t.prenom, telephone: t.telephone ?? "", email: t.email ?? "" });
                               }}
                             >
-                              Modifier
+                              {tr("sl.common.edit")}
                             </Button>
                             <Button variant="secondary" onClick={() => void toggleStatus(t)}>
-                              {t.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                              {t.statut === "ACTIF" ? tr("sl.common.deactivate") : tr("sl.common.reactivate")}
                             </Button>
                           </div>
                         </div>
                       )}
 
                       <div className="rounded-xl bg-surface-muted p-3">
-                        <p className="mb-2 text-sm font-medium text-ink">Pointage par QR code</p>
+                        <p className="mb-2 text-sm font-medium text-ink">{tr("sl.teachers.checkin.title")}</p>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <Field label="Comment pointe-t-il ?">
+                          <Field label={tr("sl.teachers.checkin.how")}>
                             <Select value={t.modePointage} onChange={(e) => void savePointage(t, { modePointage: e.target.value as "SEANCE" | "JOURNEE" })}>
-                              <option value="SEANCE">À chaque cours (QR de la salle) : collège, lycée</option>
-                              <option value="JOURNEE">Arrivée et départ (QR de l&apos;entrée) : maternelle, primaire</option>
+                              <option value="SEANCE">{tr("sl.teachers.checkin.SEANCE")}</option>
+                              <option value="JOURNEE">{tr("sl.teachers.checkin.JOURNEE")}</option>
                             </Select>
                           </Field>
-                          <Field label="Compte utilisateur relié">
+                          <Field label={tr("sl.teachers.checkin.account")}>
                             <Select value={t.userId ?? ""} onChange={(e) => void savePointage(t, { userId: e.target.value || null })}>
-                              <option value="">Aucun compte : pas de pointage par téléphone</option>
+                              <option value="">{tr("sl.teachers.checkin.noAccount")}</option>
                               {users
                                 .filter((u) => u.teacherId === null || u.teacherId === t.id)
                                 .map((u) => (
@@ -217,13 +219,13 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
                             </Select>
                           </Field>
                         </div>
-                        <p className={`mt-2 ${TAB_HINT}`}>Créez d&apos;abord son compte avec le rôle Enseignant dans « Utilisateurs & rôles », puis reliez-le ici.</p>
+                        <p className={`mt-2 ${TAB_HINT}`}>{tr("sl.teachers.checkin.hint")}</p>
                       </div>
 
                       <div>
-                        <p className="mb-2 text-sm font-medium text-ink">Matières enseignées</p>
+                        <p className="mb-2 text-sm font-medium text-ink">{tr("sl.teachers.subjects.title")}</p>
                         {subjects.length === 0 ? (
-                          <p className={TAB_HINT}>Aucune matière n&apos;existe encore : ajoutez-les dans l&apos;onglet « Matières ».</p>
+                          <p className={TAB_HINT}>{tr("sl.teachers.subjects.none")}</p>
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {subjects.map((s) => (
@@ -245,7 +247,7 @@ export function EnseignantsTab({ onChanged }: { onChanged: () => void }) {
                         )}
                         {subjectDraft[t.id] && (
                           <Button className="mt-3" onClick={() => void saveSubjects(t)}>
-                            Enregistrer les matières
+                            {tr("sl.teachers.subjects.save")}
                           </Button>
                         )}
                       </div>

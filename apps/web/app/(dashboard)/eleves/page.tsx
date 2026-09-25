@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { useOnOutboxChange, useOutbox } from "@/lib/outbox";
 import { formatDate } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { Student, StudentByClassRow } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, Input, PageTitle, Spinner } from "@/components/ui";
 import { GraduationCap, Minus, Plus, Search } from "lucide-react";
@@ -20,12 +21,13 @@ function initials(nom: string, prenom: string) {
 
 /** Bouton + / - qui développe la ligne d'un élève. */
 function ExpandButton({ open, onClick, label }: { open: boolean; onClick: (e: React.MouseEvent) => void; label: string }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      aria-label={`${open ? "Réduire" : "Développer"} ${label}`}
+      aria-label={t(open ? "stu.list.collapseRow" : "stu.list.expandRow", { label })}
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-surface-muted"
     >
       {open ? <Minus size={15} /> : <Plus size={15} />}
@@ -35,19 +37,23 @@ function ExpandButton({ open, onClick, label }: { open: boolean; onClick: (e: Re
 
 /** Détail d'un élève : classe et responsable viennent de l'état des effectifs, le reste de la fiche. */
 function StudentDetails({ student, info }: { student: Student; info?: StudentByClassRow }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-      <Detail label="Classe" value={info?.classe ? `${info.classe}${info.section ? ` (${info.section})` : ""}` : "Sans classe"} />
-      <Detail label="Cycle" value={info?.cycle || "-"} />
-      <Detail label="Année scolaire" value={info?.annee || "-"} />
-      <Detail label="Sexe" value={student.sexe === "M" ? "Masculin" : "Féminin"} />
-      <Detail label="Naissance" value={formatDate(student.dateNaissance)} />
-      <Detail label="Nationalité" value={student.nationalite ?? "-"} />
-      <Detail label="Responsable" value={info?.responsable || "À renseigner"} />
-      <Detail label="Téléphone" value={info?.telephoneResponsable || "-"} />
+      <Detail
+        label={t("stu.list.dClass")}
+        value={info?.classe ? `${info.classe}${info.section ? ` (${info.section})` : ""}` : t("stu.list.dNoClass")}
+      />
+      <Detail label={t("stu.list.dCycle")} value={info?.cycle || "-"} />
+      <Detail label={t("stu.list.dYear")} value={info?.annee || "-"} />
+      <Detail label={t("stu.list.dSex")} value={student.sexe === "M" ? t("stu.sexM") : t("stu.sexF")} />
+      <Detail label={t("stu.list.dBirth")} value={formatDate(student.dateNaissance)} />
+      <Detail label={t("stu.list.dNationality")} value={student.nationalite ?? "-"} />
+      <Detail label={t("stu.list.dGuardian")} value={info?.responsable || t("stu.list.dGuardianTodo")} />
+      <Detail label={t("stu.list.dPhone")} value={info?.telephoneResponsable || "-"} />
       <div className="flex items-end">
         <Link href={`/eleves/${student.id}`} className="font-medium text-primary hover:underline">
-          Ouvrir le dossier
+          {t("stu.list.openFile")}
         </Link>
       </div>
     </div>
@@ -66,6 +72,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 export default function StudentsListPage() {
   const router = useRouter();
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -125,28 +132,27 @@ export default function StudentsListPage() {
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <PageTitle
-          eyebrow="Lot 2"
-          subtitle="Recherche par matricule, nom, prénom, téléphone d'un responsable ou date de naissance (AAAA-MM-JJ)."
-          helpId="eleves"
-        >
-          Élèves
+        <PageTitle eyebrow={t("stu.list.eyebrow")} subtitle={t("stu.list.subtitle")} helpId="eleves">
+          {t("stu.list.title")}
         </PageTitle>
         <div className="flex flex-wrap gap-2">
           <ExportButtons
-            fileName="liste-des-eleves"
-            title="Liste des élèves"
+            fileName={t("stu.list.exportFile")}
+            title={t("stu.list.exportTitle")}
             disabled={!loaded}
             sections={[
               buildSection(
-                "Élèves",
+                t("stu.list.exportSheet"),
                 [
-                  { header: "Matricule", value: (r: Student) => r.matricule },
-                  { header: "Nom", value: (r: Student) => r.nom },
-                  { header: "Prénom", value: (r: Student) => r.prenom },
-                  { header: "Sexe", value: (r: Student) => (r.sexe === "M" ? "Masculin" : "Féminin") },
-                  { header: "Date de naissance", value: (r: Student) => formatDate(r.dateNaissance) },
-                  { header: "Statut", value: (r: Student) => (r.statut === "ACTIF" ? "Actif" : "Inactif") },
+                  { header: t("stu.list.colStudentNumber"), value: (r: Student) => r.matricule },
+                  { header: t("stu.list.colSurname"), value: (r: Student) => r.nom },
+                  { header: t("stu.list.colFirstName"), value: (r: Student) => r.prenom },
+                  { header: t("stu.list.colSex"), value: (r: Student) => (r.sexe === "M" ? t("stu.sexM") : t("stu.sexF")) },
+                  { header: t("stu.list.colBirthDate"), value: (r: Student) => formatDate(r.dateNaissance) },
+                  {
+                    header: t("stu.list.colStatus"),
+                    value: (r: Student) => (r.statut === "ACTIF" ? t("stu.statusActive") : t("stu.statusInactive")),
+                  },
                 ],
                 students,
               ),
@@ -154,7 +160,7 @@ export default function StudentsListPage() {
           />
           {hasPermission("ENROLLMENT_MANAGE") && (
             <Link href="/eleves/inscription">
-              <Button>Nouvelle inscription / réinscription</Button>
+              <Button>{t("stu.list.newEnrolment")}</Button>
             </Link>
           )}
         </div>
@@ -166,7 +172,7 @@ export default function StudentsListPage() {
         <div className="relative w-full max-w-md">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted" />
           <Input
-            placeholder="Rechercher un élève…"
+            placeholder={t("stu.list.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10"
@@ -180,14 +186,14 @@ export default function StudentsListPage() {
               onClick={() => setOpen(new Set(students.map((st) => st.id)))}
               className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
             >
-              Tout développer
+              {t("stu.expandAll")}
             </button>
             <button
               type="button"
               onClick={() => setOpen(new Set())}
               className="rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted"
             >
-              Tout réduire
+              {t("stu.collapseAll")}
             </button>
           </div>
         )}
@@ -195,7 +201,9 @@ export default function StudentsListPage() {
 
       {pendingStudents.length > 0 && !query.trim() && (
         <Card className="mb-4 border-l-4 border-l-warning">
-          <p className="mb-2 text-sm font-semibold text-ink">En attente de synchronisation ({pendingStudents.length})</p>
+          <p className="mb-2 text-sm font-semibold text-ink">
+            {t("stu.list.pendingTitle", { count: pendingStudents.length })}
+          </p>
           <ul className="divide-y divide-border text-sm">
             {pendingStudents.map((e) => {
               const b = e.body as { nom?: string; prenom?: string };
@@ -206,29 +214,29 @@ export default function StudentsListPage() {
                   </span>
                   <span className="flex items-center gap-2">
                     <Badge color={e.status === "failed" ? "red" : "orange"}>
-                      {e.status === "failed" ? "Refusé" : "Créé hors ligne"}
+                      {e.status === "failed" ? t("stu.list.refused") : t("stu.list.createdOffline")}
                     </Badge>
                     <Link href="/hors-ligne" className="text-xs text-primary hover:underline">
-                      Détail
+                      {t("stu.list.detail")}
                     </Link>
                   </span>
                 </li>
               );
             })}
           </ul>
-          <p className="mt-2 text-xs text-ink-muted">Le matricule sera attribué par le serveur à l&apos;envoi.</p>
+          <p className="mt-2 text-xs text-ink-muted">{t("stu.list.numberAssignedOnSend")}</p>
         </Card>
       )}
 
       {loaded && students.length === 0 ? (
         <EmptyState
           icon={<GraduationCap />}
-          title={query ? "Aucun élève ne correspond à cette recherche." : "Aucun élève enregistré."}
-          description={!query ? "Commencez par créer une première inscription." : undefined}
+          title={query ? t("stu.list.emptySearch") : t("stu.list.emptyNone")}
+          description={!query ? t("stu.list.emptyHint") : undefined}
           action={
             !query && hasPermission("ENROLLMENT_MANAGE") ? (
               <Link href="/eleves/inscription">
-                <Button variant="secondary">Nouvelle inscription</Button>
+                <Button variant="secondary">{t("stu.list.newEnrolmentShort")}</Button>
               </Link>
             ) : undefined
           }
@@ -241,11 +249,11 @@ export default function StudentsListPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-ink-muted">
-                    <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
-                    <th className="py-2 pr-4">Élève</th>
-                    <th className="py-2 pr-4">Matricule</th>
-                    <th className="py-2 pr-4">Date de naissance</th>
-                    <th className="py-2 pr-4">Statut</th>
+                    <th className="w-10 py-2 pr-2" aria-label={t("stu.list.detailsAria")}></th>
+                    <th className="py-2 pr-4">{t("stu.list.colStudent")}</th>
+                    <th className="py-2 pr-4">{t("stu.list.colStudentNumber")}</th>
+                    <th className="py-2 pr-4">{t("stu.list.colBirthDate")}</th>
+                    <th className="py-2 pr-4">{t("stu.list.colStatus")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,7 +289,7 @@ export default function StudentsListPage() {
                       </td>
                       <td className="py-2.5 pr-4">
                         <Badge color={s.statut === "ACTIF" ? "green" : "gray"}>
-                          {s.statut === "ACTIF" ? "Actif" : "Inactif"}
+                          {s.statut === "ACTIF" ? t("stu.statusActive") : t("stu.statusInactive")}
                         </Badge>
                       </td>
                     </tr>
@@ -319,7 +327,7 @@ export default function StudentsListPage() {
                       </p>
                     </div>
                     <Badge color={s.statut === "ACTIF" ? "green" : "gray"}>
-                      {s.statut === "ACTIF" ? "Actif" : "Inactif"}
+                      {s.statut === "ACTIF" ? t("stu.statusActive") : t("stu.statusInactive")}
                     </Badge>
                   </Link>
                 </div>
@@ -336,7 +344,7 @@ export default function StudentsListPage() {
 
       {!loaded && (
         <div className="flex items-center gap-2 py-10 text-sm text-ink-muted">
-          <Spinner /> Chargement…
+          <Spinner /> {t("stu.list.loading")}
         </div>
       )}
     </div>

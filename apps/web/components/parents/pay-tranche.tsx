@@ -5,7 +5,8 @@ import Link from "next/link";
 import { CheckCircle2, Smartphone, XCircle } from "lucide-react";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
-import { formatMontant } from "@/lib/format";
+import { formatDate, formatMontant } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 export interface PayableTranche {
   trancheId: string;
@@ -29,10 +30,6 @@ const POLL_MS = 5000;
 // Au-delà, on arrête de sonder : le parent peut fermer la page, la situation se mettra à jour à la confirmation.
 const POLL_MAX_MS = 2 * 60 * 1000;
 
-function frDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR");
-}
-
 /** Suivi d'un paiement lancé : attend la confirmation sur le téléphone, puis affiche le résultat. */
 function PaymentTracker({
   studentId,
@@ -45,6 +42,7 @@ function PaymentTracker({
   onDone: () => void;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   const [state, setState] = useState<OnlinePaymentState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gaveUp, setGaveUp] = useState(false);
@@ -99,16 +97,9 @@ function PaymentTracker({
         <div className="flex items-start gap-3 rounded-xl bg-info-soft px-3 py-3 text-sm text-info">
           <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div>
-            <p className="font-semibold">Confirmez le paiement sur votre téléphone</p>
-            <p>
-              Un message de votre opérateur vous demande de valider {formatMontant(state.montant)} avec votre code secret. Cette page se met à jour
-              toute seule.
-            </p>
-            {gaveUp && (
-              <p className="mt-2">
-                Toujours en attente. Vous pouvez quitter cette page : votre situation sera mise à jour dès que le paiement sera confirmé.
-              </p>
-            )}
+            <p className="font-semibold">{t("parent.pay.confirmTitle")}</p>
+            <p>{t("parent.pay.confirmBody", { amount: formatMontant(state.montant) })}</p>
+            {gaveUp && <p className="mt-2">{t("parent.pay.stillWaiting")}</p>}
           </div>
         </div>
       )}
@@ -116,12 +107,12 @@ function PaymentTracker({
         <div className="flex items-start gap-3 rounded-xl bg-success-soft px-3 py-3 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div>
-            <p className="font-semibold">Paiement confirmé : {formatMontant(state.montant)}</p>
+            <p className="font-semibold">{t("parent.pay.confirmed", { amount: formatMontant(state.montant) })}</p>
             {state.paiement && (
               <p>
-                Reçu {state.paiement.numeroRecu}.{" "}
+                {t("parent.pay.receipt", { number: state.paiement.numeroRecu })}{" "}
                 <Link className="font-medium underline" href={`/parents/enfant/${studentId}/recu/${state.paiement.id}`}>
-                  Voir le reçu
+                  {t("parent.pay.viewReceipt")}
                 </Link>
               </p>
             )}
@@ -132,10 +123,10 @@ function PaymentTracker({
         <div className="flex items-start gap-3 rounded-xl bg-danger-soft px-3 py-3 text-sm text-danger">
           <XCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div>
-            <p className="font-semibold">Le paiement n&apos;a pas abouti</p>
-            <p>{state.motifEchec ?? "Réessayez ou contactez le secrétariat."}</p>
+            <p className="font-semibold">{t("parent.pay.failed")}</p>
+            <p>{state.motifEchec ?? t("parent.pay.retryHint")}</p>
             <Button type="button" variant="secondary" className="mt-2" onClick={onRetry}>
-              Réessayer
+              {t("parent.pay.retry")}
             </Button>
           </div>
         </div>
@@ -143,8 +134,8 @@ function PaymentTracker({
       {state?.statut === "A_TRAITER" && (
         <div className="flex items-start gap-3 rounded-xl bg-warning-soft px-3 py-3 text-sm text-warning">
           <div>
-            <p className="font-semibold">Paiement reçu, en cours de traitement</p>
-            <p>Votre paiement est bien arrivé, mais la tranche a été réglée entre-temps. Le secrétariat vous contactera pour régulariser.</p>
+            <p className="font-semibold">{t("parent.pay.toProcess")}</p>
+            <p>{t("parent.pay.toProcessBody")}</p>
           </div>
         </div>
       )}
@@ -164,6 +155,7 @@ export function PayTranches({
   defaultPhone: string;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [openId, setOpenId] = useState<string | null>(null);
   const [montant, setMontant] = useState("");
   const [telephone, setTelephone] = useState(defaultPhone);
@@ -175,34 +167,34 @@ export function PayTranches({
   // parent voie le résultat (reçu) au lieu d'un affichage qui s'évanouit.
   const [finished, setFinished] = useState<Record<string, PayableTranche>>({});
 
-  const shown = [...tranches, ...Object.values(finished).filter((f) => !tranches.some((t) => t.trancheId === f.trancheId))];
+  const shown = [...tranches, ...Object.values(finished).filter((f) => !tranches.some((tr) => tr.trancheId === f.trancheId))];
   if (shown.length === 0) return null;
 
-  const open = (t: PayableTranche) => {
-    setOpenId(t.trancheId);
-    setMontant(String(t.solde));
+  const open = (tr: PayableTranche) => {
+    setOpenId(tr.trancheId);
+    setMontant(String(tr.solde));
     setError(null);
   };
 
-  const submit = async (t: PayableTranche) => {
+  const submit = async (tr: PayableTranche) => {
     const amount = Number(montant);
     if (!Number.isInteger(amount) || amount < 1) {
-      setError("Saisissez un montant entier, sans virgule.");
+      setError(t("parent.pay.wholeAmount"));
       return;
     }
-    if (amount > t.solde) {
-      setError(`Le montant ne peut pas dépasser ${formatMontant(t.solde)}.`);
+    if (amount > tr.solde) {
+      setError(t("parent.pay.tooMuch", { amount: formatMontant(tr.solde) }));
       return;
     }
     setBusy(true);
     setError(null);
     try {
       const res = await portalApi.post<{ id: string }>(`/portal/children/${studentId}/payments`, {
-        trancheId: t.trancheId,
+        trancheId: tr.trancheId,
         montant: amount,
         telephone,
       });
-      setTracked((prev) => ({ ...prev, [t.trancheId]: res.id }));
+      setTracked((prev) => ({ ...prev, [tr.trancheId]: res.id }));
       setOpenId(null);
     } catch (e) {
       setError(describePortalError(e));
@@ -213,26 +205,21 @@ export function PayTranches({
 
   return (
     <Card className="mb-4">
-      <h2 className="font-display text-base font-semibold text-ink">Payer en ligne</h2>
-      <p className="mt-1 text-sm text-ink-muted">
-        Payez une tranche par Mobile Money (MTN ou Airtel). Vous validez sur votre téléphone avec votre code secret : l&apos;école ne le voit jamais.
-        Vous payez exactement le montant de la tranche, sans frais en plus.
-      </p>
+      <h2 className="font-display text-base font-semibold text-ink">{t("parent.pay.title")}</h2>
+      <p className="mt-1 text-sm text-ink-muted">{t("parent.pay.intro")}</p>
       <ul className="mt-3 space-y-3">
-        {shown.map((t) => {
-          const paymentId = tracked[t.trancheId] ?? t.enAttente?.id ?? null;
+        {shown.map((tr) => {
+          const paymentId = tracked[tr.trancheId] ?? tr.enAttente?.id ?? null;
           return (
-            <li key={t.trancheId} className="rounded-2xl border border-border bg-surface p-3">
+            <li key={tr.trancheId} className="rounded-2xl border border-border bg-surface p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-medium text-ink">{t.libelle}</p>
-                  <p className="text-sm text-ink-muted">
-                    Reste {formatMontant(t.solde)} · avant le {frDate(t.dateLimite)}
-                  </p>
+                  <p className="font-medium text-ink">{tr.libelle}</p>
+                  <p className="text-sm text-ink-muted">{t("parent.pay.left", { amount: formatMontant(tr.solde), date: formatDate(tr.dateLimite) })}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {t.enRetard && <Badge color="orange">En retard</Badge>}
-                  {!paymentId && openId !== t.trancheId && <Button onClick={() => open(t)}>Payer</Button>}
+                  {tr.enRetard && <Badge color="orange">{t("parent.pay.late")}</Badge>}
+                  {!paymentId && openId !== tr.trancheId && <Button onClick={() => open(tr)}>{t("parent.pay.pay")}</Button>}
                 </div>
               </div>
 
@@ -242,48 +229,48 @@ export function PayTranches({
                     studentId={studentId}
                     paymentId={paymentId}
                     onDone={() => {
-                      setFinished((prev) => ({ ...prev, [t.trancheId]: t }));
+                      setFinished((prev) => ({ ...prev, [tr.trancheId]: tr }));
                       onChanged();
                     }}
                     onRetry={() => {
                       // Une tentative échouée libère la tranche : on retire le suivi et on rouvre le formulaire.
                       setTracked((prev) => {
                         const next = { ...prev };
-                        delete next[t.trancheId];
+                        delete next[tr.trancheId];
                         return next;
                       });
                       setFinished((prev) => {
                         const next = { ...prev };
-                        delete next[t.trancheId];
+                        delete next[tr.trancheId];
                         return next;
                       });
-                      open(t);
+                      open(tr);
                     }}
                   />
                 </div>
               )}
 
-              {!paymentId && openId === t.trancheId && (
+              {!paymentId && openId === tr.trancheId && (
                 <form
                   className="mt-3 space-y-3"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void submit(t);
+                    void submit(tr);
                   }}
                 >
-                  <Field label="Montant à payer (FCFA)">
+                  <Field label={t("parent.pay.amountLabel")}>
                     <Input inputMode="numeric" value={montant} onChange={(e) => setMontant(e.target.value.replace(/\D/g, ""))} required />
                   </Field>
-                  <Field label="Numéro Mobile Money à débiter">
+                  <Field label={t("parent.pay.phoneLabel")}>
                     <Input inputMode="tel" autoComplete="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
                   </Field>
                   <ErrorMessage>{error}</ErrorMessage>
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={busy}>
-                      {busy ? "Envoi…" : `Payer ${montant ? formatMontant(Number(montant)) : ""}`}
+                      {busy ? t("parent.pay.sending") : montant ? t("parent.pay.payAmount", { amount: formatMontant(Number(montant)) }) : t("parent.pay.pay")}
                     </Button>
                     <Button type="button" variant="secondary" onClick={() => setOpenId(null)} disabled={busy}>
-                      Annuler
+                      {t("parent.pay.cancel")}
                     </Button>
                   </div>
                 </form>

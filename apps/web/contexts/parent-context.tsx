@@ -3,12 +3,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { portalApi, setPortalToken, tryPortalRefresh } from "@/lib/portal-api";
 import { disablePush } from "@/lib/push";
+import { applyAccountLanguage, getLocale } from "@/lib/i18n/store";
+import { isLocale } from "@/lib/i18n/locales";
 
 export interface ParentIdentity {
   id: string;
   nom: string;
   prenom: string;
   telephone: string;
+  /** Langue choisie (« fr » ou « en »), vide tant que le parent n'a pas choisi. */
+  langue?: string | null;
 }
 
 interface SessionResponse {
@@ -24,6 +28,15 @@ interface ParentContextValue {
   logout: () => Promise<void>;
 }
 
+/**
+ * Un parent qui n'a jamais choisi de langue garde celle de son appareil, et on l'enregistre sur son compte : les
+ * alertes envoyées à son téléphone et les notifications suivent alors la même langue que l'écran.
+ */
+function rememberDeviceLanguage(langue: string | null | undefined): void {
+  if (isLocale(langue)) return;
+  void portalApi.patch("/portal/language", { langue: getLocale() }).catch(() => undefined);
+}
+
 const ParentContext = createContext<ParentContextValue | null>(null);
 
 /** Session du responsable : indépendante de celle du personnel (autre jeton, autre cookie). */
@@ -37,8 +50,12 @@ export function ParentProvider({ children }: { children: React.ReactNode }) {
     void (async () => {
       if (await tryPortalRefresh()) {
         try {
-          const me = await portalApi.get<{ responsable: Omit<ParentIdentity, "id"> }>("/portal/me");
-          if (alive) setParent({ id: "", ...me.responsable });
+          const me = await portalApi.get<{ responsable: Omit<ParentIdentity, "id">; langue?: string | null }>("/portal/me");
+          if (alive) {
+            setParent({ id: "", ...me.responsable, langue: me.langue });
+            applyAccountLanguage(me.langue);
+            rememberDeviceLanguage(me.langue);
+          }
         } catch {
           // pas de session à restaurer
         }
@@ -53,6 +70,8 @@ export function ParentProvider({ children }: { children: React.ReactNode }) {
   const open = useCallback((res: SessionResponse) => {
     setPortalToken(res.accessToken);
     setParent(res.parent);
+    applyAccountLanguage(res.parent.langue);
+    rememberDeviceLanguage(res.parent.langue);
   }, []);
 
   const login = useCallback(

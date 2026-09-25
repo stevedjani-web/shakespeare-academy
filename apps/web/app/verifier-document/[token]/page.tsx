@@ -6,6 +6,8 @@ import { API_URL } from "@/lib/api";
 import { formatDocDate } from "@/lib/documents";
 import { Spinner } from "@/components/ui";
 import { CopyrightFooter } from "@/components/copyright-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { BadgeCheck, ShieldAlert } from "lucide-react";
 
 interface VerifiedDocument {
@@ -28,6 +30,7 @@ const TYPE_LABEL = {
 // qu'elle correspond à un document réellement émis par l'école. Elle n'affiche que ce qui est imprimé sur le papier :
 // à comparer avec le document en main.
 export default function VerifyDocumentPage() {
+  const { locale } = useI18n();
   const params = useParams<{ token: string }>();
   const [doc, setDoc] = useState<VerifiedDocument | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -45,6 +48,9 @@ export default function VerifyDocumentPage() {
   if (!doc && !notFound) {
     return (
       <div className="flex min-h-screen items-center justify-center">
+        <div className="absolute right-4 top-4">
+          <LanguageSwitcher />
+        </div>
         <Spinner className="h-6 w-6 text-primary" />
       </div>
     );
@@ -53,6 +59,9 @@ export default function VerifyDocumentPage() {
   if (notFound || !doc) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center">
+        <div className="absolute right-4 top-4">
+          <LanguageSwitcher />
+        </div>
         <ShieldAlert size={40} className="text-danger" />
         <p className="font-display text-lg font-semibold text-ink">Document introuvable / Document not found</p>
         <p className="max-w-xs text-sm text-ink-muted">
@@ -67,6 +76,9 @@ export default function VerifyDocumentPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 py-10">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${annule ? "bg-danger-soft text-danger" : "bg-success-soft text-success"}`}>
         {annule ? <ShieldAlert size={18} /> : <BadgeCheck size={18} />}
         {annule ? "Document annulé / Cancelled" : "Document authentique / Authentic"}
@@ -81,7 +93,7 @@ export default function VerifyDocumentPage() {
           <Row label="Élève / Student" value={`${doc.eleve.prenom} ${doc.eleve.nom}`} />
           <Row label="Classe / Class" value={doc.classe} />
           <Row label="Année / Year" value={doc.annee} />
-          <Row label="Émis le / Issued" value={formatDocDate(doc.dateEmission, "fr")} />
+          <Row label="Émis le / Issued" value={formatDocDate(doc.dateEmission, locale)} />
         </dl>
 
         {annule && (

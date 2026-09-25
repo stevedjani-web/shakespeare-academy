@@ -7,6 +7,9 @@ import { Bell, MessageSquare, X } from "lucide-react";
 import { portalApi } from "@/lib/portal-api";
 import { priorityText, type MessagePriority } from "@/lib/message-priority";
 import { alertTitle, notificationTarget, type ParentNotificationType } from "@/lib/parent-alerts";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { getLocale } from "@/lib/i18n/store";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 export interface UnreadPreview {
   total: number;
@@ -37,7 +40,7 @@ const POLL_MS = 30_000;
 const MAX_ITEMS = 4;
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString(INTL_LOCALE[getLocale()], { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 // Bandeau d'alerte de l'espace parents : dès qu'un message ou une notification n'est pas lu, il s'affiche en haut de
@@ -45,6 +48,7 @@ function when(iso: string): string {
 // jusqu'à ce que le parent le masque. Pour un message, seul un extrait est montré, jamais le texte entier ; les
 // notifications gardent leur texte, déjà générique. Les alertes push, elles, restent sans contenu (RV10).
 export function ParentAlert() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [preview, setPreview] = useState<UnreadPreview | null>(null);
@@ -115,12 +119,12 @@ export function ParentAlert() {
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-display text-base font-semibold text-ink">
           <MessageSquare size={18} className="text-primary" />
-          {alertTitle(totalMessages, totalOthers)}
+          {alertTitle(totalMessages, totalOthers, t)}
         </p>
         <button
           type="button"
           onClick={() => setDismissed((prev) => new Set([...prev, ...shownMessages.map((m) => m.id), ...shownOthers.map((n) => n.id)]))}
-          aria-label="Masquer cette alerte"
+          aria-label={t("parent.alert.dismiss")}
           className="rounded-lg p-1.5 text-ink-muted hover:bg-black/5 hover:text-ink"
         >
           <X size={18} />
@@ -143,12 +147,12 @@ export function ParentAlert() {
                 )}
                 <span className="flex items-baseline justify-between gap-2 text-xs">
                   <span className="font-medium text-ink">
-                    {m.expediteur} <span className="font-normal text-ink-muted">· pour {m.enfant.prenom}</span>
+                    {m.expediteur} <span className="font-normal text-ink-muted">{t("parent.alert.forChild", { name: m.enfant.prenom })}</span>
                   </span>
                   <span className="shrink-0 text-ink-muted">{when(m.date)}</span>
                 </span>
                 <span className="mt-0.5 block break-words text-sm text-ink">{m.extrait}</span>
-                <span className="mt-1 block text-xs font-medium text-primary">Lire le message</span>
+                <span className="mt-1 block text-xs font-medium text-primary">{t("parent.alert.readMessage")}</span>
               </Link>
             </li>
           ))}
@@ -163,12 +167,12 @@ export function ParentAlert() {
                 <span className="flex items-baseline justify-between gap-2 text-xs">
                   <span className="flex items-center gap-1.5 font-medium text-ink">
                     <Bell size={12} className="text-primary" />
-                    {n.titre} <span className="font-normal text-ink-muted">· {n.enfant.prenom}</span>
+                    {n.titre} <span className="font-normal text-ink-muted">{t("parent.alert.forChild", { name: n.enfant.prenom })}</span>
                   </span>
                   <span className="shrink-0 text-ink-muted">{when(n.date)}</span>
                 </span>
                 <span className="mt-0.5 block break-words text-sm text-ink">{n.corps}</span>
-                <span className="mt-1 block text-xs font-medium text-primary">Voir</span>
+                <span className="mt-1 block text-xs font-medium text-primary">{t("parent.alert.see")}</span>
               </button>
             </li>
           ))}
@@ -177,12 +181,12 @@ export function ParentAlert() {
 
       {totalMessages > shownMessages.length && (
         <Link href="/parents/messages" className="mt-2 mr-4 inline-block text-sm font-medium text-primary underline">
-          Voir toutes les conversations
+          {t("parent.alert.allConversations")}
         </Link>
       )}
       {totalOthers > shownOthers.length && (
         <Link href="/parents/notifications" className="mt-2 inline-block text-sm font-medium text-primary underline">
-          Voir toutes les notifications
+          {t("parent.alert.allNotifications")}
         </Link>
       )}
     </section>

@@ -4,6 +4,7 @@ import { PageTitle, Card, EmptyState } from "@/components/ui";
 import { useAuth } from "@/contexts/auth-context";
 import { HELP_CONTENT, HELP_ORDER } from "@/lib/help-content";
 import { HelpCircle } from "lucide-react";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 /**
  * Page d'aide authentifiée (demande explicite, 23 septembre 2026), distincte de /guide (publique,
@@ -15,6 +16,7 @@ import { HelpCircle } from "lucide-react";
  */
 export default function AidePage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
 
   const visible = HELP_ORDER.map((id) => HELP_CONTENT[id]).filter((entry) => {
     if (!entry) return false;
@@ -26,17 +28,17 @@ export default function AidePage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Aide"
-        subtitle="Les conseils affichés sur chaque écran, réunis ici. Seules les rubriques auxquelles votre compte a accès apparaissent."
+        eyebrow={t("nav.help")}
+        subtitle={t("cnt.aide.subtitle")}
       >
-        Aide
+        {t("nav.help")}
       </PageTitle>
 
       {visible.length === 0 ? (
         <EmptyState
           icon={<HelpCircle />}
-          title="Aucune rubrique d'aide pour votre compte pour l'instant."
-          description="D'autres écrans seront couverts progressivement."
+          title={t("cnt.aide.emptyTitle")}
+          description={t("cnt.aide.emptyDesc")}
         />
       ) : (
         <div className="space-y-4">
@@ -47,13 +49,13 @@ export default function AidePage() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
                     <HelpCircle size={18} />
                   </div>
-                  <h2 className="font-display text-lg font-semibold text-ink">{entry.title}</h2>
+                  <h2 className="font-display text-lg font-semibold text-ink">{t(entry.titleKey)}</h2>
                 </div>
                 <ul className="space-y-2 text-sm text-ink-muted">
-                  {entry.tips.map((tip, i) => (
+                  {entry.tipKeys.map((tipKey, i) => (
                     <li key={i} className="flex gap-2">
                       <span className="mt-0.5 text-primary">•</span>
-                      <span>{tip}</span>
+                      <span>{t(tipKey)}</span>
                     </li>
                   ))}
                 </ul>

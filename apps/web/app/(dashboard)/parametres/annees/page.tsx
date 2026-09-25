@@ -6,16 +6,20 @@ import { isApiError, useAuth } from "@/contexts/auth-context";
 import type { AcademicYear } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { formatDate } from "@/lib/format";
+import type { MessageKey } from "@/lib/i18n";
 import { CalendarPlus, CalendarRange } from "lucide-react";
 
-const STATUS_BADGE: Record<AcademicYear["statut"], { label: string; color: "slate" | "green" | "gray" }> = {
-  BROUILLON: { label: "Brouillon", color: "slate" },
-  ACTIVE: { label: "Active", color: "green" },
-  CLOTUREE: { label: "Clôturée", color: "gray" },
+const STATUS_BADGE: Record<AcademicYear["statut"], { label: MessageKey; color: "slate" | "green" | "gray" }> = {
+  BROUILLON: { label: "adm.years.status.draft", color: "slate" },
+  ACTIVE: { label: "adm.years.status.active", color: "green" },
+  CLOTUREE: { label: "adm.years.status.closed", color: "gray" },
 };
 
 export default function AcademicYearsPage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canManage = hasPermission("ACADEMIC_YEAR_MANAGE");
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [form, setForm] = useState({ libelle: "", dateDebut: "", dateFin: "" });
@@ -42,7 +46,7 @@ export default function AcademicYearsPage() {
       setForm({ libelle: "", dateDebut: "", dateFin: "" });
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -54,18 +58,18 @@ export default function AcademicYearsPage() {
       await api.post(`/academic-years/${id}/activate`);
       await load();
     } catch (err) {
-      setActionError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setActionError(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
   async function handleClose(id: string) {
     setActionError(null);
-    if (!confirm("Clôturer cette année scolaire ? Elle ne pourra plus être modifiée.")) return;
+    if (!confirm(t("adm.years.confirmClose"))) return;
     try {
       await api.post(`/academic-years/${id}/close`);
       await load();
     } catch (err) {
-      setActionError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setActionError(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
@@ -75,15 +79,15 @@ export default function AcademicYearsPage() {
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
           <CalendarRange size={26} />
         </span>
-        <PageTitle subtitle="Une seule année peut être active à la fois." helpId="parametres-annees">
-          Années scolaires
+        <PageTitle subtitle={t("adm.years.subtitle")} helpId="parametres-annees">
+          {t("adm.years.title")}
         </PageTitle>
       </div>
 
       <ErrorMessage>{actionError}</ErrorMessage>
 
       {years.length === 0 ? (
-        <EmptyState icon={<CalendarRange />} title="Aucune année scolaire créée." />
+        <EmptyState icon={<CalendarRange />} title={t("adm.years.empty")} />
       ) : (
         <Card className="mt-4">
           <ExpandAll count={years.length} onOpenAll={() => expand.openAll(years.map((y) => y.id))} onCloseAll={expand.closeAll} />
@@ -91,10 +95,10 @@ export default function AcademicYearsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-ink-muted">
-                  <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
-                  <th className="py-2 pr-4">Libellé</th>
-                  <th className="py-2 pr-4">Statut</th>
-                  {canManage && <th className="py-2 pr-4">Actions</th>}
+                  <th className="w-10 py-2 pr-2" aria-label={t("adm.years.details")}></th>
+                  <th className="py-2 pr-4">{t("adm.years.col.label")}</th>
+                  <th className="py-2 pr-4">{t("adm.years.col.status")}</th>
+                  {canManage && <th className="py-2 pr-4">{t("adm.years.col.actions")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -108,19 +112,19 @@ export default function AcademicYearsPage() {
                         </td>
                         <td className="py-2.5 pr-4 font-medium text-ink">{year.libelle}</td>
                         <td className="py-2.5 pr-4">
-                          <Badge color={STATUS_BADGE[year.statut].color}>{STATUS_BADGE[year.statut].label}</Badge>
+                          <Badge color={STATUS_BADGE[year.statut].color}>{t(STATUS_BADGE[year.statut].label)}</Badge>
                         </td>
                         {canManage && (
                           <td className="py-2.5 pr-4">
                             <div className="flex gap-2">
                               {year.statut === "BROUILLON" && (
                                 <Button variant="secondary" onClick={() => void handleActivate(year.id)}>
-                                  Activer
+                                  {t("adm.years.activate")}
                                 </Button>
                               )}
                               {year.statut === "ACTIVE" && (
                                 <Button variant="danger" onClick={() => void handleClose(year.id)}>
-                                  Clôturer
+                                  {t("adm.years.close")}
                                 </Button>
                               )}
                             </div>
@@ -133,12 +137,12 @@ export default function AcademicYearsPage() {
                           <td colSpan={canManage ? 3 : 2} className="py-3 pr-4">
                             <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                               <p>
-                                <span className="block text-xs text-ink-muted">Début</span>
-                                <span className="font-medium text-ink">{new Date(year.dateDebut).toLocaleDateString("fr-FR")}</span>
+                                <span className="block text-xs text-ink-muted">{t("adm.years.start")}</span>
+                                <span className="font-medium text-ink">{formatDate(year.dateDebut)}</span>
                               </p>
                               <p>
-                                <span className="block text-xs text-ink-muted">Fin</span>
-                                <span className="font-medium text-ink">{new Date(year.dateFin).toLocaleDateString("fr-FR")}</span>
+                                <span className="block text-xs text-ink-muted">{t("adm.years.end")}</span>
+                                <span className="font-medium text-ink">{formatDate(year.dateFin)}</span>
                               </p>
                             </div>
                           </td>
@@ -156,10 +160,10 @@ export default function AcademicYearsPage() {
       {canManage && (
         <Card className="mt-6 max-w-lg">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-            <CalendarPlus size={16} className="text-primary" /> Créer une année scolaire
+            <CalendarPlus size={16} className="text-primary" /> {t("adm.years.create")}
           </h2>
           <form onSubmit={handleCreate} className="space-y-4">
-            <Field label="Libellé (ex. 2026-2027)">
+            <Field label={t("adm.years.labelField")}>
               <Input
                 required
                 value={form.libelle}
@@ -167,7 +171,7 @@ export default function AcademicYearsPage() {
               />
             </Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Date de début">
+              <Field label={t("adm.years.startDate")}>
                 <Input
                   type="date"
                   required
@@ -175,7 +179,7 @@ export default function AcademicYearsPage() {
                   onChange={(e) => setForm({ ...form, dateDebut: e.target.value })}
                 />
               </Field>
-              <Field label="Date de fin">
+              <Field label={t("adm.years.endDate")}>
                 <Input
                   type="date"
                   required
@@ -186,7 +190,7 @@ export default function AcademicYearsPage() {
             </div>
             <ErrorMessage>{error}</ErrorMessage>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Création…" : "Créer"}
+              {submitting ? t("adm.years.creating") : t("adm.years.createBtn")}
             </Button>
           </form>
         </Card>

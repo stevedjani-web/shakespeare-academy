@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { CheckinDay, DayCheckin, SessionCheckin } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, SuccessMessage } from "@/components/ui";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { shiftWeek } from "@/components/emploi-du-temps/shared";
 import { STATUS_BADGE, todayLocal } from "./shared";
@@ -21,6 +23,7 @@ type Form =
  */
 export function PointageDayTab() {
   const { hasPermission } = useAuth();
+  const { t, locale } = useI18n();
   const canValidate = hasPermission("TEACHER_CHECKIN_VALIDATE");
   const [date, setDate] = useState(todayLocal());
   const [data, setData] = useState<CheckinDay | null>(null);
@@ -55,15 +58,18 @@ export function PointageDayTab() {
   }
 
   const decide = (entity: "sessions" | "days", id: string, statut: "VALIDE" | "REJETE", motif?: string) =>
-    run(() => api.post(`/teacher-checkins/${entity}/${id}/decision`, { statut, motif }), statut === "VALIDE" ? "Pointage validé." : "Pointage rejeté.");
+    run(
+      () => api.post(`/teacher-checkins/${entity}/${id}/decision`, { statut, motif }),
+      statut === "VALIDE" ? t("tt.ckd.validated") : t("tt.ckd.rejected"),
+    );
 
   function actions(id: string, entity: "sessions" | "days", statut: string) {
     if (!canValidate || statut !== "EN_ATTENTE") return null;
     return (
       <>
-        <Button onClick={() => void decide(entity, id, "VALIDE")}>Valider</Button>
+        <Button onClick={() => void decide(entity, id, "VALIDE")}>{t("tt.ckd.validate")}</Button>
         <Button variant="danger" onClick={() => setForm({ kind: "reject", id, entity, motif: "" })}>
-          Rejeter
+          {t("tt.ckd.reject")}
         </Button>
       </>
     );
@@ -72,11 +78,11 @@ export function PointageDayTab() {
   function flags(p: SessionCheckin | DayCheckin) {
     return (
       <>
-        <Badge color={STATUS_BADGE[p.statut].color}>{STATUS_BADGE[p.statut].label}</Badge>
-        {p.source === "MANUEL" && <Badge color="blue">Saisi par la vie scolaire</Badge>}
-        {p.retardSignale && <Badge color="orange">Retard {p.retardMinutes} min</Badge>}
-        {"ecartSalle" in p && p.ecartSalle && <Badge color="red">Autre salle</Badge>}
-        {p.horsLigne && <Badge color="gray">Hors ligne</Badge>}
+        <Badge color={STATUS_BADGE[p.statut].color}>{t(STATUS_BADGE[p.statut].key)}</Badge>
+        {p.source === "MANUEL" && <Badge color="blue">{t("tt.ckd.manual")}</Badge>}
+        {p.retardSignale && <Badge color="orange">{t("tt.ck.lateMin", { min: p.retardMinutes ?? 0 })}</Badge>}
+        {"ecartSalle" in p && p.ecartSalle && <Badge color="red">{t("tt.ckd.otherRoom")}</Badge>}
+        {p.horsLigne && <Badge color="gray">{t("tt.ckd.offline")}</Badge>}
       </>
     );
   }
@@ -84,14 +90,14 @@ export function PointageDayTab() {
   const rejectForm = (id: string, entity: "sessions" | "days") =>
     form?.kind === "reject" && form.id === id ? (
       <div className="mt-2 flex flex-wrap items-end gap-2 rounded-xl bg-surface-muted p-2.5">
-        <Field label="Motif du rejet (obligatoire)">
+        <Field label={t("tt.ckd.rejectReason")}>
           <Input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} />
         </Field>
         <Button variant="danger" disabled={!form.motif.trim()} onClick={() => void decide(entity, id, "REJETE", form.motif)}>
-          Confirmer le rejet
+          {t("tt.ckd.confirmReject")}
         </Button>
         <Button variant="ghost" onClick={() => setForm(null)}>
-          Annuler
+          {t("tt.cancel")}
         </Button>
       </div>
     ) : null;
@@ -99,18 +105,18 @@ export function PointageDayTab() {
   return (
     <div>
       <Card className="mb-4">
-        <Field label="Jour">
+        <Field label={t("tt.day")}>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" aria-label="Jour précédent" onClick={() => setDate(shiftWeek(date, -1))}>
+            <Button variant="secondary" aria-label={t("tt.prevDay")} onClick={() => setDate(shiftWeek(date, -1))}>
               <ChevronLeft size={16} />
             </Button>
             <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-auto" />
-            <Button variant="secondary" aria-label="Jour suivant" onClick={() => setDate(shiftWeek(date, 1))}>
+            <Button variant="secondary" aria-label={t("tt.nextDay")} onClick={() => setDate(shiftWeek(date, 1))}>
               <ChevronRight size={16} />
             </Button>
             {data && date !== data.aujourdhui && (
               <Button variant="ghost" onClick={() => setDate(data.aujourdhui)}>
-                Aujourd&apos;hui
+                {t("tt.today")}
               </Button>
             )}
           </div>
@@ -119,18 +125,18 @@ export function PointageDayTab() {
 
       <ErrorMessage>{error}</ErrorMessage>
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
-      {data?.sansClasse && <p className="mb-3 rounded-xl bg-surface-muted px-3.5 py-2.5 text-sm text-ink-muted">Pas de cours ce jour : {data.sansClasse.libelle}.</p>}
+      {data?.sansClasse && <p className="mb-3 rounded-xl bg-surface-muted px-3.5 py-2.5 text-sm text-ink-muted">{t("tt.noClassDay", { label: data.sansClasse.libelle })}</p>}
 
       {data && data.seances.length === 0 && data.journees.length === 0 && !data.sansClasse && (
-        <EmptyState icon={<UserCheck />} title="Aucun pointage à suivre ce jour." description="Aucune séance prévue pour les enseignants qui pointent par séance." />
+        <EmptyState icon={<UserCheck />} title={t("tt.ckd.emptyTitle")} description={t("tt.ckd.emptyDesc")} />
       )}
 
       {data && data.seances.length > 0 && (
         <>
-          <h2 className="mb-2 font-display text-base font-semibold text-ink">Séances (pointage à chaque cours)</h2>
+          <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("tt.ckd.sessionsTitle")}</h2>
           <ul className="mb-5 space-y-2">
             {[...data.seances]
-              .sort((a, b) => a.heureDebut.localeCompare(b.heureDebut) || a.teacherName.localeCompare(b.teacherName, "fr"))
+              .sort((a, b) => a.heureDebut.localeCompare(b.heureDebut) || a.teacherName.localeCompare(b.teacherName, INTL_LOCALE[locale]))
               .map((s) => {
                 const key = s.entryId;
                 const editing = form?.kind === "session" && form.entryId === key;
@@ -147,16 +153,14 @@ export function PointageDayTab() {
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm">
                           {s.pointage ? (
                             <>
-                              <span className="text-ink">
-                                Début {s.pointage.debut ?? "-"} · Fin {s.pointage.fin ?? "-"}
-                              </span>
+                              <span className="text-ink">{t("tt.ckd.startEnd", { start: s.pointage.debut ?? "-", end: s.pointage.fin ?? "-" })}</span>
                               {flags(s.pointage)}
                             </>
                           ) : (
-                            <Badge color="red">Non pointée</Badge>
+                            <Badge color="red">{t("tt.ckd.notCheckedSession")}</Badge>
                           )}
                         </div>
-                        {s.pointage?.motif && <p className="mt-1 text-xs text-ink-muted">Motif : {s.pointage.motif}</p>}
+                        {s.pointage?.motif && <p className="mt-1 text-xs text-ink-muted">{t("tt.reasonLine", { reason: s.pointage.motif })}</p>}
                       </div>
                       {canValidate && (
                         <div className="flex flex-wrap gap-2">
@@ -168,7 +172,7 @@ export function PointageDayTab() {
                                 setForm({ kind: "session", entryId: key, debut: s.pointage?.debut ?? s.heureDebut, fin: s.pointage?.fin ?? s.heureFin, motif: "" })
                               }
                             >
-                              {s.pointage ? "Corriger" : "Saisir"}
+                              {s.pointage ? t("tt.ckd.correct") : t("tt.ckd.enter")}
                             </Button>
                           )}
                         </div>
@@ -177,15 +181,15 @@ export function PointageDayTab() {
                     {s.pointage && rejectForm(s.pointage.id, "sessions")}
                     {editing && form.kind === "session" && (
                       <div className="mt-2 grid gap-2 rounded-xl bg-surface-muted p-2.5 sm:grid-cols-4">
-                        <Field label="Début">
+                        <Field label={t("tt.col.start")}>
                           <Input type="time" value={form.debut} onChange={(e) => setForm({ ...form, debut: e.target.value })} />
                         </Field>
-                        <Field label="Fin">
+                        <Field label={t("tt.col.end")}>
                           <Input type="time" value={form.fin} onChange={(e) => setForm({ ...form, fin: e.target.value })} />
                         </Field>
                         <div className="sm:col-span-2">
-                          <Field label="Motif (obligatoire)">
-                            <Input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} placeholder="Ex. téléphone en panne" />
+                          <Field label={t("tt.reasonRequired")}>
+                            <Input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} placeholder={t("tt.ckd.reasonPlaceholder")} />
                           </Field>
                         </div>
                         <div className="flex gap-2 sm:col-span-4">
@@ -194,14 +198,14 @@ export function PointageDayTab() {
                             onClick={() =>
                               void run(
                                 () => api.post("/teacher-checkins/sessions/manual", { entryId: key, date, debut: form.debut, fin: form.fin, motif: form.motif }),
-                                "Pointage enregistré et validé.",
+                                t("tt.ckd.savedValidated"),
                               )
                             }
                           >
-                            Enregistrer
+                            {t("tt.save")}
                           </Button>
                           <Button variant="ghost" onClick={() => setForm(null)}>
-                            Annuler
+                            {t("tt.cancel")}
                           </Button>
                         </div>
                       </div>
@@ -215,11 +219,17 @@ export function PointageDayTab() {
 
       {data && data.orphelins.length > 0 && (
         <div className="mb-5 rounded-2xl border border-border bg-surface p-3">
-          <p className="mb-1 text-sm font-medium text-ink">Pointages sans séance correspondante (séance déplacée ou annulée)</p>
+          <p className="mb-1 text-sm font-medium text-ink">{t("tt.ckd.orphansTitle")}</p>
           <ul className="space-y-1 text-sm text-ink-muted">
             {data.orphelins.map((o) => (
               <li key={o.id}>
-                {o.teacherName} · {o.heureDebut} - {o.heureFin} · début {o.debut ?? "-"}, fin {o.fin ?? "-"}
+                {t("tt.ckd.orphanLine", {
+                  teacher: o.teacherName,
+                  from: o.heureDebut,
+                  to: o.heureFin,
+                  start: o.debut ?? "-",
+                  end: o.fin ?? "-",
+                })}
               </li>
             ))}
           </ul>
@@ -228,7 +238,7 @@ export function PointageDayTab() {
 
       {data && data.journees.length > 0 && (
         <>
-          <h2 className="mb-2 font-display text-base font-semibold text-ink">Journées (arrivée et départ)</h2>
+          <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("tt.ckd.daysTitle")}</h2>
           <ul className="space-y-2">
             {data.journees.map((j) => {
               const editing = form?.kind === "day" && form.teacherId === j.teacherId;
@@ -241,15 +251,15 @@ export function PointageDayTab() {
                         {j.pointage ? (
                           <>
                             <span className="text-ink">
-                              Arrivée {j.pointage.arrivee ?? "-"} · Départ {j.pointage.depart ?? "-"}
+                              {t("tt.ck.arrivalDeparture", { arrival: j.pointage.arrivee ?? "-", departure: j.pointage.depart ?? "-" })}
                             </span>
                             {flags(j.pointage)}
                           </>
                         ) : (
-                          <Badge color="red">{j.prevue ? "Non pointé" : "Aucun pointage"}</Badge>
+                          <Badge color="red">{j.prevue ? t("tt.ckd.notCheckedDay") : t("tt.ckd.noCheckin")}</Badge>
                         )}
                       </div>
-                      {j.pointage?.motif && <p className="mt-1 text-xs text-ink-muted">Motif : {j.pointage.motif}</p>}
+                      {j.pointage?.motif && <p className="mt-1 text-xs text-ink-muted">{t("tt.reasonLine", { reason: j.pointage.motif })}</p>}
                     </div>
                     {canValidate && (
                       <div className="flex flex-wrap gap-2">
@@ -259,7 +269,7 @@ export function PointageDayTab() {
                             variant="secondary"
                             onClick={() => setForm({ kind: "day", teacherId: j.teacherId, arrivee: j.pointage?.arrivee ?? "", depart: j.pointage?.depart ?? "", motif: "" })}
                           >
-                            {j.pointage ? "Corriger" : "Saisir"}
+                            {j.pointage ? t("tt.ckd.correct") : t("tt.ckd.enter")}
                           </Button>
                         )}
                       </div>
@@ -268,14 +278,14 @@ export function PointageDayTab() {
                   {j.pointage && rejectForm(j.pointage.id, "days")}
                   {editing && form.kind === "day" && (
                     <div className="mt-2 grid gap-2 rounded-xl bg-surface-muted p-2.5 sm:grid-cols-4">
-                      <Field label="Arrivée">
+                      <Field label={t("tt.ckd.arrival")}>
                         <Input type="time" value={form.arrivee} onChange={(e) => setForm({ ...form, arrivee: e.target.value })} />
                       </Field>
-                      <Field label="Départ (facultatif)">
+                      <Field label={t("tt.ckd.departureOptional")}>
                         <Input type="time" value={form.depart} onChange={(e) => setForm({ ...form, depart: e.target.value })} />
                       </Field>
                       <div className="sm:col-span-2">
-                        <Field label="Motif (obligatoire)">
+                        <Field label={t("tt.reasonRequired")}>
                           <Input value={form.motif} onChange={(e) => setForm({ ...form, motif: e.target.value })} />
                         </Field>
                       </div>
@@ -292,14 +302,14 @@ export function PointageDayTab() {
                                   depart: form.depart || undefined,
                                   motif: form.motif,
                                 }),
-                              "Pointage enregistré et validé.",
+                              t("tt.ckd.savedValidated"),
                             )
                           }
                         >
-                          Enregistrer
+                          {t("tt.save")}
                         </Button>
                         <Button variant="ghost" onClick={() => setForm(null)}>
-                          Annuler
+                          {t("tt.cancel")}
                         </Button>
                       </div>
                     </div>

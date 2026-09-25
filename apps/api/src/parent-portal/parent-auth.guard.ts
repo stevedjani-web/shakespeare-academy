@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { pick } from '../common/language';
 import type { Request } from 'express';
 import { ParentAuthService } from './parent-auth.service';
 
@@ -29,7 +30,12 @@ export class ParentAuthGuard implements CanActivate {
       ? header.slice('Bearer '.length).trim()
       : '';
     if (!token) {
-      throw new UnauthorizedException('Authentification requise.');
+      throw new UnauthorizedException(
+        pick({
+          fr: 'Authentification requise.',
+          en: 'Authentication required.',
+        }),
+      );
     }
     request.parent = await this.auth.verifyAccessToken(token);
     return true;

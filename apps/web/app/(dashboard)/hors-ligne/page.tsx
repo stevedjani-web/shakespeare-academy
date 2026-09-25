@@ -11,27 +11,33 @@ import { getLastWarmup, getWarmupProgress, warmOfflineCache } from "@/lib/offlin
 import { useAuth } from "@/contexts/auth-context";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { Badge, Button, Card, EmptyState, PageTitle, Spinner, StatCard } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { Rich } from "@/lib/i18n/rich";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
 
-const KIND_LABEL: Record<OutboxKind, string> = {
-  payment: "Encaissement",
-  expense: "Sortie financière",
-  discount: "Demande de remise",
-  student: "Nouvel élève",
-  "student-update": "Correction élève",
-  guardian: "Responsable",
-  enrollment: "Inscription",
-  attendance: "Appel",
-  checkin: "Pointage",
-  grades: "Notes",
-  textbook: "Cahier de textes",
+const KIND_LABEL: Record<OutboxKind, MessageKey> = {
+  payment: "adm.sync.kind.payment",
+  expense: "adm.sync.kind.expense",
+  discount: "adm.sync.kind.discount",
+  student: "adm.sync.kind.student",
+  "student-update": "adm.sync.kind.studentUpdate",
+  guardian: "adm.sync.kind.guardian",
+  enrollment: "adm.sync.kind.enrollment",
+  attendance: "adm.sync.kind.attendance",
+  checkin: "adm.sync.kind.checkin",
+  grades: "adm.sync.kind.grades",
+  textbook: "adm.sync.kind.textbook",
 };
 
 function when(ts: number | string | null): string {
-  if (!ts) return "jamais";
-  return new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+  if (!ts) return translate("adm.sync.never");
+  return new Date(ts).toLocaleString(INTL_LOCALE[getLocale()], { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function SyncPage() {
+  const { t } = useI18n();
   const online = useOnline();
   const { user } = useAuth();
   const { entries, pending, failed } = useOutbox();
@@ -64,33 +70,33 @@ export default function SyncPage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Mode hors ligne"
-        subtitle="Ce que cet appareil a saisi sans Internet, et l'état de l'envoi au serveur."
+        eyebrow={t("adm.sync.eyebrow")}
+        subtitle={t("adm.sync.subtitle")}
         helpId="hors-ligne"
       >
-        Synchronisation
+        {t("adm.sync.title")}
       </PageTitle>
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Connexion"
-          value={online ? "En ligne" : "Hors ligne"}
+          label={t("adm.sync.connection")}
+          value={online ? t("adm.sync.online") : t("adm.sync.offline")}
           tone={online ? "success" : "warning"}
           icon={online ? <Wifi size={18} /> : <CloudOff size={18} />}
-          hint={`Dernière réponse du serveur : ${when(lastOnline)}`}
+          hint={t("adm.sync.lastResponse", { when: when(lastOnline) })}
         />
-        <StatCard label="En attente d'envoi" value={pending} tone={pending > 0 ? "warning" : "success"} icon={<RefreshCw size={18} />} />
-        <StatCard label="En échec" value={failed} tone={failed > 0 ? "danger" : "success"} icon={<RefreshCw size={18} />} hint={failed > 0 ? "À vérifier ci-dessous" : "Aucune"} />
-        <StatCard label="Synchronisées" value={done} tone="info" icon={<RefreshCw size={18} />} />
+        <StatCard label={t("adm.sync.pending")} value={pending} tone={pending > 0 ? "warning" : "success"} icon={<RefreshCw size={18} />} />
+        <StatCard label={t("adm.sync.failed")} value={failed} tone={failed > 0 ? "danger" : "success"} icon={<RefreshCw size={18} />} hint={failed > 0 ? t("adm.sync.failedHint") : t("adm.sync.noneF")} />
+        <StatCard label={t("adm.sync.synced")} value={done} tone="info" icon={<RefreshCw size={18} />} />
       </div>
 
       <Card className="mb-5">
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => void processOutbox()} disabled={!online || pending === 0}>
-            <RefreshCw size={16} /> Synchroniser maintenant
+            <RefreshCw size={16} /> {t("adm.sync.syncNow")}
           </Button>
           <Button variant="secondary" onClick={() => void prepare()} disabled={!online || warming || progress.running}>
-            {warming || progress.running ? <Spinner /> : <CloudOff size={16} />} Préparer le mode hors ligne
+            {warming || progress.running ? <Spinner /> : <CloudOff size={16} />} {t("adm.sync.prepare")}
           </Button>
           {(warming || progress.running) && (
             <span className="text-sm text-ink-muted">
@@ -99,19 +105,17 @@ export default function SyncPage() {
           )}
         </div>
         <p className="mt-3 text-sm text-ink-muted">
-          Données copiées sur cet appareil le : <strong className="text-ink">{when(lastWarm)}</strong>. Faites « Préparer le mode hors
-          ligne » avec Internet avant de partir sur le terrain : élèves, classes, factures et paiements sont alors disponibles sans
-          connexion (la copie est aussi rafraîchie automatiquement toutes les 6 heures).
+          <Rich text={t("adm.sync.copiedHelp", { when: when(lastWarm) })} />
         </p>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-ink-muted">
-          <li>Sans Internet, un encaissement reçoit un reçu PROVISOIRE ; le reçu officiel (REC-xxxxxx) est attribué à l&apos;envoi.</li>
-          <li>Le serveur revérifie chaque saisie : un montant qui dépasse le solde, ou un doublon, est refusé et signalé ici.</li>
-          <li>Approuver, rejeter ou annuler une opération exige toujours Internet.</li>
+          <li>{t("adm.sync.tip1")}</li>
+          <li>{t("adm.sync.tip2")}</li>
+          <li>{t("adm.sync.tip3")}</li>
         </ul>
       </Card>
 
       {ordered.length === 0 ? (
-        <EmptyState icon={<RefreshCw />} title="Aucune saisie hors ligne." description="Tout ce que vous saisirez sans Internet apparaîtra ici." />
+        <EmptyState icon={<RefreshCw />} title={t("adm.sync.empty")} description={t("adm.sync.emptyDesc")} />
       ) : (
         <div className="space-y-3">
           <ExpandAll count={ordered.length} onOpenAll={() => expand.openAll(ordered.map((e) => e.id))} onCloseAll={expand.closeAll} />
@@ -141,6 +145,7 @@ function EntryCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
   const tone =
     entry.status === "done"
       ? "border-l-success bg-success-soft/40"
@@ -154,16 +159,16 @@ function EntryCard({
     <div className={`rounded-2xl border border-l-4 border-border p-4 shadow-[var(--shadow-soft)] ${tone}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <ExpandButton open={expanded} onClick={onToggle} label={`${KIND_LABEL[entry.kind]} ${entry.label}`} />
+          <ExpandButton open={expanded} onClick={onToggle} label={`${t(KIND_LABEL[entry.kind])} ${entry.label}`} />
           <div>
             <p className="font-medium text-ink">
-              {KIND_LABEL[entry.kind]} · {entry.label}
+              {t(KIND_LABEL[entry.kind])} · {entry.label}
             </p>
             {entry.montant ? <p className="text-xs text-ink-muted">{formatMontant(entry.montant)}</p> : null}
           </div>
         </div>
         <Badge color={entry.status === "done" ? "green" : entry.status === "failed" ? "red" : "orange"}>
-          {entry.status === "done" ? "Synchronisée" : entry.status === "failed" ? "Échec" : "En attente"}
+          {entry.status === "done" ? t("adm.sync.statusDone") : entry.status === "failed" ? t("adm.sync.statusFailed") : t("adm.sync.statusPending")}
         </Badge>
       </div>
 
@@ -173,23 +178,23 @@ function EntryCard({
           {entry.error && <p className="mb-2 text-sm text-danger">{entry.error}</p>}
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <Button variant="secondary" onClick={() => void retryEntry(entry.id)}>
-              Réessayer
+              {t("adm.sync.retry")}
             </Button>
             {duplicate && (
               <Button
                 variant="secondary"
                 onClick={() => void retryEntry(entry.id, (body) => ({ ...(body as Record<string, unknown>), forcerCreation: true }))}
               >
-                Créer malgré le doublon
+                {t("adm.sync.createAnyway")}
               </Button>
             )}
             <Button
               variant="ghost"
               onClick={() => {
-                if (window.confirm("Abandonner cette saisie ? Elle ne sera jamais envoyée.")) void discardEntry(entry.id);
+                if (window.confirm(t("adm.sync.confirmDiscard"))) void discardEntry(entry.id);
               }}
             >
-              Abandonner
+              {t("adm.sync.discard")}
             </Button>
           </div>
         </div>
@@ -198,29 +203,29 @@ function EntryCard({
       {expanded && (
         <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
           <p className="text-xs text-ink-muted">
-            Saisie le {when(entry.createdAt)} par {entry.userName}
-            {entry.attempts > 0 ? ` · ${entry.attempts} tentative(s) d'envoi` : ""}
+            {t("adm.sync.enteredOn", { when: when(entry.createdAt), user: entry.userName })}
+            {entry.attempts > 0 ? t("adm.sync.attempts", { n: entry.attempts }) : ""}
           </p>
           {entry.status !== "failed" && entry.error && <p className="text-sm text-danger">{entry.error}</p>}
           {otherUser && (
             <p className="text-sm text-warning">
-              Cette saisie sera envoyée quand {entry.userName} se reconnectera (le reçu et le journal doivent porter son nom).
+              {t("adm.sync.otherUser", { user: entry.userName })}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-3">
             {entry.receipt && (
               <Link href={`/recus/provisoire/${entry.id}`} className="font-medium text-primary hover:underline">
-                Reçu provisoire {entry.receipt.numero}
+                {t("adm.sync.provisionalReceipt", { n: entry.receipt.numero })}
               </Link>
             )}
             {entry.status === "done" && entry.kind === "payment" && entry.resultId && (
               <Link href={`/recus/${entry.resultId}`} className="font-medium text-success hover:underline">
-                Reçu officiel {entry.resultNumero ?? ""}
+                {t("adm.sync.officialReceipt", { n: entry.resultNumero ?? "" })}
               </Link>
             )}
             {entry.status === "done" && (
               <Button variant="ghost" onClick={() => void discardEntry(entry.id)}>
-                Retirer de la liste
+                {t("adm.sync.remove")}
               </Button>
             )}
           </div>

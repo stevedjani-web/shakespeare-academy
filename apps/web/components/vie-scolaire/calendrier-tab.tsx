@@ -2,16 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 import type { AcademicYear, CalendarEvent, CalendarEventType, Term } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { CalendarDays } from "lucide-react";
 import { describeError, formatDay, TAB_HINT } from "./shared";
 
-const EVENT_LABEL: Record<CalendarEventType, string> = {
-  VACANCES: "Vacances",
-  FERIE: "Jour férié",
-  AUTRE: "Autre fermeture",
+const EVENT_LABEL: Record<CalendarEventType, MessageKey> = {
+  VACANCES: "sl.calendar.type.VACANCES",
+  FERIE: "sl.calendar.type.FERIE",
+  AUTRE: "sl.calendar.type.AUTRE",
 };
 const EVENT_COLOR: Record<CalendarEventType, "blue" | "orange" | "slate"> = {
   VACANCES: "blue",
@@ -29,6 +31,7 @@ export function CalendrierTab({
   activeYear: AcademicYear | null;
   onChanged: () => void;
 }) {
+  const { t: tr } = useI18n();
   const [yearId, setYearId] = useState("");
   const [terms, setTerms] = useState<Term[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -85,15 +88,15 @@ export function CalendrierTab({
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Calendrier scolaire</h2>
-            <p className={TAB_HINT}>Trois trimestres sont prévus ; saisissez leurs dates chaque année. Rien n&apos;est prérempli.</p>
+            <h2 className="font-display text-lg font-semibold text-ink">{tr("sl.calendar.title")}</h2>
+            <p className={TAB_HINT}>{tr("sl.calendar.hint")}</p>
           </div>
           <div className="w-full max-w-xs">
-            <Select value={yearId} onChange={(e) => setYearId(e.target.value)} aria-label="Année scolaire">
+            <Select value={yearId} onChange={(e) => setYearId(e.target.value)} aria-label={tr("sl.calendar.year")}>
               {years.map((y) => (
                 <option key={y.id} value={y.id}>
                   {y.libelle}
-                  {y.statut === "ACTIVE" ? " (active)" : y.statut === "CLOTUREE" ? " (clôturée)" : ""}
+                  {y.statut === "ACTIVE" ? tr("sl.calendar.yearActive") : y.statut === "CLOTUREE" ? tr("sl.calendar.yearClosed") : ""}
                 </option>
               ))}
             </Select>
@@ -101,15 +104,15 @@ export function CalendrierTab({
         </div>
         {year && (
           <p className={`mb-3 ${TAB_HINT}`}>
-            Les dates doivent rester entre le {formatDay(year.dateDebut)} et le {formatDay(year.dateFin)}.
-            {closed ? " Cette année est clôturée : son calendrier ne peut plus être modifié." : ""}
+            {tr("sl.calendar.range", { from: formatDay(year.dateDebut), to: formatDay(year.dateFin) })}
+            {closed ? ` ${tr("sl.calendar.closedNote")}` : ""}
           </p>
         )}
         <ErrorMessage>{error}</ErrorMessage>
       </Card>
 
       <Card>
-        <h3 className="mb-3 font-display text-base font-semibold text-ink">Trimestres</h3>
+        <h3 className="mb-3 font-display text-base font-semibold text-ink">{tr("sl.calendar.terms.title")}</h3>
 
         {!closed && year && (
           <form
@@ -122,24 +125,24 @@ export function CalendrierTab({
               );
             }}
           >
-            <p className="text-sm font-semibold text-ink">Ajouter un trimestre</p>
+            <p className="text-sm font-semibold text-ink">{tr("sl.calendar.terms.addTitle")}</p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Libellé">
-                <Input required placeholder="Trimestre 1" value={termForm.libelle} onChange={(e) => setTermForm({ ...termForm, libelle: e.target.value })} />
+              <Field label={tr("sl.calendar.label")}>
+                <Input required placeholder={tr("sl.calendar.terms.labelPlaceholder")} value={termForm.libelle} onChange={(e) => setTermForm({ ...termForm, libelle: e.target.value })} />
               </Field>
-              <Field label="Début">
+              <Field label={tr("sl.calendar.terms.start")}>
                 <Input type="date" required value={termForm.dateDebut} onChange={(e) => setTermForm({ ...termForm, dateDebut: e.target.value })} />
               </Field>
-              <Field label="Fin">
+              <Field label={tr("sl.calendar.terms.end")}>
                 <Input type="date" required value={termForm.dateFin} onChange={(e) => setTermForm({ ...termForm, dateFin: e.target.value })} />
               </Field>
             </div>
-            <Button type="submit">Ajouter le trimestre</Button>
+            <Button type="submit">{tr("sl.calendar.terms.submit")}</Button>
           </form>
         )}
 
         {terms.length === 0 ? (
-          <EmptyState icon={<CalendarDays />} title="Aucun trimestre." description="Ajoutez le premier trimestre ci-dessus." />
+          <EmptyState icon={<CalendarDays />} title={tr("sl.calendar.terms.empty.title")} description={tr("sl.calendar.terms.empty.description")} />
         ) : (
           <ul className="space-y-2">
             {terms.map((t) => (
@@ -150,19 +153,19 @@ export function CalendrierTab({
                     <Input type="date" value={termEdit.dateDebut} onChange={(e) => setTermEdit({ ...termEdit, dateDebut: e.target.value })} />
                     <Input type="date" value={termEdit.dateFin} onChange={(e) => setTermEdit({ ...termEdit, dateFin: e.target.value })} />
                     <div className="flex gap-2 sm:col-span-3">
-                      <Button onClick={() => void run(() => api.patch(`/terms/${t.id}`, termEdit), () => setEditingTerm(null))}>Enregistrer</Button>
+                      <Button onClick={() => void run(() => api.patch(`/terms/${t.id}`, termEdit), () => setEditingTerm(null))}>{tr("sl.common.save")}</Button>
                       <Button variant="secondary" onClick={() => setEditingTerm(null)}>
-                        Annuler
+                        {tr("sl.common.cancel")}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <Badge color="primary">n° {t.ordre}</Badge>
+                      <Badge color="primary">{tr("sl.calendar.terms.number", { n: t.ordre })}</Badge>
                       <span className="font-medium text-ink">{t.libelle}</span>
                       <span className="text-sm text-ink-muted">
-                        du {formatDay(t.dateDebut)} au {formatDay(t.dateFin)}
+                        {tr("sl.calendar.fromTo", { from: formatDay(t.dateDebut), to: formatDay(t.dateFin) })}
                       </span>
                     </div>
                     {!closed && (
@@ -174,15 +177,15 @@ export function CalendrierTab({
                             setTermEdit({ libelle: t.libelle, dateDebut: day(t.dateDebut), dateFin: day(t.dateFin) });
                           }}
                         >
-                          Modifier
+                          {tr("sl.common.edit")}
                         </Button>
                         <Button
                           variant="danger"
                           onClick={() => {
-                            if (confirm(`Supprimer « ${t.libelle} » ?`)) void run(() => api.delete(`/terms/${t.id}`));
+                            if (confirm(tr("sl.calendar.confirmDelete", { name: t.libelle }))) void run(() => api.delete(`/terms/${t.id}`));
                           }}
                         >
-                          Supprimer
+                          {tr("sl.common.delete")}
                         </Button>
                       </div>
                     )}
@@ -195,7 +198,7 @@ export function CalendrierTab({
       </Card>
 
       <Card>
-        <h3 className="mb-3 font-display text-base font-semibold text-ink">Vacances et jours fériés</h3>
+        <h3 className="mb-3 font-display text-base font-semibold text-ink">{tr("sl.calendar.events.title")}</h3>
 
         {!closed && year && (
           <form
@@ -215,31 +218,31 @@ export function CalendrierTab({
               );
             }}
           >
-            <p className="text-sm font-semibold text-ink">Ajouter un jour sans classe</p>
+            <p className="text-sm font-semibold text-ink">{tr("sl.calendar.events.addTitle")}</p>
             <div className="grid gap-3 sm:grid-cols-4">
-              <Field label="Type">
+              <Field label={tr("sl.calendar.events.type")}>
                 <Select value={eventForm.type} onChange={(e) => setEventForm({ ...eventForm, type: e.target.value as CalendarEventType })}>
-                  <option value="VACANCES">Vacances</option>
-                  <option value="FERIE">Jour férié</option>
-                  <option value="AUTRE">Autre fermeture</option>
+                  <option value="VACANCES">{tr("sl.calendar.type.VACANCES")}</option>
+                  <option value="FERIE">{tr("sl.calendar.type.FERIE")}</option>
+                  <option value="AUTRE">{tr("sl.calendar.type.AUTRE")}</option>
                 </Select>
               </Field>
-              <Field label="Libellé">
-                <Input required placeholder="Vacances de Noël" value={eventForm.libelle} onChange={(e) => setEventForm({ ...eventForm, libelle: e.target.value })} />
+              <Field label={tr("sl.calendar.label")}>
+                <Input required placeholder={tr("sl.calendar.events.labelPlaceholder")} value={eventForm.libelle} onChange={(e) => setEventForm({ ...eventForm, libelle: e.target.value })} />
               </Field>
-              <Field label="Premier jour">
+              <Field label={tr("sl.calendar.events.firstDay")}>
                 <Input type="date" required value={eventForm.dateDebut} onChange={(e) => setEventForm({ ...eventForm, dateDebut: e.target.value })} />
               </Field>
-              <Field label="Dernier jour (si plusieurs)">
+              <Field label={tr("sl.calendar.events.lastDay")}>
                 <Input type="date" value={eventForm.dateFin} onChange={(e) => setEventForm({ ...eventForm, dateFin: e.target.value })} />
               </Field>
             </div>
-            <Button type="submit">Ajouter</Button>
+            <Button type="submit">{tr("sl.calendar.events.submit")}</Button>
           </form>
         )}
 
         {events.length === 0 ? (
-          <EmptyState icon={<CalendarDays />} title="Aucun jour sans classe." description="Ajoutez les vacances et jours fériés ci-dessus." />
+          <EmptyState icon={<CalendarDays />} title={tr("sl.calendar.events.empty.title")} description={tr("sl.calendar.events.empty.description")} />
         ) : (
           <>
             <ExpandAll count={events.length} onOpenAll={() => expand.openAll(events.map((x) => x.id))} onCloseAll={expand.closeAll} />
@@ -250,10 +253,10 @@ export function CalendrierTab({
                   <li key={ev.id} className="rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center gap-2.5">
                       <ExpandButton open={expanded} onClick={() => expand.toggle(ev.id)} label={ev.libelle} />
-                      <Badge color={EVENT_COLOR[ev.type]}>{EVENT_LABEL[ev.type]}</Badge>
+                      <Badge color={EVENT_COLOR[ev.type]}>{tr(EVENT_LABEL[ev.type])}</Badge>
                       <span className="font-medium text-ink">{ev.libelle}</span>
                       <span className="text-sm text-ink-muted">
-                        {day(ev.dateDebut) === day(ev.dateFin) ? formatDay(ev.dateDebut) : `du ${formatDay(ev.dateDebut)} au ${formatDay(ev.dateFin)}`}
+                        {day(ev.dateDebut) === day(ev.dateFin) ? formatDay(ev.dateDebut) : tr("sl.calendar.fromTo", { from: formatDay(ev.dateDebut), to: formatDay(ev.dateFin) })}
                       </span>
                     </div>
                     {expanded && !closed && (
@@ -261,10 +264,10 @@ export function CalendrierTab({
                         <Button
                           variant="danger"
                           onClick={() => {
-                            if (confirm(`Supprimer « ${ev.libelle} » ?`)) void run(() => api.delete(`/calendar-events/${ev.id}`));
+                            if (confirm(tr("sl.calendar.confirmDelete", { name: ev.libelle }))) void run(() => api.delete(`/calendar-events/${ev.id}`));
                           }}
                         >
-                          Supprimer
+                          {tr("sl.common.delete")}
                         </Button>
                       </div>
                     )}

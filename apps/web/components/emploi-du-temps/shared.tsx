@@ -1,23 +1,44 @@
 "use client";
 
-import { WEEK_DAYS } from "@/components/vie-scolaire/shared";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { getLocale } from "@/lib/i18n/store";
 import type { TimeSlot } from "@/lib/types";
 
 export type ViewKind = "classe" | "enseignant" | "salle";
 
-export const VIEW_LABELS: Record<ViewKind, string> = {
-  classe: "Par classe",
-  enseignant: "Par enseignant",
-  salle: "Par salle",
+export const VIEW_KINDS: ViewKind[] = ["classe", "enseignant", "salle"];
+
+const VIEW_KEYS: Record<ViewKind, MessageKey> = {
+  classe: "tt.view.classe",
+  enseignant: "tt.view.enseignant",
+  salle: "tt.view.salle",
 };
 
+export function viewLabel(kind: ViewKind): string {
+  return translate(VIEW_KEYS[kind]);
+}
+
+/** 0 = dimanche ... 6 = samedi ; lundi en premier dans l'affichage de la semaine. */
+const DAY_KEYS: Record<number, MessageKey> = {
+  1: "tt.day.1",
+  2: "tt.day.2",
+  3: "tt.day.3",
+  4: "tt.day.4",
+  5: "tt.day.5",
+  6: "tt.day.6",
+  0: "tt.day.0",
+};
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
 export function dayLabel(value: number): string {
-  return WEEK_DAYS.find((d) => d.value === value)?.label ?? "";
+  const key = DAY_KEYS[value];
+  return key ? translate(key) : "";
 }
 
 /** Jours de classe, dans l'ordre d'affichage de la semaine (lundi en premier). */
 export function orderedDays(joursClasse: number[]): Array<{ value: number; label: string }> {
-  return WEEK_DAYS.filter((d) => joursClasse.includes(d.value));
+  return DAY_ORDER.filter((v) => joursClasse.includes(v)).map((value) => ({ value, label: dayLabel(value) }));
 }
 
 /** Lignes d'une grille : un créneau par ligne, triés par heure, les créneaux identiques (même plage) fusionnés. */
@@ -40,5 +61,5 @@ export function shiftWeek(iso: string, days: number): string {
 }
 
 export function formatIso(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" });
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(INTL_LOCALE[getLocale()], { timeZone: "UTC" });
 }

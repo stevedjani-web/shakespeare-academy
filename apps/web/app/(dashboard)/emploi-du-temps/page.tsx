@@ -17,15 +17,28 @@ import type {
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, SuccessMessage } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
 import { buildSection, type ExportColumn } from "@/lib/export";
+import type { MessageKey } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError, useStructure } from "@/components/vie-scolaire/shared";
 import { VersionGrid } from "@/components/emploi-du-temps/version-grid";
 import { WeekView } from "@/components/emploi-du-temps/week-view";
-import { VIEW_LABELS, dayLabel, formatIso, shiftWeek, type ViewKind } from "@/components/emploi-du-temps/shared";
+import { VIEW_KINDS, dayLabel, formatIso, shiftWeek, viewLabel, type ViewKind } from "@/components/emploi-du-temps/shared";
 
 type Mode = "version" | "semaine";
 
-const STATUS_LABEL = { BROUILLON: "Brouillon", PUBLIE: "En vigueur", ARCHIVE: "Archivée" } as const;
+const STATUS_KEY: Record<Timetable["statut"], MessageKey> = {
+  BROUILLON: "tt.plan.status.BROUILLON",
+  PUBLIE: "tt.plan.status.PUBLIE",
+  ARCHIVE: "tt.plan.status.ARCHIVE",
+};
 const STATUS_COLOR = { BROUILLON: "orange", PUBLIE: "green", ARCHIVE: "gray" } as const;
+
+const OCC_KEY: Record<string, MessageKey> = {
+  NORMALE: "tt.occ.NORMALE",
+  ANNULEE: "tt.occ.ANNULEE",
+  REMPLACEE: "tt.occ.REMPLACEE",
+  SALLE_MODIFIEE: "tt.occ.SALLE_MODIFIEE",
+};
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -35,6 +48,7 @@ function todayIso(): string {
 // et semaine réelle avec changements ponctuels. Les conflits d'enseignant, de salle ou de classe sont refusés.
 export default function EmploiDuTempsPage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canManage = hasPermission("PEDAGOGY_MANAGE");
   const structure = useStructure();
 
@@ -123,9 +137,9 @@ export default function EmploiDuTempsPage() {
     setPublishing(false);
   }, [loadEntries]);
 
-  const timetable = timetables.find((t) => t.id === timetableId) ?? null;
+  const timetable = timetables.find((tt) => tt.id === timetableId) ?? null;
   const isDraft = timetable?.statut === "BROUILLON";
-  const hasDraft = timetables.some((t) => t.statut === "BROUILLON");
+  const hasDraft = timetables.some((tt) => tt.statut === "BROUILLON");
 
   // Cibles disponibles selon la vue (les enseignants se déduisent des séances : la liste complète est réservée aux gestionnaires).
   const targets = useMemo(() => {
@@ -138,7 +152,7 @@ export default function EmploiDuTempsPage() {
 
   useEffect(() => {
     if (mode === "semaine") return; // la semaine accepte « Tous »
-    if (!targets.some((t) => t.id === targetId)) setTargetId(targets[0]?.id ?? "");
+    if (!targets.some((x) => x.id === targetId)) setTargetId(targets[0]?.id ?? "");
   }, [targets, targetId, mode]);
 
   const loadWeek = useCallback(async () => {
@@ -191,7 +205,7 @@ export default function EmploiDuTempsPage() {
     await run(async () => {
       const created = await api.post<Timetable>("/timetables", { academicYearId: yearId, vide });
       await loadTimetables(created.id);
-    }, "Nouvelle version créée en brouillon.");
+    }, t("tt.plan.created"));
   }
 
   async function publish() {
@@ -201,7 +215,7 @@ export default function EmploiDuTempsPage() {
       setPublishing(false);
       await loadTimetables(timetable.id);
       await loadEntries();
-    }, "Version publiée. Elle s'applique à partir de la date d'effet.");
+    }, t("tt.plan.published"));
   }
 
   async function verify() {
@@ -215,69 +229,69 @@ export default function EmploiDuTempsPage() {
       const r = await api.post<{ misAJour: number; problemes: string[] }>(`/timetables/${timetable.id}/resync`, {});
       await loadEntries();
       setNotice(
-        `${r.misAJour} enseignant(s) mis à jour.${r.problemes.length > 0 ? ` À vérifier : ${r.problemes.join(" ")}` : ""}`,
+        r.problemes.length > 0
+          ? t("tt.plan.resyncedCheck", { count: r.misAJour, problems: r.problemes.join(" ") })
+          : t("tt.plan.resynced", { count: r.misAJour }),
       );
     });
   }
 
   async function removeDraft() {
-    if (!timetable || !window.confirm("Supprimer ce brouillon et toutes ses séances ?")) return;
+    if (!timetable || !window.confirm(t("tt.plan.confirmDelete"))) return;
     await run(async () => {
       await api.delete(`/timetables/${timetable.id}`);
       setTimetableId("");
       await loadTimetables();
-    }, "Brouillon supprimé.");
+    }, t("tt.plan.draftDeleted"));
   }
 
   // Export PDF/Excel de ce qui est affiché à l'écran.
   const versionColumns: ExportColumn<TimetableEntry>[] = [
-    { header: "Jour", value: (e) => dayLabel(e.jourSemaine) },
-    { header: "Début", value: (e) => e.heureDebut },
-    { header: "Fin", value: (e) => e.heureFin },
-    { header: "Classe", value: (e) => e.class.nom },
-    { header: "Matière", value: (e) => e.subject.nom },
-    { header: "Enseignant", value: (e) => `${e.teacher.prenom} ${e.teacher.nom}` },
-    { header: "Salle", value: (e) => e.room.nom },
+    { header: t("tt.col.day"), value: (e) => dayLabel(e.jourSemaine) },
+    { header: t("tt.col.start"), value: (e) => e.heureDebut },
+    { header: t("tt.col.end"), value: (e) => e.heureFin },
+    { header: t("tt.col.class"), value: (e) => e.class.nom },
+    { header: t("tt.col.subject"), value: (e) => e.subject.nom },
+    { header: t("tt.col.teacher"), value: (e) => `${e.teacher.prenom} ${e.teacher.nom}` },
+    { header: t("tt.col.room"), value: (e) => e.room.nom },
   ];
   const sortedShown = [...shown].sort(
     (a, b) => ((a.jourSemaine + 6) % 7) - ((b.jourSemaine + 6) % 7) || a.heureDebut.localeCompare(b.heureDebut),
   );
-  const targetLabel = targets.find((t) => t.id === targetId)?.label ?? "Tous";
-  const versionSection = buildSection(`Emploi du temps, ${targetLabel}`, versionColumns, sortedShown);
+  const targetLabel = targets.find((x) => x.id === targetId)?.label ?? t("tt.plan.all");
+  const versionSection = buildSection(t("tt.plan.exportTitle", { target: targetLabel }), versionColumns, sortedShown);
   const weekSection = buildSection(
-    `Semaine du ${week ? formatIso(week.debut) : ""}`,
+    t("tt.plan.weekOf", { date: week ? formatIso(week.debut) : "" }),
     [
-      { header: "Date", value: (r: { date: string }) => formatIso(r.date) },
-      { header: "Début", value: (r: { heureDebut: string }) => r.heureDebut },
-      { header: "Fin", value: (r: { heureFin: string }) => r.heureFin },
-      { header: "Classe", value: (r: { className: string }) => r.className },
-      { header: "Matière", value: (r: { subjectName: string }) => r.subjectName },
-      { header: "Enseignant", value: (r: { teacherName: string }) => r.teacherName },
-      { header: "Salle", value: (r: { roomName: string }) => r.roomName },
-      { header: "Statut", value: (r: { statut: string }) => r.statut },
+      { header: t("tt.col.date"), value: (r: { date: string }) => formatIso(r.date) },
+      { header: t("tt.col.start"), value: (r: { heureDebut: string }) => r.heureDebut },
+      { header: t("tt.col.end"), value: (r: { heureFin: string }) => r.heureFin },
+      { header: t("tt.col.class"), value: (r: { className: string }) => r.className },
+      { header: t("tt.col.subject"), value: (r: { subjectName: string }) => r.subjectName },
+      { header: t("tt.col.teacher"), value: (r: { teacherName: string }) => r.teacherName },
+      { header: t("tt.col.room"), value: (r: { roomName: string }) => r.roomName },
+      { header: t("tt.col.status"), value: (r: { statut: string }) => (OCC_KEY[r.statut] ? t(OCC_KEY[r.statut]) : r.statut) },
     ],
     (week?.jours ?? []).flatMap((j) => j.seances),
   );
 
   const versionTitle = timetable
-    ? `Version ${timetable.numero}${timetable.dateEffet ? `, depuis le ${formatIso(timetable.dateEffet.slice(0, 10))}` : ""}`
+    ? timetable.dateEffet
+      ? t("tt.plan.versionTitleSince", { n: timetable.numero, date: formatIso(timetable.dateEffet.slice(0, 10)) })
+      : t("tt.plan.versionTitle", { n: timetable.numero })
     : "";
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle="Séances de la semaine par classe, enseignant et salle. Les conflits sont refusés ; les versions publiées ne changent plus."
-        helpId="emploi-du-temps"
-      >
-        Emploi du temps
+      <PageTitle eyebrow={t("tt.eyebrow")} subtitle={t("tt.plan.subtitle")} helpId="emploi-du-temps">
+        {t("tt.plan.title")}
       </PageTitle>
 
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
         {(
           [
-            ["version", "Versions"],
-            ["semaine", "Semaine réelle"],
+            ["version", t("tt.plan.tabVersions")],
+            ["semaine", t("tt.plan.tabWeek")],
           ] as Array<[Mode, string]>
         ).map(([key, label]) => (
           <button
@@ -301,7 +315,7 @@ export default function EmploiDuTempsPage() {
 
       <Card className="mb-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Année scolaire">
+          <Field label={t("tt.plan.year")}>
             <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
               {structure.years.map((y) => (
                 <option key={y.id} value={y.id}>
@@ -311,18 +325,18 @@ export default function EmploiDuTempsPage() {
             </Select>
           </Field>
           {mode === "version" && (
-            <Field label="Version">
+            <Field label={t("tt.plan.version")}>
               <Select value={timetableId} onChange={(e) => setTimetableId(e.target.value)} disabled={timetables.length === 0}>
-                {timetables.length === 0 && <option value="">Aucune version</option>}
-                {timetables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Version {t.numero} ({STATUS_LABEL[t.statut]})
+                {timetables.length === 0 && <option value="">{t("tt.plan.noVersion")}</option>}
+                {timetables.map((tt) => (
+                  <option key={tt.id} value={tt.id}>
+                    {t("tt.plan.versionOption", { n: tt.numero, status: t(STATUS_KEY[tt.statut]) })}
                   </option>
                 ))}
               </Select>
             </Field>
           )}
-          <Field label="Affichage">
+          <Field label={t("tt.plan.display")}>
             <Select
               value={view}
               onChange={(e) => {
@@ -330,21 +344,19 @@ export default function EmploiDuTempsPage() {
                 setTargetId("");
               }}
             >
-              {(Object.keys(VIEW_LABELS) as ViewKind[])
-                .filter((k) => mode === "version" || canManage || k !== "enseignant")
-                .map((k) => (
-                  <option key={k} value={k}>
-                    {VIEW_LABELS[k]}
-                  </option>
-                ))}
+              {VIEW_KINDS.filter((k) => mode === "version" || canManage || k !== "enseignant").map((k) => (
+                <option key={k} value={k}>
+                  {viewLabel(k)}
+                </option>
+              ))}
             </Select>
           </Field>
-          <Field label={view === "classe" ? "Classe" : view === "enseignant" ? "Enseignant" : "Salle"}>
+          <Field label={view === "classe" ? t("tt.col.class") : view === "enseignant" ? t("tt.col.teacher") : t("tt.col.room")}>
             <Select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-              {mode === "semaine" && <option value="">Tous</option>}
-              {targets.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
+              {mode === "semaine" && <option value="">{t("tt.plan.all")}</option>}
+              {targets.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.label}
                 </option>
               ))}
             </Select>
@@ -357,16 +369,12 @@ export default function EmploiDuTempsPage() {
           {!timetable ? (
             <EmptyState
               icon={<CalendarRange />}
-              title="Aucun emploi du temps pour cette année."
-              description={
-                canManage
-                  ? "Créez une première version : vous saisirez les séances classe par classe, puis vous la publierez."
-                  : "L'emploi du temps n'est pas encore publié."
-              }
+              title={t("tt.plan.emptyTitle")}
+              description={canManage ? t("tt.plan.emptyManage") : t("tt.plan.emptyRead")}
               action={
                 canManage ? (
                   <Button onClick={() => void createVersion(true)} disabled={!yearId}>
-                    <FilePlus2 size={16} /> Créer une version
+                    <FilePlus2 size={16} /> {t("tt.plan.createVersion")}
                   </Button>
                 ) : undefined
               }
@@ -376,20 +384,20 @@ export default function EmploiDuTempsPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="font-display text-lg font-semibold text-ink">{versionTitle}</h2>
-                  <Badge color={STATUS_COLOR[timetable.statut]}>{STATUS_LABEL[timetable.statut]}</Badge>
-                  <span className="text-xs text-ink-muted">{timetable._count.entries} séance(s)</span>
+                  <Badge color={STATUS_COLOR[timetable.statut]}>{t(STATUS_KEY[timetable.statut])}</Badge>
+                  <span className="text-xs text-ink-muted">{t("tt.plan.sessions", { count: timetable._count.entries })}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <ExportButtons
-                    fileName={`emploi-du-temps-${targetLabel}`}
-                    title={`Emploi du temps, ${targetLabel}`}
+                    fileName={t("tt.plan.fileVersion", { target: targetLabel })}
+                    title={t("tt.plan.exportTitle", { target: targetLabel })}
                     subtitle={versionTitle}
                     sections={[versionSection]}
                     landscape
                   />
                   {canManage && !hasDraft && (
                     <Button variant="secondary" onClick={() => void createVersion(false)}>
-                      <FilePlus2 size={16} /> Nouvelle version
+                      <FilePlus2 size={16} /> {t("tt.plan.newVersion")}
                     </Button>
                   )}
                 </div>
@@ -397,15 +405,13 @@ export default function EmploiDuTempsPage() {
 
               {isDraft && canManage && (
                 <div className="mb-4 space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-3">
-                  <p className="text-sm text-ink">
-                    Brouillon : ajoutez les séances dans la vue « Par classe » (bouton +). Rien n&apos;est visible des autres tant que la version n&apos;est pas publiée.
-                  </p>
+                  <p className="text-sm text-ink">{t("tt.plan.draftHint")}</p>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" onClick={() => void verify()}>
-                      <ShieldCheck size={16} /> Vérifier
+                      <ShieldCheck size={16} /> {t("tt.plan.verify")}
                     </Button>
                     <Button variant="secondary" onClick={() => void resync()}>
-                      <RefreshCw size={16} /> Mettre à jour les enseignants
+                      <RefreshCw size={16} /> {t("tt.plan.resync")}
                     </Button>
                     <Button
                       onClick={() => {
@@ -413,19 +419,19 @@ export default function EmploiDuTempsPage() {
                         setDateEffet((d) => d || todayIso());
                       }}
                     >
-                      Publier
+                      {t("tt.plan.publish")}
                     </Button>
                     <Button variant="danger" onClick={() => void removeDraft()}>
-                      <Trash2 size={16} /> Supprimer le brouillon
+                      <Trash2 size={16} /> {t("tt.plan.deleteDraft")}
                     </Button>
                   </div>
                   {check && (
                     <div className="text-sm">
                       {check.pret ? (
-                        <SuccessMessage>Aucun conflit : {check.seances} séance(s) prêtes à être publiées.</SuccessMessage>
+                        <SuccessMessage>{t("tt.plan.noConflict", { count: check.seances })}</SuccessMessage>
                       ) : (
                         <ul className="list-disc space-y-1 rounded-xl bg-danger-soft py-2 pl-7 pr-3 text-danger">
-                          {check.seances === 0 && <li>L&apos;emploi du temps est vide.</li>}
+                          {check.seances === 0 && <li>{t("tt.plan.timetableEmpty")}</li>}
                           {check.problemes.map((p) => (
                             <li key={p}>{p}</li>
                           ))}
@@ -435,14 +441,14 @@ export default function EmploiDuTempsPage() {
                   )}
                   {publishing && (
                     <div className="flex flex-wrap items-end gap-2">
-                      <Field label="Date d'effet (premier jour d'application)">
+                      <Field label={t("tt.plan.effectDate")}>
                         <Input type="date" value={dateEffet} onChange={(e) => setDateEffet(e.target.value)} />
                       </Field>
                       <Button onClick={() => void publish()} disabled={!dateEffet}>
-                        Confirmer la publication
+                        {t("tt.plan.confirmPublish")}
                       </Button>
                       <Button variant="ghost" onClick={() => setPublishing(false)}>
-                        Annuler
+                        {t("tt.cancel")}
                       </Button>
                     </div>
                   )}
@@ -450,9 +456,7 @@ export default function EmploiDuTempsPage() {
               )}
 
               {targets.length === 0 ? (
-                <p className="text-sm text-ink-muted">
-                  {view === "classe" ? "Aucune classe pour cette année." : "Aucune séance pour cette vue."}
-                </p>
+                <p className="text-sm text-ink-muted">{view === "classe" ? t("tt.plan.noClasses") : t("tt.plan.noSessionsView")}</p>
               ) : (
                 <VersionGrid
                   timetableId={timetable.id}
@@ -480,21 +484,21 @@ export default function EmploiDuTempsPage() {
         <div>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" aria-label="Semaine précédente" onClick={() => setDate((d) => shiftWeek(d, -7))}>
+              <Button variant="secondary" aria-label={t("tt.plan.prevWeek")} onClick={() => setDate((d) => shiftWeek(d, -7))}>
                 <ChevronLeft size={16} />
               </Button>
               <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="w-auto" />
-              <Button variant="secondary" aria-label="Semaine suivante" onClick={() => setDate((d) => shiftWeek(d, 7))}>
+              <Button variant="secondary" aria-label={t("tt.plan.nextWeek")} onClick={() => setDate((d) => shiftWeek(d, 7))}>
                 <ChevronRight size={16} />
               </Button>
               <Button variant="ghost" onClick={() => setDate(todayIso())}>
-                Aujourd&apos;hui
+                {t("tt.today")}
               </Button>
             </div>
             <ExportButtons
-              fileName={`semaine-${week?.debut ?? date}`}
-              title="Emploi du temps de la semaine"
-              subtitle={week ? `Du ${formatIso(week.debut)} au ${formatIso(week.fin)}` : undefined}
+              fileName={t("tt.plan.fileWeek", { date: week?.debut ?? date })}
+              title={t("tt.plan.weekTitle")}
+              subtitle={week ? t("tt.range", { from: formatIso(week.debut), to: formatIso(week.fin) }) : undefined}
               sections={[weekSection]}
               landscape
             />

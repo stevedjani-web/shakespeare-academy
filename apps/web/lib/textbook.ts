@@ -1,4 +1,6 @@
 // Lot 16 : cahier de textes et devoirs. Types des réponses de l'API et petites fonctions d'affichage.
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { getLocale } from "@/lib/i18n/store";
 
 export interface TextbookContext {
   annee: { id: string; libelle: string; dateDebut: string; dateFin: string } | null;
@@ -42,12 +44,10 @@ export interface ParentTextbook {
 /** 2000 caractères au plus par texte (le serveur refuse au-delà). */
 export const TEXTBOOK_MAX_LENGTH = 2000;
 
-const DAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-
-/** « lundi 21/09/2026 » à partir de « 2026-09-21 ». */
+/** « lundi 21/09/2026 » (ou « Monday 21/09/2026 ») à partir de « 2026-09-21 », dans la langue courante. */
 export function frDay(iso: string): string {
   const [y, m, d] = iso.split("-");
-  const day = DAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()];
+  const day = new Date(`${iso}T00:00:00Z`).toLocaleDateString(INTL_LOCALE[getLocale()], { weekday: "long", timeZone: "UTC" });
   return `${day} ${d}/${m}/${y}`;
 }
 

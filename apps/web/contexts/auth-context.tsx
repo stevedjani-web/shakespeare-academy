@@ -8,6 +8,7 @@ import { cachePut, clearCache, setCacheOwner } from "@/lib/offline-cache";
 import { processOutbox, setOutboxUser } from "@/lib/outbox";
 import { warmOfflineCache } from "@/lib/offline-warmup";
 import type { CurrentUser, LoginResponse } from "@/lib/types";
+import { applyAccountLanguage } from "@/lib/i18n/store";
 
 interface AuthContextValue {
   user: CurrentUser | null;
@@ -54,6 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await cachePut("/auth/me", me);
     setOutboxUser({ id: me.id, name: `${me.prenom} ${me.nom}` });
     setUser(me);
+    // La langue choisie sur le compte prime sur celle de l'appareil, et suit l'utilisateur d'un appareil à l'autre.
+    applyAccountLanguage(me.langue);
     return me;
   }, []);
 

@@ -7,6 +7,8 @@ export interface CurrentUser {
   nom: string;
   prenom: string;
   email: string;
+  /** Langue choisie (« fr » ou « en »), vide tant que l'utilisateur n'a pas choisi. */
+  langue?: string | null;
 }
 
 export interface LoginResponse {

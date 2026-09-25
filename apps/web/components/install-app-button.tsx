@@ -1,18 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Share, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { promptInstall, useInstallState } from "@/lib/pwa-install";
 import { Button } from "@/components/ui";
+import { Rich } from "@/lib/i18n/rich";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 // Bouton "Installer l'application". Invisible si l'application est déjà installée. Chrome/Android :
 // déclenche la vraie fenêtre d'installation ; iOS et navigateurs sans cette API : courte explication.
 export function InstallAppButton({ variant = "light", className = "" }: { variant?: "light" | "dark"; className?: string }) {
   const state = useInstallState();
+  const { t } = useI18n();
   const [help, setHelp] = useState(false);
   if (state.standalone) return null;
 
   const dark = variant === "dark";
+  const steps = state.ios ? (["install.ios1", "install.ios2", "install.ios3"] as const) : (["install.other1", "install.other2", "install.other3"] as const);
   return (
     <div className={className}>
       <Button
@@ -23,7 +27,7 @@ export function InstallAppButton({ variant = "light", className = "" }: { varian
           else setHelp(true);
         }}
       >
-        <Download size={16} /> Installer l&apos;application
+        <Download size={16} /> {t("install.button")}
       </Button>
 
       {help && (
@@ -33,39 +37,19 @@ export function InstallAppButton({ variant = "light", className = "" }: { varian
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold">Installer sur ce téléphone</h2>
-              <button onClick={() => setHelp(false)} aria-label="Fermer" className="rounded-lg p-1 text-ink-muted hover:bg-surface-muted">
+              <h2 className="font-display text-lg font-semibold">{t("install.title")}</h2>
+              <button onClick={() => setHelp(false)} aria-label={t("common.close")} className="rounded-lg p-1 text-ink-muted hover:bg-surface-muted">
                 <X size={18} />
               </button>
             </div>
-            {state.ios ? (
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-muted">
-                <li>
-                  Ouvrez cette page dans <strong className="text-ink">Safari</strong>.
+            <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-muted">
+              {steps.map((key) => (
+                <li key={key}>
+                  <Rich text={t(key)} />
                 </li>
-                <li>
-                  Touchez le bouton <Share size={14} className="inline align-text-bottom text-ink" /> <strong className="text-ink">Partager</strong>.
-                </li>
-                <li>
-                  Choisissez <strong className="text-ink">« Sur l&apos;écran d&apos;accueil »</strong>, puis <strong className="text-ink">Ajouter</strong>.
-                </li>
-              </ol>
-            ) : (
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-muted">
-                <li>
-                  Ouvrez cette page dans <strong className="text-ink">Chrome</strong> ou <strong className="text-ink">Edge</strong>.
-                </li>
-                <li>
-                  Touchez le menu <strong className="text-ink">⋮</strong> en haut à droite.
-                </li>
-                <li>
-                  Choisissez <strong className="text-ink">« Installer l&apos;application »</strong> (ou « Ajouter à l&apos;écran d&apos;accueil »).
-                </li>
-              </ol>
-            )}
-            <p className="mt-3 text-xs text-ink-muted">
-              Une fois installée, l&apos;application s&apos;ouvre comme n&apos;importe quelle application et fonctionne aussi sans Internet.
-            </p>
+              ))}
+            </ol>
+            <p className="mt-3 text-xs text-ink-muted">{t("install.note")}</p>
           </div>
         </div>
       )}

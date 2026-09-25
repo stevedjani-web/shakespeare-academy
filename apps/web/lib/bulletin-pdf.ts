@@ -2,6 +2,7 @@
 // direct). Utilisé par la Direction et par les parents : le même document dans les deux cas.
 import { API_URL } from "@/lib/api";
 import { formatNote, rankLabel, type BulletinData } from "@/lib/grades";
+import { translate as t } from "@/lib/i18n";
 
 async function loadLogo(logoUrl: string | null): Promise<string | null> {
   if (!logoUrl) return null;
@@ -22,7 +23,7 @@ async function loadLogo(logoUrl: string | null): Promise<string | null> {
 }
 
 function frDate(iso: string | null): string {
-  if (!iso) return "Non renseignée";
+  if (!iso) return t("common.notProvided");
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
 }
@@ -66,18 +67,18 @@ export async function downloadBulletinPdf(bulletin: BulletinData): Promise<void>
   doc.setTextColor(30, 30, 40);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(`Bulletin de notes, ${bulletin.trimestre.libelle}`, pageWidth / 2, 112, { align: "center" });
+  doc.text(t("bulletin.title", { term: bulletin.trimestre.libelle }), pageWidth / 2, 112, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Année scolaire ${bulletin.annee}`, pageWidth / 2, 127, { align: "center" });
+  doc.text(t("bulletin.year", { year: bulletin.annee }), pageWidth / 2, 127, { align: "center" });
 
   // Élève.
   doc.setFontSize(10);
   const rows: Array<[string, string]> = [
-    ["Élève", `${bulletin.eleve.nom} ${bulletin.eleve.prenom}`],
-    ["Matricule", bulletin.eleve.matricule],
-    ["Né(e) le", frDate(bulletin.eleve.dateNaissance)],
-    ["Classe", `${bulletin.classe.nom} (${bulletin.classe.niveau}, ${bulletin.classe.section})`],
+    [t("bulletin.student"), `${bulletin.eleve.nom} ${bulletin.eleve.prenom}`],
+    [t("bulletin.studentId"), bulletin.eleve.matricule],
+    [t("bulletin.born"), frDate(bulletin.eleve.dateNaissance)],
+    [t("bulletin.class"), `${bulletin.classe.nom} (${bulletin.classe.niveau}, ${bulletin.classe.section})`],
   ];
   let y = 152;
   for (const [label, value] of rows) {
@@ -90,12 +91,12 @@ export async function downloadBulletinPdf(bulletin: BulletinData): Promise<void>
 
   const head = [
     [
-      "Matière",
-      "Coef.",
-      "Moyenne /20",
-      ...(withLetters ? ["Lettre"] : []),
-      ...(withStats ? ["Classe", "Min", "Max"] : []),
-      "Appréciation",
+      t("bulletin.subject"),
+      t("bulletin.coef"),
+      t("bulletin.average"),
+      ...(withLetters ? [t("bulletin.letter")] : []),
+      ...(withStats ? [t("bulletin.classAverageShort"), t("bulletin.min"), t("bulletin.max")] : []),
+      t("bulletin.appreciation"),
     ],
   ];
   const body = bulletin.matieres.map((m) => [
@@ -126,14 +127,14 @@ export async function downloadBulletinPdf(bulletin: BulletinData): Promise<void>
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(47, 43, 120);
-  doc.text(`Moyenne générale : ${formatNote(bulletin.moyenneGenerale)} / 20`, margin, y);
+  doc.text(t("bulletin.overall", { avg: formatNote(bulletin.moyenneGenerale) }), margin, y);
   doc.setFontSize(10);
   doc.setTextColor(30, 30, 40);
   const extra: string[] = [];
-  if (bulletin.lettre) extra.push(`Lettre ${bulletin.lettre}`);
-  if (bulletin.rang !== undefined && bulletin.rang !== null) extra.push(`Rang ${rankLabel(bulletin.rang, bulletin.effectif)}`);
-  if (bulletin.moyenneClasse !== undefined && bulletin.moyenneClasse !== null) extra.push(`Moyenne de la classe ${formatNote(bulletin.moyenneClasse)}`);
-  if (bulletin.admis !== null) extra.push(bulletin.admis ? "Admis" : "Non admis");
+  if (bulletin.lettre) extra.push(t("bulletin.letterLine", { letter: bulletin.lettre }));
+  if (bulletin.rang !== undefined && bulletin.rang !== null) extra.push(t("bulletin.rankLine", { rank: rankLabel(bulletin.rang, bulletin.effectif) }));
+  if (bulletin.moyenneClasse !== undefined && bulletin.moyenneClasse !== null) extra.push(t("bulletin.classAverageLine", { avg: formatNote(bulletin.moyenneClasse) }));
+  if (bulletin.admis !== null) extra.push(bulletin.admis ? t("bulletin.admitted") : t("bulletin.notAdmitted"));
   if (extra.length > 0) {
     y += 16;
     doc.setFont("helvetica", "normal");
@@ -142,7 +143,7 @@ export async function downloadBulletinPdf(bulletin: BulletinData): Promise<void>
   if (bulletin.appreciationGenerale) {
     y += 20;
     doc.setFont("helvetica", "bold");
-    doc.text("Appréciation générale", margin, y);
+    doc.text(t("bulletin.generalAppreciation"), margin, y);
     doc.setFont("helvetica", "normal");
     const lines = doc.splitTextToSize(bulletin.appreciationGenerale, pageWidth - margin * 2) as string[];
     doc.text(lines, margin, y + 14);
@@ -157,10 +158,10 @@ export async function downloadBulletinPdf(bulletin: BulletinData): Promise<void>
   doc.setLineWidth(0.5);
   doc.line(margin, y, margin + 160, y);
   doc.line(pageWidth - margin - 160, y, pageWidth - margin, y);
-  doc.text("Le responsable", margin, y + 12);
-  doc.text("La Direction", pageWidth - margin - 160, y + 12);
+  doc.text(t("bulletin.signGuardian"), margin, y + 12);
+  doc.text(t("bulletin.signDirection"), pageWidth - margin - 160, y + 12);
 
-  const name = `bulletin-${bulletin.eleve.nom}-${bulletin.eleve.prenom}-${bulletin.trimestre.libelle}`
+  const name = `${t("bulletin.fileName")}-${bulletin.eleve.nom}-${bulletin.eleve.prenom}-${bulletin.trimestre.libelle}`
     .replace(/[^\p{L}\p{N}_-]+/gu, "-")
     .replace(/-+/g, "-");
   doc.save(`${name}.pdf`);

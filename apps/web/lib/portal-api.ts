@@ -1,4 +1,6 @@
 import { API_URL, ApiError } from "@/lib/api";
+import { translate } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
 
 // Client de l'espace parents. Volontairement distinct de celui du personnel : autre jeton (en mémoire
 // seulement), autre cookie de renouvellement (/portal), aucune copie hors ligne des données d'un enfant.
@@ -13,9 +15,9 @@ async function extractError(res: Response): Promise<ApiError> {
   try {
     const body = (await res.json()) as { message?: string | string[] };
     const message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
-    return new ApiError(message ?? `Erreur ${res.status}`, res.status, body);
+    return new ApiError(message ?? translate("err.generic", { status: res.status }), res.status, body);
   } catch {
-    return new ApiError(`Erreur ${res.status}`, res.status);
+    return new ApiError(translate("err.generic", { status: res.status }), res.status);
   }
 }
 
@@ -23,10 +25,11 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  headers.set("Accept-Language", getLocale());
   try {
     return await fetch(`${API_URL}${path}`, { ...init, headers, credentials: "include" });
   } catch {
-    throw new ApiError("Pas de connexion Internet.", 0);
+    throw new ApiError(translate("err.offline"), 0);
   }
 }
 
@@ -49,7 +52,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   if (res.status === 401 && retry && !NO_RETRY.includes(path)) {
     if (await tryPortalRefresh()) return request<T>(path, init, false);
     accessToken = null;
-    throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
+    throw new ApiError(translate("err.sessionExpired"), 401);
   }
   if (!res.ok) throw await extractError(res);
   return (await res.json()) as T;
@@ -63,6 +66,6 @@ export const portalApi = {
 };
 
 export function describePortalError(err: unknown): string {
-  if (err instanceof ApiError) return err.status === 0 ? "Pas de connexion Internet. Réessayez quand elle sera revenue." : err.message;
-  return "Une erreur est survenue.";
+  if (err instanceof ApiError) return err.status === 0 ? translate("err.offlineRetry") : err.message;
+  return translate("common.error");
 }

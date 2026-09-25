@@ -8,6 +8,9 @@ import { submitOrQueue } from "@/lib/offline-actions";
 import { listOutbox, useOnOutboxChange } from "@/lib/outbox";
 import type { AttendanceSheet, SheetStudent } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Input, Spinner, SuccessMessage } from "@/components/ui";
+import type { MessageKey } from "@/lib/i18n";
+import { Rich } from "@/lib/i18n/rich";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError } from "@/components/vie-scolaire/shared";
 import { formatIso } from "@/components/emploi-du-temps/shared";
 
@@ -27,7 +30,13 @@ const MODE_STYLE: Record<Mode, string> = {
   RETARD: "bg-warning text-white",
   ABSENT: "bg-danger text-white",
 };
-const MODE_LABEL: Record<Mode, string> = { PRESENT: "Présent", RETARD: "Retard", ABSENT: "Absent" };
+const MODE_KEY: Record<Mode, MessageKey> = { PRESENT: "tt.mode.PRESENT", RETARD: "tt.mode.RETARD", ABSENT: "tt.mode.ABSENT" };
+
+const NOTE_KEY: Record<string, MessageKey> = {
+  ACCEPTEE: "tt.roll.note.ACCEPTEE",
+  REFUSEE: "tt.roll.note.REFUSEE",
+  EN_ATTENTE: "tt.roll.note.EN_ATTENTE",
+};
 
 /**
  * Feuille d'appel d'une séance : tout le monde présent par défaut, on ne touche que les exceptions
@@ -35,6 +44,7 @@ const MODE_LABEL: Record<Mode, string> = { PRESENT: "Présent", RETARD: "Retard"
  */
 export function Roster({ entryId, date, onBack }: { entryId: string; date: string; onBack: () => void }) {
   const { user, hasPermission } = useAuth();
+  const { t } = useI18n();
   const canTake = hasPermission("ATTENDANCE_TAKE");
   const canCorrect = hasPermission("ATTENDANCE_CORRECT");
   const [sheet, setSheet] = useState<AttendanceSheet | null>(null);
@@ -94,12 +104,12 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
     return (
       <div>
         <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft size={16} /> Retour
+          <ArrowLeft size={16} /> {t("tt.back")}
         </Button>
         <ErrorMessage>{error}</ErrorMessage>
         {!error && (
           <p className="mt-4 flex items-center gap-2 text-sm text-ink-muted">
-            <Spinner /> Chargement de la feuille d&apos;appel…
+            <Spinner /> {t("tt.roll.loadingSheet")}
           </p>
         )}
       </div>
@@ -114,13 +124,11 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
   const motifRequired = needsCorrection && editable;
 
   let readOnlyReason: string | null = null;
-  if (cancelled) readOnlyReason = "Cette séance est annulée : il n'y a pas d'appel à faire.";
-  else if (!canTake) readOnlyReason = "Vous pouvez consulter cet appel mais pas le modifier.";
-  else if (sheet.appel && !author && !canCorrect) readOnlyReason = `Cet appel a déjà été fait par ${sheet.appel.par.nom}.`;
+  if (cancelled) readOnlyReason = t("tt.roll.ro.cancelled");
+  else if (!canTake) readOnlyReason = t("tt.roll.ro.viewOnly");
+  else if (sheet.appel && !author && !canCorrect) readOnlyReason = t("tt.roll.ro.doneBy", { name: sheet.appel.par.nom });
   else if (sheet.verrouille && !canCorrect)
-    readOnlyReason = sheet.appel
-      ? "Cet appel est verrouillé depuis la fin de la journée : la correction revient à la vie scolaire ou à la Direction."
-      : "Le jour de cette séance est passé : l'appel doit être saisi par la vie scolaire ou la Direction.";
+    readOnlyReason = sheet.appel ? t("tt.roll.ro.lockedWithCall") : t("tt.roll.ro.lockedNoCall");
 
   function setMode(id: string, mode: Mode) {
     setMarks((m) => ({ ...m, [id]: { mode, minutes: mode === "RETARD" ? m[id]?.minutes ?? "" : "" } }));
@@ -157,7 +165,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
       );
       if (result.queued) {
         setPending(true);
-        setNotice({ text: "Appel gardé sur cet appareil : il partira dès que la connexion reviendra.", queued: true });
+        setNotice({ text: t("tt.roll.savedQueued"), queued: true });
       } else {
         setSheet(result.result);
         const next: Record<string, Mark> = {};
@@ -165,7 +173,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
         setMarks(next);
         setPending(false);
         setMotif("");
-        setNotice({ text: "Appel enregistré.", queued: false });
+        setNotice({ text: t("tt.roll.saved"), queued: false });
       }
     } catch (err) {
       setError(describeError(err));
@@ -177,7 +185,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
   return (
     <div>
       <Button variant="ghost" onClick={onBack} className="mb-3">
-        <ArrowLeft size={16} /> Retour aux séances
+        <ArrowLeft size={16} /> {t("tt.roll.backToSessions")}
       </Button>
 
       <Card className="mb-4">
@@ -188,19 +196,20 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
           {formatIso(date)} · {seance.heureDebut} - {seance.heureFin} · {seance.teacherName} · {seance.roomName}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {seance.statut === "REMPLACEE" && <Badge color="orange">Enseignant remplaçant</Badge>}
+          {seance.statut === "REMPLACEE" && <Badge color="orange">{t("tt.roll.substituteTeacher")}</Badge>}
           {sheet.appel ? (
             <Badge color="green">
-              Appel fait par {sheet.appel.par.nom}
-              {sheet.appel.horsLigne ? " (hors ligne)" : ""}
+              {sheet.appel.horsLigne
+                ? t("tt.roll.calledByOffline", { name: sheet.appel.par.nom })
+                : t("tt.roll.calledBy", { name: sheet.appel.par.nom })}
             </Badge>
           ) : (
-            <Badge color="gray">Appel à faire</Badge>
+            <Badge color="gray">{t("tt.roll.callTodo")}</Badge>
           )}
-          {sheet.verrouille && <Badge color="gray">Verrouillé</Badge>}
+          {sheet.verrouille && <Badge color="gray">{t("tt.roll.locked")}</Badge>}
           {pending && (
             <Badge color="orange">
-              <CloudOff size={12} /> En attente d&apos;envoi
+              <CloudOff size={12} /> {t("tt.roll.queued")}
             </Badge>
           )}
         </div>
@@ -223,21 +232,21 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
 
       <div className="sticky top-0 z-10 -mx-1 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface/95 px-1 py-2 backdrop-blur">
         <p className="text-sm text-ink">
-          <strong>{students.length}</strong> élève(s) · <span className="text-danger">{counts.absents} absent(s)</span> ·{" "}
-          <span className="text-warning">{counts.retards} en retard</span>
+          <Rich text={t("tt.roll.nStudents", { count: students.length })} /> · <span className="text-danger">{t("tt.roll.nAbsent", { count: counts.absents })}</span> ·{" "}
+          <span className="text-warning">{t("tt.roll.nLate", { count: counts.retards })}</span>
         </p>
         {editable && (
           <Button
             variant="secondary"
             onClick={() => setMarks(Object.fromEntries(students.map((s) => [s.studentId, { mode: "PRESENT" as Mode, minutes: "" }])))}
           >
-            Tout présent
+            {t("tt.roll.allPresent")}
           </Button>
         )}
       </div>
 
       {students.length === 0 ? (
-        <p className="text-sm text-ink-muted">Aucun élève inscrit dans cette classe.</p>
+        <p className="text-sm text-ink-muted">{t("tt.roll.noStudents")}</p>
       ) : (
         <ul className="space-y-2">
           {students.map((s) => {
@@ -252,7 +261,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
                     </p>
                     <p className="text-xs text-ink-muted">{s.matricule}</p>
                   </div>
-                  <div className="flex gap-1" role="group" aria-label={`Statut de ${s.prenom} ${s.nom}`}>
+                  <div className="flex gap-1" role="group" aria-label={t("tt.roll.statusOf", { name: `${s.prenom} ${s.nom}` })}>
                     {(["PRESENT", "RETARD", "ABSENT"] as Mode[]).map((m) => (
                       <button
                         key={m}
@@ -264,7 +273,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
                           mark.mode === m ? MODE_STYLE[m] : "border border-border text-ink-muted hover:bg-surface-muted"
                         } disabled:cursor-not-allowed`}
                       >
-                        {MODE_LABEL[m]}
+                        {t(MODE_KEY[m])}
                       </button>
                     ))}
                   </div>
@@ -272,7 +281,7 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
                 {mark.mode === "RETARD" && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                     <label className="text-ink-muted" htmlFor={`min-${s.studentId}`}>
-                      Minutes de retard
+                      {t("tt.roll.lateMinutes")}
                     </label>
                     <Input
                       id={`min-${s.studentId}`}
@@ -284,13 +293,13 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
                       onChange={(e) => setMarks((m) => ({ ...m, [s.studentId]: { mode: "RETARD", minutes: e.target.value } }))}
                       className="!w-24"
                     />
-                    {minutes > seuil && <span className="text-danger">Au-delà de {seuil} min : compté absent</span>}
+                    {minutes > seuil && <span className="text-danger">{t("tt.roll.overThreshold", { max: seuil })}</span>}
                   </div>
                 )}
                 {s.justification && (
                   <p className="mt-1.5 text-xs text-ink-muted">
-                    Justificatif :{" "}
-                    {s.justification.statut === "ACCEPTEE" ? "accepté" : s.justification.statut === "REFUSEE" ? "refusé" : "en attente"}
+                    {t("tt.roll.noteLabel")}{" "}
+                    {NOTE_KEY[s.justification.statut] ? t(NOTE_KEY[s.justification.statut]) : s.justification.statut}
                     {s.justification.motif ? ` (${s.justification.motif})` : ""}
                   </p>
                 )}
@@ -303,13 +312,13 @@ export function Roster({ entryId, date, onBack }: { entryId: string; date: strin
       {editable && (
         <div className="mt-4 space-y-3 rounded-2xl border border-border bg-surface p-3">
           {motifRequired && (
-            <Field label="Motif de la correction (obligatoire)">
-              <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Ex. erreur de saisie, arrivé avec un mot des parents" />
+            <Field label={t("tt.roll.correctionReason")}>
+              <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("tt.roll.correctionPlaceholder")} />
             </Field>
           )}
-          {missingMinutes && <p className="text-sm text-danger">Indiquez les minutes de retard, ou choisissez Absent.</p>}
+          {missingMinutes && <p className="text-sm text-danger">{t("tt.roll.missingMinutes")}</p>}
           <Button onClick={() => void save()} disabled={busy || missingMinutes || (motifRequired && !motif.trim())}>
-            {busy ? <Spinner /> : <CheckCircle2 size={16} />} {motifRequired ? "Enregistrer la correction" : "Enregistrer l'appel"}
+            {busy ? <Spinner /> : <CheckCircle2 size={16} />} {motifRequired ? t("tt.roll.saveCorrection") : t("tt.roll.saveRoll")}
           </Button>
         </div>
       )}

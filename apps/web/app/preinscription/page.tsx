@@ -6,6 +6,9 @@ import { API_URL } from "@/lib/api";
 import { Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import type { SectionNode } from "@/lib/pre-registrations";
 import { CopyrightFooter } from "@/components/copyright-footer";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { translate } from "@/lib/i18n";
 
 interface Form {
   nom: string;
@@ -40,9 +43,9 @@ const EMPTY: Form = {
 async function extractError(res: Response): Promise<string> {
   try {
     const body = (await res.json()) as { message?: string | string[] };
-    return Array.isArray(body.message) ? body.message.join(" ") : (body.message ?? "Une erreur est survenue.");
+    return Array.isArray(body.message) ? body.message.join(" ") : (body.message ?? translate("common.error"));
   } catch {
-    return "Une erreur est survenue.";
+    return translate("common.error");
   }
 }
 
@@ -51,6 +54,7 @@ async function extractError(res: Response): Promise<string> {
  * sont choisis par le secrétariat à l'examen de la demande, jamais ici. Aucun frais n'est demandé à ce stade.
  */
 export default function PreRegistrationPage() {
+  const { t } = useI18n();
   const [tree, setTree] = useState<SectionNode[]>([]);
   const [form, setForm] = useState<Form>(EMPTY);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +95,7 @@ export default function PreRegistrationPage() {
       const body = (await res.json()) as { reference: string };
       setReference(body.reference);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -100,13 +104,16 @@ export default function PreRegistrationPage() {
   if (reference) {
     return (
       <div className="mx-auto max-w-md px-4 py-10">
+        <div className="mb-3 flex justify-end">
+          <LanguageSwitcher />
+        </div>
         <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-[var(--shadow-soft)]">
-          <p className="font-display text-lg font-semibold text-ink">Demande envoyée</p>
-          <p className="mt-2 text-sm text-ink-muted">Notez ce numéro pour suivre votre demande :</p>
+          <p className="font-display text-lg font-semibold text-ink">{t("cnt.pre.sentTitle")}</p>
+          <p className="mt-2 text-sm text-ink-muted">{t("cnt.pre.sentNote")}</p>
           <p className="mt-3 rounded-xl bg-primary-soft px-4 py-3 font-mono text-xl font-semibold tracking-wide text-primary">{reference}</p>
-          <p className="mt-3 text-sm text-ink-muted">Le secrétariat de l&apos;école examinera votre demande et vous contactera au numéro indiqué.</p>
+          <p className="mt-3 text-sm text-ink-muted">{t("cnt.pre.sentInfo")}</p>
           <Link href="/preinscription/suivi" className="mt-4 inline-block font-medium text-primary underline">
-            Suivre ma demande
+            {t("cnt.pre.track")}
           </Link>
         </div>
         <div className="mt-4">
@@ -118,37 +125,38 @@ export default function PreRegistrationPage() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
-      <PageTitle subtitle="Déposez une demande pour votre enfant. Le secrétariat de l'école l'examinera et vous contactera.">
-        Préinscription en ligne
-      </PageTitle>
+      <div className="mb-3 flex justify-end">
+        <LanguageSwitcher />
+      </div>
+      <PageTitle subtitle={t("cnt.pre.subtitle")}>{t("cnt.pre.title")}</PageTitle>
       <Card>
         <form onSubmit={submit} className="space-y-4">
-          <h2 className="font-display text-sm font-semibold text-ink">L&apos;enfant</h2>
+          <h2 className="font-display text-sm font-semibold text-ink">{t("cnt.pre.child")}</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Nom">
+            <Field label={t("cnt.pre.lastName")}>
               <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
             </Field>
-            <Field label="Prénom">
+            <Field label={t("cnt.pre.firstName")}>
               <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Sexe">
+            <Field label={t("cnt.pre.sex")}>
               <Select value={form.sexe} onChange={(e) => setForm({ ...form, sexe: e.target.value as "M" | "F" })}>
-                <option value="F">Féminin</option>
-                <option value="M">Masculin</option>
+                <option value="F">{t("cnt.pre.female")}</option>
+                <option value="M">{t("cnt.pre.male")}</option>
               </Select>
             </Field>
-            <Field label="Date de naissance">
+            <Field label={t("cnt.pre.birthDate")}>
               <Input type="date" required max={new Date().toISOString().slice(0, 10)} value={form.dateNaissance} onChange={(e) => setForm({ ...form, dateNaissance: e.target.value })} />
             </Field>
           </div>
-          <Field label="Lieu de naissance (facultatif)">
+          <Field label={t("cnt.pre.birthPlace")}>
             <Input value={form.lieuNaissance} onChange={(e) => setForm({ ...form, lieuNaissance: e.target.value })} />
           </Field>
-          <Field label="Niveau souhaité">
+          <Field label={t("cnt.pre.level")}>
             <Select required value={form.levelId} onChange={(e) => setForm({ ...form, levelId: e.target.value })}>
-              <option value="">Choisir…</option>
+              <option value="">{t("cnt.pre.choose")}</option>
               {tree.map((section) => (
                 <optgroup key={section.sectionId} label={section.sectionNom}>
                   {section.cycles.flatMap((cycle) =>
@@ -162,26 +170,26 @@ export default function PreRegistrationPage() {
               ))}
             </Select>
           </Field>
-          {tree.length === 0 && <p className="text-xs text-ink-muted">Aucun niveau n&apos;est encore configuré par l&apos;école.</p>}
+          {tree.length === 0 && <p className="text-xs text-ink-muted">{t("cnt.pre.noLevels")}</p>}
 
-          <h2 className="pt-2 font-display text-sm font-semibold text-ink">Le responsable</h2>
+          <h2 className="pt-2 font-display text-sm font-semibold text-ink">{t("cnt.pre.guardian")}</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Nom">
+            <Field label={t("cnt.pre.lastName")}>
               <Input required value={form.responsableNom} onChange={(e) => setForm({ ...form, responsableNom: e.target.value })} />
             </Field>
-            <Field label="Prénom">
+            <Field label={t("cnt.pre.firstName")}>
               <Input required value={form.responsablePrenom} onChange={(e) => setForm({ ...form, responsablePrenom: e.target.value })} />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Téléphone">
+            <Field label={t("cnt.pre.phone")}>
               <Input type="tel" required value={form.responsableTelephone} onChange={(e) => setForm({ ...form, responsableTelephone: e.target.value })} />
             </Field>
-            <Field label="E-mail (facultatif)">
+            <Field label={t("cnt.pre.email")}>
               <Input type="email" value={form.responsableEmail} onChange={(e) => setForm({ ...form, responsableEmail: e.target.value })} />
             </Field>
           </div>
-          <Field label="Message (facultatif)">
+          <Field label={t("cnt.pre.message")}>
             <textarea
               className="min-h-20 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-ink"
               maxLength={500}
@@ -191,14 +199,14 @@ export default function PreRegistrationPage() {
           </Field>
           <ErrorMessage>{error}</ErrorMessage>
           <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? "Envoi…" : "Envoyer la demande"}
+            {busy ? t("cnt.pre.sending") : t("cnt.pre.submit")}
           </Button>
         </form>
       </Card>
       <p className="mt-4 text-center text-sm text-ink-muted">
-        Déjà une demande ?{" "}
+        {t("cnt.pre.already")}{" "}
         <Link href="/preinscription/suivi" className="font-medium text-primary underline">
-          Suivre son statut
+          {t("cnt.pre.followStatus")}
         </Link>
       </p>
       <div className="mt-6">

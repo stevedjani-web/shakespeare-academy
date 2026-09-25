@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import type { Class } from "@/lib/types";
 import { PageTitle } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { useStructure } from "@/components/vie-scolaire/shared";
 import { DayTab } from "@/components/appel/day-tab";
 import { AbsencesTab } from "@/components/appel/absences-tab";
@@ -17,6 +18,7 @@ type Tab = "appel" | "absences";
 // L'appel fonctionne sans Internet : il est gardé sur l'appareil et envoyé au retour du réseau.
 export default function AppelPage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canRead = hasPermission("ATTENDANCE_READ");
   // Un enseignant (ATTENDANCE_TAKE sans ATTENDANCE_READ) ne voit que ses séances : pas d'onglet des absences.
   const canUse = canRead || hasPermission("ATTENDANCE_TAKE");
@@ -36,20 +38,16 @@ export default function AppelPage() {
   if (!canUse) {
     return (
       <div>
-        <PageTitle eyebrow="Vie scolaire">Appel et absences</PageTitle>
-        <p className="text-sm text-ink-muted">Vous n&apos;avez pas la permission de consulter l&apos;assiduité.</p>
+        <PageTitle eyebrow={t("tt.eyebrow")}>{t("tt.roll.title")}</PageTitle>
+        <p className="text-sm text-ink-muted">{t("tt.roll.noPermission")}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <PageTitle
-        eyebrow="Vie scolaire"
-        subtitle="Appel des élèves séance par séance, absences, retards et justificatifs."
-        helpId="appel"
-      >
-        Appel et absences
+      <PageTitle eyebrow={t("tt.eyebrow")} subtitle={t("tt.roll.subtitle")} helpId="appel">
+        {t("tt.roll.title")}
       </PageTitle>
 
       {open ? (
@@ -60,8 +58,8 @@ export default function AppelPage() {
           <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
             {(
               [
-                ["appel", "Appel", ClipboardCheck],
-                ["absences", "Absences et justificatifs", UserX],
+                ["appel", t("tt.roll.tabRoll"), ClipboardCheck],
+                ["absences", t("tt.roll.tabAbsences"), UserX],
               ] as const
             ).map(([key, label, Icon]) => (
               <button

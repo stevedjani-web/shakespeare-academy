@@ -6,6 +6,9 @@
 // cette fiche ne doit jamais déclencher cette lecture en silence.
 import { API_URL } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
 import { formatNote, rankLabel, type StudentBulletinRow } from "@/lib/grades";
 import type { FinancialStatus, StudentAttendanceHistory } from "@/lib/types";
 
@@ -45,15 +48,17 @@ async function loadLogo(logoUrl: string | null): Promise<string | null> {
   }
 }
 
-const FINANCE_LABEL: Record<string, string> = {
-  SOLVABLE: "Solvable",
-  A_ECHOIR: "À échoir",
-  EN_RETARD: "En retard",
-  IMPAYE_CRITIQUE: "Impayé critique",
-  EXONERE: "Exonéré",
+const FINANCE_LABEL: Record<string, MessageKey> = {
+  SOLVABLE: "fin.solvency.SOLVABLE",
+  A_ECHOIR: "fin.solvency.A_ECHOIR",
+  EN_RETARD: "fin.solvency.EN_RETARD",
+  IMPAYE_CRITIQUE: "fin.solvency.IMPAYE_CRITIQUE",
+  EXONERE: "fin.solvency.EXONERE",
 };
 
 export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promise<void> {
+  const t = translate;
+  const numberLocale = INTL_LOCALE[getLocale()];
   const [{ jsPDF }, { default: autoTable }, logo] = await Promise.all([
     import("jspdf"),
     import("jspdf-autotable"),
@@ -90,25 +95,27 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   doc.setTextColor(30, 30, 40);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(`Fiche de synthèse — ${data.eleve.prenom} ${data.eleve.nom}`, pageWidth / 2, 112, { align: "center" });
+  doc.text(t("stu.pdf.title", { name: `${data.eleve.prenom} ${data.eleve.nom}` }), pageWidth / 2, 112, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`Éditée le ${formatDate(new Date().toISOString())} par ${data.editePar}`, pageWidth / 2, 127, { align: "center" });
+  doc.text(t("stu.pdf.edited", { date: formatDate(new Date().toISOString()), by: data.editePar }), pageWidth / 2, 127, {
+    align: "center",
+  });
 
   // Identité.
   let y = 155;
   doc.setFontSize(10);
   const identite: Array<[string, string]> = [
-    ["Matricule", data.eleve.matricule],
-    ["Sexe", data.eleve.sexe === "M" ? "Masculin" : "Féminin"],
-    ["Date de naissance", formatDate(data.eleve.dateNaissance)],
-    ["Lieu de naissance", data.eleve.lieuNaissance ?? "—"],
-    ["Nationalité", data.eleve.nationalite ?? "—"],
-    ["Classe actuelle", data.classe ?? "Aucune inscription active"],
+    [t("stu.pdf.lblNumber"), data.eleve.matricule],
+    [t("stu.pdf.lblSex"), data.eleve.sexe === "M" ? t("stu.sexM") : t("stu.sexF")],
+    [t("stu.pdf.lblBirth"), formatDate(data.eleve.dateNaissance)],
+    [t("stu.pdf.lblBirthPlace"), data.eleve.lieuNaissance ?? "—"],
+    [t("stu.pdf.lblNationality"), data.eleve.nationalite ?? "—"],
+    [t("stu.pdf.lblClass"), data.classe ?? t("stu.pdf.noActiveEnrolment")],
   ];
   for (const [label, value] of identite) {
     doc.setFont("helvetica", "bold");
-    doc.text(`${label} :`, margin, y);
+    doc.text(t("stu.pdf.labelColon", { label }), margin, y);
     doc.setFont("helvetica", "normal");
     doc.text(value, margin + 130, y);
     y += 14;
@@ -119,18 +126,18 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(47, 43, 120);
-  doc.text("Responsables", margin, y);
+  doc.text(t("stu.pdf.guardians"), margin, y);
   doc.setTextColor(30, 30, 40);
   y += 6;
   if (data.responsables.length === 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     y += 12;
-    doc.text("Aucun responsable enregistré.", margin, y);
+    doc.text(t("stu.pdf.noGuardian"), margin, y);
   } else {
     autoTable(doc, {
       startY: y + 6,
-      head: [["Nom", "Lien", "Téléphone"]],
+      head: [[t("stu.pdf.hName"), t("stu.pdf.hLink"), t("stu.pdf.hPhone")]],
       body: data.responsables.map((r) => [
         [r.prenom, r.nom].filter(Boolean).join(" ") || "—",
         r.lien ?? "—",
@@ -149,22 +156,27 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(47, 43, 120);
-  doc.text("Situation financière", margin, y);
+  doc.text(t("stu.pdf.finance"), margin, y);
   doc.setTextColor(30, 30, 40);
   doc.setFontSize(10);
   y += 16;
   if (data.finance) {
     const f = data.finance;
-    const label = FINANCE_LABEL[f.statut] ?? f.statut;
+    const label = FINANCE_LABEL[f.statut] ? t(FINANCE_LABEL[f.statut]) : f.statut;
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Statut : ${label}   ·   Facturé : ${f.montantFacture.toLocaleString("fr-FR")}   ·   Payé : ${f.montantPaye.toLocaleString("fr-FR")}   ·   Restant dû : ${f.montantRestant.toLocaleString("fr-FR")}`,
+      t("stu.pdf.financeLine", {
+        status: label,
+        billed: f.montantFacture.toLocaleString(numberLocale),
+        paid: f.montantPaye.toLocaleString(numberLocale),
+        remaining: f.montantRestant.toLocaleString(numberLocale),
+      }),
       margin,
       y,
     );
   } else {
     doc.setFont("helvetica", "italic");
-    doc.text("Non disponible.", margin, y);
+    doc.text(t("stu.pdf.unavailable"), margin, y);
   }
 
   // Assiduité.
@@ -172,7 +184,7 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(47, 43, 120);
-  doc.text("Assiduité", margin, y);
+  doc.text(t("stu.pdf.attendance"), margin, y);
   doc.setTextColor(30, 30, 40);
   doc.setFontSize(10);
   y += 16;
@@ -180,13 +192,19 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
     const c = data.assiduite.compteurs;
     doc.setFont("helvetica", "normal");
     doc.text(
-      `${c.absences} absence(s), ${c.retards} retard(s) sur ${c.seancesAppelees} séance(s) appelée(s) (dont ${c.excusees} excusée(s), ${c.nonJustifiees} non justifiée(s))`,
+      t("stu.pdf.attLine", {
+        absences: c.absences,
+        lates: c.retards,
+        sessions: c.seancesAppelees,
+        excused: c.excusees,
+        unjustified: c.nonJustifiees,
+      }),
       margin,
       y,
     );
   } else {
     doc.setFont("helvetica", "italic");
-    doc.text("Non disponible.", margin, y);
+    doc.text(t("stu.pdf.unavailable"), margin, y);
   }
 
   // Notes et bulletins.
@@ -194,18 +212,18 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(47, 43, 120);
-  doc.text("Notes et bulletins", margin, y);
+  doc.text(t("stu.pdf.grades"), margin, y);
   doc.setTextColor(30, 30, 40);
   if (data.bulletins && data.bulletins.length > 0) {
     autoTable(doc, {
       startY: y + 8,
-      head: [["Trimestre", "Classe", "Moyenne /20", "Rang", "Statut"]],
+      head: [[t("stu.pdf.hTerm"), t("stu.pdf.hClass"), t("stu.pdf.hAverage"), t("stu.pdf.hRank"), t("stu.pdf.hStatus")]],
       body: data.bulletins.map((b) => [
         b.trimestre,
         b.classe,
         formatNote(b.moyenneGenerale),
         rankLabel(b.rang, b.effectif),
-        b.statut === "PUBLIE" ? "Publié" : "Validé (non publié)",
+        b.statut === "PUBLIE" ? t("stu.pdf.published") : t("stu.pdf.validatedNotPublished"),
       ]),
       theme: "grid",
       styles: { font: "helvetica", fontSize: 9, cellPadding: 4, lineColor: [220, 220, 230] },
@@ -215,10 +233,10 @@ export async function downloadStudentSummaryPdf(data: StudentSummaryData): Promi
   } else {
     doc.setFont("helvetica", "italic");
     doc.setFontSize(10);
-    doc.text("Aucun bulletin pour l'instant.", margin, y + 14);
+    doc.text(t("stu.pdf.noReport"), margin, y + 14);
   }
 
-  const name = `fiche-synthese-${data.eleve.nom}-${data.eleve.prenom}`
+  const name = `${t("stu.pdf.filePrefix")}-${data.eleve.nom}-${data.eleve.prenom}`
     .replace(/[^\p{L}\p{N}_-]+/gu, "-")
     .replace(/-+/g, "-");
   doc.save(`${name}.pdf`);

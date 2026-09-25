@@ -9,31 +9,34 @@ import { KeyRound, ShieldCheck, UserCog, UserPlus, Users } from "lucide-react";
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
 
 function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
 }
 
 function UserDetails({ user }: { user: AppUser }) {
+  const { t, locale } = useI18n();
   return (
     <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <p>
-        <span className="block text-xs text-ink-muted">E-mail</span>
+        <span className="block text-xs text-ink-muted">{t("adm.users.email")}</span>
         <span className="break-all font-medium text-ink">{user.email}</span>
       </p>
       <p>
-        <span className="block text-xs text-ink-muted">Rôle</span>
+        <span className="block text-xs text-ink-muted">{t("adm.users.role")}</span>
         <span className="font-medium text-ink">{user.role.nom}</span>
       </p>
       <p>
-        <span className="block text-xs text-ink-muted">Dernière connexion</span>
+        <span className="block text-xs text-ink-muted">{t("adm.users.lastLogin")}</span>
         <span className="font-medium text-ink">
-          {user.dernierLoginAt ? new Date(user.dernierLoginAt).toLocaleString("fr-FR") : "Jamais"}
+          {user.dernierLoginAt ? new Date(user.dernierLoginAt).toLocaleString(INTL_LOCALE[locale]) : t("adm.users.never")}
         </span>
       </p>
       {user.doitChangerMotDePasse && (
         <p className="flex items-end">
-          <Badge color="orange">Doit changer son mot de passe</Badge>
+          <Badge color="orange">{t("adm.users.mustChange")}</Badge>
         </p>
       )}
     </div>
@@ -42,6 +45,7 @@ function UserDetails({ user }: { user: AppUser }) {
 
 export default function UsersAndRolesPage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   // La Direction gère les comptes (dont ceux qui portent des droits réservés) mais pas les rôles : ROLE_MANAGE.
   const canManageRoles = hasPermission("ROLE_MANAGE");
   const [tab, setTab] = useState<"users" | "roles">("users");
@@ -49,18 +53,18 @@ export default function UsersAndRolesPage() {
   return (
     <div>
       <PageTitle
-        eyebrow="Lot 1"
-        subtitle="Comptes du personnel et permissions par rôle."
+        eyebrow={t("adm.users.eyebrow")}
+        subtitle={t("adm.users.subtitle")}
         helpId="parametres-utilisateurs"
       >
-        Utilisateurs & rôles
+        {t("adm.users.title")}
       </PageTitle>
       {canManageRoles && (
       <div className="mb-6 inline-flex gap-1 rounded-full border border-border bg-surface-muted p-1">
         {(
           [
-            { key: "users", label: "Utilisateurs", icon: UserCog },
-            { key: "roles", label: "Rôles & permissions", icon: ShieldCheck },
+            { key: "users", label: t("adm.users.tabUsers"), icon: UserCog },
+            { key: "roles", label: t("adm.users.tabRoles"), icon: ShieldCheck },
           ] as const
         ).map(({ key, label, icon: Icon }) => (
           <button
@@ -82,6 +86,7 @@ export default function UsersAndRolesPage() {
 }
 
 function UsersTab() {
+  const { t, locale } = useI18n();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", motDePasse: "", roleId: "" });
@@ -109,7 +114,7 @@ function UsersTab() {
       setForm({ nom: "", prenom: "", email: "", motDePasse: "", roleId: form.roleId });
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setSubmitting(false);
     }
@@ -117,21 +122,21 @@ function UsersTab() {
 
   async function handleToggleStatus(user: AppUser) {
     const nextStatus = user.statut === "ACTIF" ? "INACTIF" : "ACTIF";
-    if (nextStatus === "INACTIF" && !confirm(`Désactiver le compte de ${user.prenom} ${user.nom} ?`)) return;
+    if (nextStatus === "INACTIF" && !confirm(t("adm.users.confirmDeactivate", { name: `${user.prenom} ${user.nom}` }))) return;
     await api.patch(`/users/${user.id}`, { statut: nextStatus });
     await load();
   }
 
   async function handleResetPassword(user: AppUser) {
     const nouveauMotDePasse = prompt(
-      `Nouveau mot de passe temporaire pour ${user.prenom} ${user.nom} (8 caractères minimum) :`,
+      t("adm.users.promptPassword", { name: `${user.prenom} ${user.nom}` }),
     );
     if (!nouveauMotDePasse) return;
     try {
       await api.patch(`/users/${user.id}/reset-password`, { nouveauMotDePasse });
-      alert("Mot de passe réinitialisé. Communiquez-le à l'utilisateur ; il devra le changer à sa prochaine connexion.");
+      alert(t("adm.users.resetDone"));
     } catch (err) {
-      alert(isApiError(err) ? err.message : "Une erreur est survenue.");
+      alert(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
@@ -140,18 +145,18 @@ function UsersTab() {
       {users.length > 0 && (
         <div className="mb-3 flex justify-end">
           <ExportButtons
-            fileName="utilisateurs"
-            title="Utilisateurs"
+            fileName={t("adm.users.exportFile")}
+            title={t("adm.users.exportTitle")}
             sections={[
               buildSection(
-                "Utilisateurs",
+                t("adm.users.exportTitle"),
                 [
-                  { header: "Nom", value: (u: AppUser) => u.nom },
-                  { header: "Prénom", value: (u: AppUser) => u.prenom },
-                  { header: "E-mail", value: (u: AppUser) => u.email },
-                  { header: "Rôle", value: (u: AppUser) => u.role.nom },
-                  { header: "Statut", value: (u: AppUser) => (u.statut === "ACTIF" ? "Actif" : "Inactif") },
-                  { header: "Dernière connexion", value: (u: AppUser) => (u.dernierLoginAt ? new Date(u.dernierLoginAt).toLocaleString("fr-FR") : "") },
+                  { header: t("adm.users.colName"), value: (u: AppUser) => u.nom },
+                  { header: t("adm.users.colFirstName"), value: (u: AppUser) => u.prenom },
+                  { header: t("adm.users.email"), value: (u: AppUser) => u.email },
+                  { header: t("adm.users.role"), value: (u: AppUser) => u.role.nom },
+                  { header: t("adm.users.colStatus"), value: (u: AppUser) => (u.statut === "ACTIF" ? t("adm.users.active") : t("adm.users.inactive")) },
+                  { header: t("adm.users.lastLogin"), value: (u: AppUser) => (u.dernierLoginAt ? new Date(u.dernierLoginAt).toLocaleString(INTL_LOCALE[locale]) : "") },
                 ],
                 users,
               ),
@@ -160,7 +165,7 @@ function UsersTab() {
         </div>
       )}
       {users.length === 0 ? (
-        <EmptyState icon={<Users />} title="Aucun utilisateur." description="Créez le premier compte ci-dessous." />
+        <EmptyState icon={<Users />} title={t("adm.users.empty")} description={t("adm.users.emptyDesc")} />
       ) : (
         <>
           <Card className="hidden sm:block">
@@ -169,10 +174,10 @@ function UsersTab() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-ink-muted">
-                    <th className="w-10 py-2 pr-2" aria-label="Détails"></th>
-                    <th className="py-2 pr-4">Nom</th>
-                    <th className="py-2 pr-4">Statut</th>
-                    <th className="py-2 pr-4">Actions</th>
+                    <th className="w-10 py-2 pr-2" aria-label={t("adm.users.details")}></th>
+                    <th className="py-2 pr-4">{t("adm.users.colName")}</th>
+                    <th className="py-2 pr-4">{t("adm.users.colStatus")}</th>
+                    <th className="py-2 pr-4">{t("adm.users.colActions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -196,16 +201,16 @@ function UsersTab() {
                           </td>
                           <td className="py-2.5 pr-4">
                             <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
-                              {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                              {u.statut === "ACTIF" ? t("adm.users.active") : t("adm.users.inactive")}
                             </Badge>
                           </td>
                           <td className="py-2.5 pr-4">
                             <div className="flex flex-wrap gap-2">
                               <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
-                                {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                                {u.statut === "ACTIF" ? t("adm.users.deactivate") : t("adm.users.reactivate")}
                               </Button>
                               <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
-                                <KeyRound size={14} /> Réinitialiser
+                                <KeyRound size={14} /> {t("adm.users.reset")}
                               </Button>
                             </div>
                           </td>
@@ -241,7 +246,7 @@ function UsersTab() {
                       {u.prenom} {u.nom}
                     </p>
                     <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
-                      {u.statut === "ACTIF" ? "Actif" : "Inactif"}
+                      {u.statut === "ACTIF" ? t("adm.users.active") : t("adm.users.inactive")}
                     </Badge>
                   </div>
                   {expanded && (
@@ -249,10 +254,10 @@ function UsersTab() {
                       <UserDetails user={u} />
                       <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
-                          {u.statut === "ACTIF" ? "Désactiver" : "Réactiver"}
+                          {u.statut === "ACTIF" ? t("adm.users.deactivate") : t("adm.users.reactivate")}
                         </Button>
                         <Button variant="secondary" onClick={() => void handleResetPassword(u)}>
-                          <KeyRound size={14} /> Réinitialiser
+                          <KeyRound size={14} /> {t("adm.users.reset")}
                         </Button>
                       </div>
                     </div>
@@ -266,18 +271,18 @@ function UsersTab() {
 
       <Card className="mt-6 max-w-xl">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-          <UserPlus size={16} className="text-primary" /> Créer un utilisateur
+          <UserPlus size={16} className="text-primary" /> {t("adm.users.create")}
         </h2>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Nom">
+            <Field label={t("adm.users.colName")}>
               <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
             </Field>
-            <Field label="Prénom">
+            <Field label={t("adm.users.colFirstName")}>
               <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
             </Field>
           </div>
-          <Field label="E-mail">
+          <Field label={t("adm.users.email")}>
             <Input
               type="email"
               required
@@ -285,7 +290,7 @@ function UsersTab() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </Field>
-          <Field label="Mot de passe temporaire (8 caractères minimum)">
+          <Field label={t("adm.users.tempPassword")}>
             <Input
               type="password"
               required
@@ -294,7 +299,7 @@ function UsersTab() {
               onChange={(e) => setForm({ ...form, motDePasse: e.target.value })}
             />
           </Field>
-          <Field label="Rôle">
+          <Field label={t("adm.users.role")}>
             <Select required value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })}>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -305,7 +310,7 @@ function UsersTab() {
           </Field>
           <ErrorMessage>{error}</ErrorMessage>
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Création…" : "Créer l'utilisateur"}
+            {submitting ? t("adm.users.creating") : t("adm.users.createBtn")}
           </Button>
         </form>
       </Card>
@@ -314,6 +319,7 @@ function UsersTab() {
 }
 
 function RolesTab() {
+  const { t } = useI18n();
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [newRole, setNewRole] = useState({ code: "", nom: "" });
@@ -338,7 +344,7 @@ function RolesTab() {
       setNewRole({ code: "", nom: "" });
       await load();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
@@ -350,7 +356,7 @@ function RolesTab() {
       await api.put(`/roles/${role.id}/permissions`, { permissionCodes: next });
       await load();
     } catch (err) {
-      alert(isApiError(err) ? err.message : "Une erreur est survenue.");
+      alert(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
@@ -368,7 +374,7 @@ function RolesTab() {
                 <h3 className="text-sm font-semibold text-ink">{role.nom}</h3>
                 {role.description && <p className="text-xs text-ink-muted">{role.description}</p>}
               </div>
-              <Badge color="slate">{role.permissions.length} permission(s)</Badge>
+              <Badge color="slate">{t("adm.users.permCount", { n: role.permissions.length })}</Badge>
             </div>
             {expanded && (
               <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
@@ -389,7 +395,7 @@ function RolesTab() {
                     </button>
                   );
                 })}
-                {permissions.length === 0 && <p className="text-xs text-ink-muted">Aucune permission disponible.</p>}
+                {permissions.length === 0 && <p className="text-xs text-ink-muted">{t("adm.users.noPerm")}</p>}
               </div>
             )}
           </Card>
@@ -397,7 +403,7 @@ function RolesTab() {
       })}
 
       <Card className="max-w-lg">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Créer un rôle personnalisé</h2>
+        <h2 className="mb-3 text-sm font-semibold text-ink">{t("adm.users.createRole")}</h2>
         <form onSubmit={handleCreateRole} className="flex flex-wrap gap-2">
           <Input
             placeholder="CODE_ROLE"
@@ -406,12 +412,12 @@ function RolesTab() {
             onChange={(e) => setNewRole({ ...newRole, code: e.target.value.toUpperCase() })}
           />
           <Input
-            placeholder="Nom affiché"
+            placeholder={t("adm.users.displayName")}
             required
             value={newRole.nom}
             onChange={(e) => setNewRole({ ...newRole, nom: e.target.value })}
           />
-          <Button type="submit">Créer</Button>
+          <Button type="submit">{t("adm.users.createRoleBtn")}</Button>
         </form>
         <ErrorMessage>{error}</ErrorMessage>
       </Card>

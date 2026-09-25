@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Badge, Button, Card, ErrorMessage, Input, Select } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
-import type { DisciplineNature, DisciplineType, SanctionType } from "@/lib/discipline";
+import { natureLabel, type DisciplineNature, type DisciplineType, type SanctionType } from "@/lib/discipline";
 
 /**
  * Catalogues de l'école : types d'incident, types de valorisation, types de sanction. Aucun n'est préchargé : le règlement
  * intérieur est celui de l'école. Un type désactivé n'est plus proposé mais reste lisible sur les anciens dossiers.
  */
 export function CataloguesPanel() {
+  const { t } = useI18n();
   const [types, setTypes] = useState<DisciplineType[]>([]);
   const [sanctions, setSanctions] = useState<SanctionType[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -20,8 +22,8 @@ export function CataloguesPanel() {
 
   const load = useCallback(async () => {
     try {
-      const [t, s] = await Promise.all([api.get<DisciplineType[]>("/discipline/types"), api.get<SanctionType[]>("/discipline/sanction-types")]);
-      setTypes(t);
+      const [ty, s] = await Promise.all([api.get<DisciplineType[]>("/discipline/types"), api.get<SanctionType[]>("/discipline/sanction-types")]);
+      setTypes(ty);
       setSanctions(s);
       setError(null);
     } catch (err) {
@@ -47,7 +49,7 @@ export function CataloguesPanel() {
     <div className="grid gap-4 lg:grid-cols-2">
       <ErrorMessage>{error}</ErrorMessage>
       <Card>
-        <h2 className="mb-3 font-display text-base font-semibold text-ink">Types de signalement</h2>
+        <h2 className="mb-3 font-display text-base font-semibold text-ink">{t("acd.disc.cat.reportTypes")}</h2>
         <form
           className="mb-3 flex flex-wrap gap-2"
           onSubmit={(e) => {
@@ -59,33 +61,33 @@ export function CataloguesPanel() {
           }}
         >
           <div className="w-44">
-            <Select value={nature} onChange={(e) => setNature(e.target.value as DisciplineNature)} aria-label="Nature">
-              <option value="INCIDENT">Incident</option>
-              <option value="VALORISATION">Valorisation</option>
+            <Select value={nature} onChange={(e) => setNature(e.target.value as DisciplineNature)} aria-label={t("acd.disc.cat.natureAria")}>
+              <option value="INCIDENT">{t("acd.disc.cat.incident")}</option>
+              <option value="VALORISATION">{t("acd.disc.cat.commendation")}</option>
             </Select>
           </div>
           <div className="min-w-40 flex-1">
-            <Input required minLength={2} maxLength={80} value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex. : Bagarre, Retards répétés, Félicitations" />
+            <Input required minLength={2} maxLength={80} value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t("acd.disc.cat.typePlaceholder")} />
           </div>
-          <Button type="submit">Ajouter</Button>
+          <Button type="submit">{t("acd.disc.cat.add")}</Button>
         </form>
-        {types.length === 0 && <p className="text-sm text-ink-muted">Aucun type défini : ajoutez ceux de votre règlement intérieur.</p>}
+        {types.length === 0 && <p className="text-sm text-ink-muted">{t("acd.disc.cat.noTypes")}</p>}
         <ul className="divide-y divide-border text-sm">
-          {types.map((t) => (
-            <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+          {types.map((ty) => (
+            <li key={ty.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="flex items-center gap-2 text-ink">
-                {t.nom} <Badge color={t.nature === "INCIDENT" ? "red" : "green"}>{t.nature === "INCIDENT" ? "Incident" : "Valorisation"}</Badge>
-                {!t.actif && <Badge color="gray">Désactivé</Badge>}
+                {ty.nom} <Badge color={ty.nature === "INCIDENT" ? "red" : "green"}>{natureLabel(ty.nature)}</Badge>
+                {!ty.actif && <Badge color="gray">{t("acd.disc.cat.disabledM")}</Badge>}
               </span>
-              <Button variant="ghost" onClick={() => void run(() => api.patch(`/discipline/types/${t.id}`, { actif: !t.actif }))}>
-                {t.actif ? "Désactiver" : "Réactiver"}
+              <Button variant="ghost" onClick={() => void run(() => api.patch(`/discipline/types/${ty.id}`, { actif: !ty.actif }))}>
+                {ty.actif ? t("acd.disc.cat.disable") : t("acd.disc.cat.enable")}
               </Button>
             </li>
           ))}
         </ul>
       </Card>
       <Card>
-        <h2 className="mb-3 font-display text-base font-semibold text-ink">Types de sanction</h2>
+        <h2 className="mb-3 font-display text-base font-semibold text-ink">{t("acd.disc.cat.sanctionTypes")}</h2>
         <form
           className="mb-3 flex flex-wrap gap-2"
           onSubmit={(e) => {
@@ -97,19 +99,19 @@ export function CataloguesPanel() {
           }}
         >
           <div className="min-w-40 flex-1">
-            <Input required minLength={2} maxLength={80} value={sanctionNom} onChange={(e) => setSanctionNom(e.target.value)} placeholder="Ex. : Avertissement, Retenue, Exclusion temporaire" />
+            <Input required minLength={2} maxLength={80} value={sanctionNom} onChange={(e) => setSanctionNom(e.target.value)} placeholder={t("acd.disc.cat.sanctionPlaceholder")} />
           </div>
-          <Button type="submit">Ajouter</Button>
+          <Button type="submit">{t("acd.disc.cat.add")}</Button>
         </form>
-        {sanctions.length === 0 && <p className="text-sm text-ink-muted">Aucune sanction définie : ajoutez celles de votre règlement intérieur.</p>}
+        {sanctions.length === 0 && <p className="text-sm text-ink-muted">{t("acd.disc.cat.noSanctions")}</p>}
         <ul className="divide-y divide-border text-sm">
           {sanctions.map((s) => (
             <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="flex items-center gap-2 text-ink">
-                {s.nom} {!s.actif && <Badge color="gray">Désactivée</Badge>}
+                {s.nom} {!s.actif && <Badge color="gray">{t("acd.disc.cat.disabledF")}</Badge>}
               </span>
               <Button variant="ghost" onClick={() => void run(() => api.patch(`/discipline/sanction-types/${s.id}`, { actif: !s.actif }))}>
-                {s.actif ? "Désactiver" : "Réactiver"}
+                {s.actif ? t("acd.disc.cat.disable") : t("acd.disc.cat.enable")}
               </Button>
             </li>
           ))}

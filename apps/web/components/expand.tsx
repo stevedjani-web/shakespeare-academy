@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 /** Ensemble d'identifiants développés, avec les gestes usuels (basculer, tout ouvrir, tout fermer). */
 export function useExpanded(initial: string[] = []) {
@@ -23,12 +24,13 @@ export function useExpanded(initial: string[] = []) {
 
 /** Bouton + / − qui développe une ligne. */
 export function ExpandButton({ open, onClick, label }: { open: boolean; onClick: () => void; label: string }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      aria-label={`${open ? "Réduire" : "Développer"} ${label}`}
+      aria-label={`${open ? t("common.collapse") : t("common.expand")} ${label}`}
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-surface-muted"
     >
       {open ? <Minus size={15} /> : <Plus size={15} />}
@@ -38,15 +40,16 @@ export function ExpandButton({ open, onClick, label }: { open: boolean; onClick:
 
 /** « Tout développer » / « Tout réduire » (affichés seulement s'il y a plusieurs lignes). */
 export function ExpandAll({ count, onOpenAll, onCloseAll }: { count: number; onOpenAll: () => void; onCloseAll: () => void }) {
+  const { t } = useI18n();
   if (count < 2) return null;
   const cls = "rounded-full border border-border bg-surface px-3 py-1.5 font-medium text-ink hover:bg-surface-muted";
   return (
     <div className="mb-3 flex gap-2 text-sm">
       <button type="button" onClick={onOpenAll} className={cls}>
-        Tout développer
+        {t("common.expandAll")}
       </button>
       <button type="button" onClick={onCloseAll} className={cls}>
-        Tout réduire
+        {t("common.collapseAll")}
       </button>
     </div>
   );

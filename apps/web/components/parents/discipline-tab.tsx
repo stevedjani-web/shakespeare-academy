@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { portalApi, describePortalError } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, Spinner } from "@/components/ui";
 import { dateTimeLabel, dayLabel } from "@/lib/discipline";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface View {
   sanctions: Array<{ id: string; type: string; dateDebut: string; dateFin: string | null; message: string | null; retiree: boolean }>;
@@ -16,6 +17,7 @@ interface View {
  * nom de l'enseignant et les autres élèves ne sont jamais affichés ici.
  */
 export function ParentDisciplineTab({ studentId }: { studentId: string }) {
+  const { t } = useI18n();
   const [view, setView] = useState<View | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,11 +51,11 @@ export function ParentDisciplineTab({ studentId }: { studentId: string }) {
   return (
     <div className="space-y-4">
       <ErrorMessage>{error}</ErrorMessage>
-      {empty && <p className="text-sm text-ink-muted">Rien à signaler : aucune sanction, convocation ni valorisation pour le moment.</p>}
+      {empty && <p className="text-sm text-ink-muted">{t("parent.discipline.nothing")}</p>}
 
       {view.convocations.length > 0 && (
         <section>
-          <h2 className="mb-2 font-display text-base font-semibold text-ink">Convocations</h2>
+          <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.discipline.summons")}</h2>
           <div className="space-y-2">
             {view.convocations.map((c) => (
               <Card key={c.id}>
@@ -63,11 +65,17 @@ export function ParentDisciplineTab({ studentId }: { studentId: string }) {
                     <p className="text-sm text-ink">{c.lieu}</p>
                     <p className="text-sm text-ink-muted">{c.objet}</p>
                   </div>
-                  {c.annulee ? <Badge color="gray">Annulée</Badge> : c.accuseLe ? <Badge color="green">Vous avez pris connaissance</Badge> : <Badge color="orange">À lire</Badge>}
+                  {c.annulee ? (
+                    <Badge color="gray">{t("parent.discipline.cancelled")}</Badge>
+                  ) : c.accuseLe ? (
+                    <Badge color="green">{t("parent.discipline.acknowledged")}</Badge>
+                  ) : (
+                    <Badge color="orange">{t("parent.discipline.toRead")}</Badge>
+                  )}
                 </div>
                 {!c.annulee && !c.accuseLe && (
                   <Button className="mt-3" onClick={() => void acknowledge(c.id)}>
-                    J&apos;ai pris connaissance
+                    {t("parent.discipline.acknowledge")}
                   </Button>
                 )}
               </Card>
@@ -78,7 +86,7 @@ export function ParentDisciplineTab({ studentId }: { studentId: string }) {
 
       {view.sanctions.length > 0 && (
         <section>
-          <h2 className="mb-2 font-display text-base font-semibold text-ink">Sanctions</h2>
+          <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.discipline.sanctions")}</h2>
           <div className="space-y-2">
             {view.sanctions.map((s) => (
               <Card key={s.id}>
@@ -86,12 +94,12 @@ export function ParentDisciplineTab({ studentId }: { studentId: string }) {
                   <div>
                     <p className="font-medium text-ink">{s.type}</p>
                     <p className="text-sm text-ink">
-                      Du {dayLabel(s.dateDebut)}
-                      {s.dateFin ? ` au ${dayLabel(s.dateFin)}` : ""}
+                      {t("parent.discipline.from", { date: dayLabel(s.dateDebut) })}
+                      {s.dateFin ? t("parent.discipline.until", { date: dayLabel(s.dateFin) }) : ""}
                     </p>
                     {s.message && <p className="mt-1 text-sm text-ink-muted">{s.message}</p>}
                   </div>
-                  {s.retiree && <Badge color="gray">Retirée par l&apos;école</Badge>}
+                  {s.retiree && <Badge color="gray">{t("parent.discipline.withdrawn")}</Badge>}
                 </div>
               </Card>
             ))}
@@ -101,7 +109,7 @@ export function ParentDisciplineTab({ studentId }: { studentId: string }) {
 
       {view.valorisations.length > 0 && (
         <section>
-          <h2 className="mb-2 font-display text-base font-semibold text-ink">Points positifs</h2>
+          <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.discipline.positives")}</h2>
           <ul className="space-y-1.5 text-sm">
             {view.valorisations.map((v) => (
               <li key={v.id} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">

@@ -24,6 +24,7 @@ export interface LoginResult {
     email: string;
     roleCode: string;
     doitChangerMotDePasse: boolean;
+    langue: string | null;
   };
 }
 
@@ -99,6 +100,7 @@ export class AuthService {
         email: user.email,
         roleCode: user.role.code,
         doitChangerMotDePasse: user.doitChangerMotDePasse,
+        langue: user.langue,
       },
     };
   }
@@ -156,6 +158,10 @@ export class AuthService {
       where: { id: userId },
       data: { motDePasseHash, doitChangerMotDePasse: false },
     });
+  }
+
+  async setLanguage(userId: string, langue: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { langue } });
   }
 
   async hashPassword(motDePasse: string): Promise<string> {

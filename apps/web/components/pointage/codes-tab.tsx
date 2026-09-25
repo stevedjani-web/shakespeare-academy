@@ -6,6 +6,7 @@ import { Download, QrCode } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PointageCodeRow } from "@/lib/types";
 import { Button, Card, EmptyState, ErrorMessage, Field, Input, SuccessMessage } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError, TAB_HINT } from "@/components/vie-scolaire/shared";
 
 interface Settings {
@@ -18,6 +19,7 @@ const qrUrl = (token: string) => `${window.location.origin}/pointage?c=${token}`
 
 /** QR codes de pointage (une salle, l'entrée de l'école) à imprimer, et règles de pointage. */
 export function PointageCodesTab() {
+  const { t } = useI18n();
   const [codes, setCodes] = useState<PointageCodeRow[]>([]);
   const [images, setImages] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -64,19 +66,14 @@ export function PointageCodesTab() {
       doc.setFontSize(28);
       doc.text(c.nom, 105, 40, { align: "center" });
       doc.setFontSize(13);
-      doc.text(
-        c.type === "ENTREE" ? "Scannez ce code à votre arrivée et à votre départ." : "Scannez ce code au début et à la fin de votre cours.",
-        105,
-        52,
-        { align: "center" },
-      );
+      doc.text(c.type === "ENTREE" ? t("tt.qr.pdfEntrance") : t("tt.qr.pdfRoom"), 105, 52, { align: "center" });
       doc.addImage(images[c.token!], "PNG", 40, 65, 130, 130);
       doc.setFontSize(11);
-      doc.text("Code à saisir si la caméra est indisponible :", 105, 210, { align: "center" });
+      doc.text(t("tt.qr.pdfFallback"), 105, 210, { align: "center" });
       doc.setFontSize(14);
       doc.text(c.token!, 105, 220, { align: "center" });
     });
-    doc.save("qr-codes-pointage.pdf");
+    doc.save(t("tt.qr.pdfFile"));
   }
 
   const missing = codes.filter((c) => !c.token).length;
@@ -92,21 +89,22 @@ export function PointageCodesTab() {
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
 
       <Card>
-        <h2 className="font-display text-lg font-semibold text-ink">QR codes à imprimer</h2>
-        <p className={`mb-3 ${TAB_HINT}`}>
-          Un QR par salle (enseignants qui pointent à chaque cours) et un pour l&apos;entrée de l&apos;école (arrivée et départ). Affichez-les dans la salle ou à
-          l&apos;entrée. Si un QR est photographié ou abîmé, régénérez-le : l&apos;ancien cesse de fonctionner immédiatement.
-        </p>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("tt.qr.title")}</h2>
+        <p className={`mb-3 ${TAB_HINT}`}>{t("tt.qr.hint")}</p>
         <div className="mb-4 flex flex-wrap gap-2">
-          {missing > 0 && <Button onClick={() => void run(() => api.post("/pointage-codes/generate", {}), "QR codes générés.")}>Générer les QR manquants ({missing})</Button>}
+          {missing > 0 && (
+            <Button onClick={() => void run(() => api.post("/pointage-codes/generate", {}), t("tt.qr.generated"))}>
+              {t("tt.qr.generateMissing", { count: missing })}
+            </Button>
+          )}
           {codes.some((c) => c.token) && (
             <Button variant="secondary" onClick={() => void downloadPdf()}>
-              <Download size={16} /> Télécharger tous les QR (PDF)
+              <Download size={16} /> {t("tt.qr.downloadAll")}
             </Button>
           )}
         </div>
         {codes.length <= 1 && !codes.some((c) => c.token) && (
-          <EmptyState icon={<QrCode />} title="Aucun QR code." description="Générez-les : un pour l'entrée et un par salle active." />
+          <EmptyState icon={<QrCode />} title={t("tt.qr.emptyTitle")} description={t("tt.qr.emptyDesc")} />
         )}
         <ul className="grid gap-3 sm:grid-cols-2">
           {codes.map((c) => (
@@ -115,22 +113,22 @@ export function PointageCodesTab() {
               {c.token ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={images[c.token]} alt={`QR de pointage : ${c.nom}`} className="mx-auto my-2 h-44 w-44" />
+                  <img src={images[c.token]} alt={t("tt.qr.alt", { name: c.nom })} className="mx-auto my-2 h-44 w-44" />
                   <p className="break-all text-center font-mono text-xs text-ink-muted">{c.token}</p>
                   <Button
                     className="mt-2"
                     variant="secondary"
                     onClick={() => {
-                      if (confirm(`Régénérer le QR « ${c.nom} » ? L'ancien QR affiché ne fonctionnera plus.`)) {
-                        void run(() => api.post("/pointage-codes/rotate", { roomId: c.roomId ?? undefined }), "QR régénéré : imprimez le nouveau.");
+                      if (confirm(t("tt.qr.confirmRotate", { name: c.nom }))) {
+                        void run(() => api.post("/pointage-codes/rotate", { roomId: c.roomId ?? undefined }), t("tt.qr.rotated"));
                       }
                     }}
                   >
-                    Régénérer
+                    {t("tt.qr.rotate")}
                   </Button>
                 </>
               ) : (
-                <p className="mt-2 text-sm text-ink-muted">Pas encore généré.</p>
+                <p className="mt-2 text-sm text-ink-muted">{t("tt.qr.notGenerated")}</p>
               )}
             </li>
           ))}
@@ -138,16 +136,16 @@ export function PointageCodesTab() {
       </Card>
 
       <Card>
-        <h2 className="font-display text-lg font-semibold text-ink">Règles de pointage</h2>
-        <p className={`mb-3 ${TAB_HINT}`}>Valeurs de départ provisoires, à confirmer ou à changer par la Direction.</p>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("tt.qr.rulesTitle")}</h2>
+        <p className={`mb-3 ${TAB_HINT}`}>{t("tt.qr.rulesHint")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Le début d'un cours peut être pointé jusqu'à (minutes avant l'heure)">
+          <Field label={t("tt.qr.windowField")}>
             <Input type="number" min={0} max={120} value={form.fenetre} onChange={(e) => setForm({ ...form, fenetre: e.target.value })} />
           </Field>
-          <Field label="Retard signalé au-delà de (minutes)">
+          <Field label={t("tt.qr.toleranceField")}>
             <Input type="number" min={0} max={120} value={form.tolerance} onChange={(e) => setForm({ ...form, tolerance: e.target.value })} />
           </Field>
-          <Field label="Délai minimal entre deux scans (minutes)">
+          <Field label={t("tt.qr.gapField")}>
             <Input type="number" min={1} max={60} value={form.ecart} onChange={(e) => setForm({ ...form, ecart: e.target.value })} />
           </Field>
         </div>
@@ -162,11 +160,11 @@ export function PointageCodesTab() {
                   pointageToleranceMinutes: Number(form.tolerance),
                   pointageEcartMinMinutes: Number(form.ecart),
                 }),
-              "Règles enregistrées.",
+              t("tt.qr.rulesSaved"),
             )
           }
         >
-          Enregistrer les règles
+          {t("tt.qr.saveRules")}
         </Button>
       </Card>
     </div>

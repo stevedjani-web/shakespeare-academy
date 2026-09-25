@@ -5,7 +5,8 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Lock, RotateCcw, Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
-import { formatNote, PERIOD_LABEL, rankLabel, type BulletinListItem, type GradeContext, type PeriodInfo } from "@/lib/grades";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { formatNote, periodLabel, rankLabel, type BulletinListItem, type GradeContext, type PeriodInfo } from "@/lib/grades";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select, Spinner, SuccessMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 
@@ -16,6 +17,7 @@ interface BulletinList {
 
 /** La Direction valide (fige) les bulletins d'un trimestre pour une classe, les publie aux parents, ou les rouvre. */
 export function BulletinsTab({ context }: { context: GradeContext }) {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canValidate = hasPermission("BULLETIN_VALIDATE");
   const [termId, setTermId] = useState(context.trimestres[0]?.id ?? "");
@@ -51,10 +53,10 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
       await api.post(`/grades/period/${action}`, { termId, classId, ...(action === "reopen" ? { motif: motif.trim() } : {}) });
       setNotice(
         action === "validate"
-          ? "Bulletins validés : les notes sont figées."
+          ? t("acd.bulletins.noticeValidated")
           : action === "publish"
-            ? "Bulletins publiés : les responsables sont prévenus."
-            : "Trimestre rouvert : les enseignants peuvent de nouveau saisir.",
+            ? t("acd.bulletins.noticePublished")
+            : t("acd.bulletins.noticeReopened"),
       );
       if (action === "reopen") setMotif("");
       await load();
@@ -77,23 +79,23 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
   }
 
   if (context.trimestres.length === 0 || context.classes.length === 0) {
-    return <EmptyState title="Rien à afficher" description="Il faut un trimestre et une classe pour gérer des bulletins." />;
+    return <EmptyState title={t("acd.grades.nothingToShow")} description={t("acd.bulletins.emptyDesc")} />;
   }
   const p = data?.periode;
   return (
     <div className="space-y-4">
       <Card>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Trimestre">
+          <Field label={t("acd.grades.term")}>
             <Select value={termId} onChange={(e) => setTermId(e.target.value)}>
-              {context.trimestres.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.libelle}
+              {context.trimestres.map((term) => (
+                <option key={term.id} value={term.id}>
+                  {term.libelle}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Classe">
+          <Field label={t("acd.grades.class")}>
             <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
               {context.classes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -113,9 +115,11 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Badge color={p.statut === "OUVERT" ? "blue" : p.statut === "VALIDE" ? "orange" : "green"}>{PERIOD_LABEL[p.statut]}</Badge>
+              <Badge color={p.statut === "OUVERT" ? "blue" : p.statut === "VALIDE" ? "orange" : "green"}>{periodLabel(p.statut)}</Badge>
               <span className="text-sm text-ink-muted">
-                {p.evaluations} évaluation(s){p.evaluationsSansNote > 0 ? `, dont ${p.evaluationsSansNote} sans aucune note` : ""}
+                {p.evaluationsSansNote > 0
+                  ? t("acd.bulletins.evalCountWithout", { n: p.evaluations, m: p.evaluationsSansNote })
+                  : t("acd.bulletins.evalCount", { n: p.evaluations })}
               </span>
             </div>
           </div>
@@ -123,14 +127,16 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
           {p.statut === "OUVERT" && p.matieresSansEvaluation.length > 0 && (
             <p className="mt-3 flex items-start gap-2 text-sm text-ink-muted">
               <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
-              Sans évaluation ce trimestre : {p.matieresSansEvaluation.join(", ")}. Ces matières n&apos;entreront pas dans la moyenne.
+              {t("acd.bulletins.noEvalSubjects", { subjects: p.matieresSansEvaluation.join(", ") })}
             </p>
           )}
-          {p.rouvertMotif && p.statut === "OUVERT" && <p className="mt-2 text-sm text-ink-muted">Rouvert : {p.rouvertMotif}</p>}
+          {p.rouvertMotif && p.statut === "OUVERT" && (
+            <p className="mt-2 text-sm text-ink-muted">{t("acd.bulletins.reopenedReason", { reason: p.rouvertMotif })}</p>
+          )}
           {p.correctionsDepuisValidation > 0 && p.statut === "VALIDE" && (
             <p className="mt-3 flex items-start gap-2 text-sm text-danger">
               <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-              {p.correctionsDepuisValidation} note(s) ont été corrigées depuis la validation : validez de nouveau pour que les bulletins en tiennent compte.
+              {t("acd.bulletins.corrected", { n: p.correctionsDepuisValidation })}
             </p>
           )}
 
@@ -138,23 +144,23 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
             <div className="mt-4 flex flex-wrap items-end gap-2">
               {p.statut !== "PUBLIE" && (
                 <Button onClick={() => run("validate")} disabled={busy || p.evaluations === 0}>
-                  {busy ? <Spinner /> : <Lock size={15} />} {p.statut === "VALIDE" ? "Valider de nouveau" : "Valider et figer"}
+                  {busy ? <Spinner /> : <Lock size={15} />} {p.statut === "VALIDE" ? t("acd.bulletins.validateAgain") : t("acd.bulletins.validate")}
                 </Button>
               )}
               {p.statut === "VALIDE" && (
                 <Button variant="accent" onClick={() => run("publish")} disabled={busy || p.correctionsDepuisValidation > 0}>
-                  <Send size={15} /> Publier aux parents
+                  <Send size={15} /> {t("acd.bulletins.publish")}
                 </Button>
               )}
               {p.statut !== "OUVERT" && (
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="w-64">
-                    <Field label="Motif pour rouvrir">
-                      <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Ex. un devoir a été oublié" maxLength={500} />
+                    <Field label={t("acd.bulletins.reopenReason")}>
+                      <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("acd.bulletins.reopenPlaceholder")} maxLength={500} />
                     </Field>
                   </div>
                   <Button variant="secondary" onClick={() => run("reopen")} disabled={busy || motif.trim().length < 3}>
-                    <RotateCcw size={15} /> Rouvrir
+                    <RotateCcw size={15} /> {t("acd.bulletins.reopen")}
                   </Button>
                 </div>
               )}
@@ -163,12 +169,7 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
         </Card>
       )}
 
-      {data && p && p.statut === "OUVERT" && (
-        <EmptyState
-          title="Aucun bulletin pour l'instant"
-          description="Les bulletins sont créés quand la Direction valide le trimestre. Tant qu'il est ouvert, les enseignants saisissent leurs notes."
-        />
-      )}
+      {data && p && p.statut === "OUVERT" && <EmptyState title={t("acd.bulletins.noneTitle")} description={t("acd.bulletins.noneDesc")} />}
 
       {data && data.bulletins.length > 0 && (
         <ul className="space-y-2">
@@ -180,31 +181,31 @@ export function BulletinsTab({ context }: { context: GradeContext }) {
                     {b.nom} {b.prenom}
                   </p>
                   <p className="text-xs text-ink-muted">
-                    {b.matricule} · moyenne {formatNote(b.moyenneGenerale)} · rang {rankLabel(b.rang, b.effectif)}
+                    {t("acd.bulletins.rowMeta", { id: b.matricule, avg: formatNote(b.moyenneGenerale), rank: rankLabel(b.rang, b.effectif) })}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {b.appreciationGenerale && <CheckCircle2 size={15} className="text-success" aria-label="Appréciation saisie" />}
+                  {b.appreciationGenerale && <CheckCircle2 size={15} className="text-success" aria-label={t("acd.bulletins.commentEntered")} />}
                   {canValidate && p?.statut === "VALIDE" && (
                     <Button variant="ghost" onClick={() => setEditing({ id: b.id, texte: b.appreciationGenerale ?? "" })}>
-                      Appréciation
+                      {t("acd.bulletins.comment")}
                     </Button>
                   )}
                   <Link href={`/bulletins/${b.id}`} className="rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-ink hover:bg-surface-muted">
-                    Voir / imprimer
+                    {t("acd.bulletins.viewPrint")}
                   </Link>
                 </div>
               </div>
               {editing?.id === b.id && (
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   <div className="min-w-64 flex-1">
-                    <Field label="Appréciation générale">
+                    <Field label={t("acd.bulletins.overallComment")}>
                       <Input value={editing.texte} onChange={(e) => setEditing({ id: b.id, texte: e.target.value })} maxLength={1000} />
                     </Field>
                   </div>
-                  <Button onClick={saveAppreciation}>Enregistrer</Button>
+                  <Button onClick={saveAppreciation}>{t("acd.bulletins.save")}</Button>
                   <Button variant="ghost" onClick={() => setEditing(null)}>
-                    Annuler
+                    {t("acd.bulletins.cancel")}
                   </Button>
                 </div>
               )}

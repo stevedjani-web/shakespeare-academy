@@ -15,6 +15,7 @@ import type { Request, Response } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
 import { ParentAuthService, type ParentSession } from './parent-auth.service';
 import { ParentPortalService } from './parent-portal.service';
+import { pick, SetLanguageDto } from '../common/language';
 import { ParentAuthGuard, type ParentIdentity } from './parent-auth.guard';
 import { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
 import {
@@ -80,7 +81,13 @@ export class ParentAuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const raw = req.cookies?.[REFRESH_COOKIE] as string | undefined;
-    if (!raw) throw new UnauthorizedException('Aucune session à renouveler.');
+    if (!raw)
+      throw new UnauthorizedException(
+        pick({
+          fr: 'Aucune session à renouveler.',
+          en: 'No session to renew.',
+        }),
+      );
     const result = await this.auth.refresh(raw);
     setRefreshCookie(res, result.refreshToken, result.refreshTokenExpiresAt);
     return { accessToken: result.accessToken };
@@ -108,6 +115,12 @@ export class ParentPortalController {
   @Get('me')
   me(@Req() req: ParentRequest) {
     return this.portal.me(req.parent.guardianId);
+  }
+
+  @Patch('language')
+  async setLanguage(@Req() req: ParentRequest, @Body() dto: SetLanguageDto) {
+    await this.auth.setLanguage(req.parent.accountId, dto.langue);
+    return { langue: dto.langue };
   }
 
   @Patch('change-password')

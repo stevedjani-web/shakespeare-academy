@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { pick } from '../common/language';
 import {
   cleanText,
   excerpt,
@@ -25,7 +26,9 @@ export interface Actor {
   prenom: string;
 }
 
-const SCHOOL_LABEL = "L'école";
+// Libellés vus par le responsable et par le personnel : dans la langue de la requête.
+const SCHOOL_LABELS = { fr: "L'école", en: 'The school' };
+const schoolLabel = () => pick(SCHOOL_LABELS);
 const THREAD_MESSAGES_LIMIT = 300;
 // Bandeau d'alerte de l'espace parents : au plus trois messages, cent caractères chacun.
 const PREVIEW_MAX_MESSAGES = 3;
@@ -35,7 +38,9 @@ const PREVIEW_EXCERPT_LENGTH = 100;
 // un compte du personnel, User, toujours renseigné) : repli sur « Responsable » si aucun n'est saisi.
 const fullName = (p: { prenom: string | null; nom: string | null }) => {
   const parts = [p.prenom, p.nom].filter((v): v is string => !!v?.trim());
-  return parts.length > 0 ? parts.join(' ') : 'Responsable';
+  return parts.length > 0
+    ? parts.join(' ')
+    : pick({ fr: 'Responsable', en: 'Guardian' });
 };
 
 /**
@@ -90,13 +95,21 @@ export class MessagingService {
   private async validText(raw: string): Promise<string> {
     const texte = cleanText(raw);
     if (!texte)
-      throw new BadRequestException('Le message ne peut pas être vide.');
+      throw new BadRequestException(
+        pick({
+          fr: 'Le message ne peut pas être vide.',
+          en: 'The message cannot be empty.',
+        }),
+      );
     const school = await this.prisma.school.findFirstOrThrow({
       select: { messageNumeroMinChiffres: true },
     });
     if (looksLikePhoneNumber(texte, school.messageNumeroMinChiffres)) {
       throw new UnprocessableEntityException(
-        "Ce message contient ce qui ressemble à un numéro de téléphone. Les numéros personnels ne s'échangent pas dans la messagerie : écrivez votre demande, l'école ou l'enseignant vous répondra ici.",
+        pick({
+          fr: "Ce message contient ce qui ressemble à un numéro de téléphone. Les numéros personnels ne s'échangent pas dans la messagerie : écrivez votre demande, l'école ou l'enseignant vous répondra ici.",
+          en: 'This message contains what looks like a phone number. Personal numbers are not shared in messaging: write your request and the school or teacher will reply here.',
+        }),
       );
     }
     return texte;
@@ -171,11 +184,17 @@ export class MessagingService {
     });
     if (!link)
       throw new NotFoundException(
-        'Ce responsable n’est pas rattaché à cet élève.',
+        pick({
+          fr: 'Ce responsable n’est pas rattaché à cet élève.',
+          en: 'This guardian is not linked to this student.',
+        }),
       );
     if (!link.accesPortail || link.guardian.parentAccount?.statut !== 'ACTIF') {
       throw new UnprocessableEntityException(
-        "Ce responsable n'a pas de compte actif ou n'a pas accès à cet élève : il ne pourrait pas lire votre message.",
+        pick({
+          fr: "Ce responsable n'a pas de compte actif ou n'a pas accès à cet élève : il ne pourrait pas lire votre message.",
+          en: 'This guardian has no active account or no access to this student: they would not be able to read your message.',
+        }),
       );
     }
     return link;
@@ -187,7 +206,9 @@ export class MessagingService {
     });
     // « Introuvable » plutôt que « interdit » : on ne confirme pas l'existence d'un élève d'une autre famille.
     if (!link || !link.accesPortail)
-      throw new NotFoundException('Élève introuvable.');
+      throw new NotFoundException(
+        pick({ fr: 'Élève introuvable.', en: 'Student not found.' }),
+      );
   }
 
   private async addMessage(
@@ -247,15 +268,15 @@ export class MessagingService {
       const author =
         m.auteur === 'PARENT'
           ? mine
-            ? 'Vous'
+            ? pick({ fr: 'Vous', en: 'You' })
             : ctx.guardianName
           : ctx.ecole && viewer === 'PARENT'
-            ? SCHOOL_LABEL
+            ? schoolLabel()
             : mine
-              ? 'Vous'
+              ? pick({ fr: 'Vous', en: 'You' })
               : m.auteurUser
                 ? fullName(m.auteurUser)
-                : SCHOOL_LABEL;
+                : schoolLabel();
       const reportedByMe = m.reports.some((r) =>
         viewer === 'PARENT'
           ? r.signaleParGuardianId === ctx.myGuardianId
@@ -364,7 +385,10 @@ export class MessagingService {
   private assertParentPriority(priorite?: MessagePriority) {
     if (priorite === 'URGENTE') {
       throw new UnprocessableEntityException(
-        "Un message ne peut pas être marqué urgent depuis l'espace parents. Pour une urgence immédiate (santé, sécurité), appelez l'école.",
+        pick({
+          fr: "Un message ne peut pas être marqué urgent depuis l'espace parents. Pour une urgence immédiate (santé, sécurité), appelez l'école.",
+          en: 'A message cannot be marked urgent from the parents area. For an immediate emergency (health, safety), call the school.',
+        }),
       );
     }
   }
@@ -418,7 +442,7 @@ export class MessagingService {
           enfant: t.student,
           interlocuteur:
             t.type === 'ECOLE'
-              ? SCHOOL_LABEL
+              ? schoolLabel()
               : fullName(t.staffUser as { prenom: string; nom: string }),
           nonLus: unread,
           prioriteNonLus,
@@ -495,7 +519,7 @@ export class MessagingService {
           enfant: thread.student,
           expediteur:
             thread.type === 'ECOLE'
-              ? SCHOOL_LABEL
+              ? schoolLabel()
               : fullName(thread.staffUser as { prenom: string; nom: string }),
           extrait: excerpt(m.texte, PREVIEW_EXCERPT_LENGTH),
           priorite: m.priorite,
@@ -525,7 +549,12 @@ export class MessagingService {
       },
     });
     if (!thread || thread.guardianId !== guardianId)
-      throw new NotFoundException('Conversation introuvable.');
+      throw new NotFoundException(
+        pick({
+          fr: 'Conversation introuvable.',
+          en: 'Conversation not found.',
+        }),
+      );
     await this.assertParentChild(guardianId, thread.studentId);
     return thread;
   }
@@ -558,7 +587,7 @@ export class MessagingService {
       enfant: thread.student,
       interlocuteur:
         thread.type === 'ECOLE'
-          ? SCHOOL_LABEL
+          ? schoolLabel()
           : fullName(thread.staffUser as { prenom: string; nom: string }),
       peutRepondre: canReply,
       delaiReponseJours: school.messageDelaiReponseJours,
@@ -584,7 +613,10 @@ export class MessagingService {
     await this.assertParentChild(guardianId, dto.studentId);
     if (Boolean(dto.teacherId) === Boolean(dto.ecole)) {
       throw new BadRequestException(
-        "Choisissez un enseignant de la classe, ou l'école (l'un des deux).",
+        pick({
+          fr: "Choisissez un enseignant de la classe, ou l'école (l'un des deux).",
+          en: 'Choose a teacher from the class, or the school (one or the other).',
+        }),
       );
     }
     let staffUserId: string | null = null;
@@ -597,7 +629,10 @@ export class MessagingService {
       // RV09 : un enseignant qui n'est pas affecté à la classe de l'enfant ne peut pas être joint.
       if (!teacher)
         throw new ForbiddenException(
-          "Cet enseignant n'est pas affecté à la classe de votre enfant.",
+          pick({
+            fr: "Cet enseignant n'est pas affecté à la classe de votre enfant.",
+            en: "This teacher is not assigned to your child's class.",
+          }),
         );
       staffUserId = teacher.userId;
     }
@@ -645,7 +680,10 @@ export class MessagingService {
         : false;
       if (!reachable) {
         throw new UnprocessableEntityException(
-          "Cet enseignant n'est plus affecté à la classe de votre enfant. Écrivez à l'école.",
+          pick({
+            fr: "Cet enseignant n'est plus affecté à la classe de votre enfant. Écrivez à l'école.",
+            en: "This teacher is no longer assigned to your child's class. Write to the school.",
+          }),
         );
       }
     }
@@ -659,11 +697,16 @@ export class MessagingService {
       include: { thread: true },
     });
     if (!message || message.thread.guardianId !== guardianId)
-      throw new NotFoundException('Message introuvable.');
+      throw new NotFoundException(
+        pick({ fr: 'Message introuvable.', en: 'Message not found.' }),
+      );
     await this.assertParentChild(guardianId, message.thread.studentId);
     if (message.auteur === 'PARENT')
       throw new UnprocessableEntityException(
-        'Vous ne pouvez signaler que les messages reçus.',
+        pick({
+          fr: 'Vous ne pouvez signaler que les messages reçus.',
+          en: 'You can only report messages you have received.',
+        }),
       );
     return this.createReport(messageId, { type: 'PARENT', guardianId }, motif);
   }
@@ -721,7 +764,12 @@ export class MessagingService {
         })
       : null;
     if (!teacher || teacher.statut !== 'ACTIF' || !assigned) {
-      throw new ForbiddenException("Vous n'êtes pas affecté à cette classe.");
+      throw new ForbiddenException(
+        pick({
+          fr: "Vous n'êtes pas affecté à cette classe.",
+          en: 'You are not assigned to this class.',
+        }),
+      );
     }
   }
 
@@ -864,7 +912,12 @@ export class MessagingService {
         ? thread.staffUserId === actor.id
         : this.isDesk(actor) || thread.staffUserId === actor.id);
     if (!thread || !allowed)
-      throw new NotFoundException('Conversation introuvable.');
+      throw new NotFoundException(
+        pick({
+          fr: 'Conversation introuvable.',
+          en: 'Conversation not found.',
+        }),
+      );
     return thread;
   }
 
@@ -919,6 +972,73 @@ export class MessagingService {
     };
   }
 
+  /**
+   * Lot 22 : ce dont l'assistant de rédaction a besoin pour une conversation. Mêmes règles d'accès que pour répondre à
+   * la main (conversation du personnel connecté, enseignant encore affecté à la classe, responsable joignable) : ce que
+   * l'assistant ne pourrait pas envoyer, il ne le propose pas. Ne renvoie jamais un nom, un numéro ni un e-mail de parent.
+   */
+  async assistantThreadContext(actor: Actor, threadId: string) {
+    const thread = await this.staffThreadOrThrow(actor, threadId);
+    const [recent, link] = await Promise.all([
+      this.prisma.message.findMany({
+        where: { threadId, retireAt: null },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+      }),
+      this.prisma.studentGuardian.findUnique({
+        where: {
+          studentId_guardianId: {
+            studentId: thread.studentId,
+            guardianId: thread.guardianId,
+          },
+        },
+        include: {
+          guardian: {
+            include: {
+              parentAccount: { select: { statut: true, langue: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    const parentReachable = Boolean(
+      link?.accesPortail && link.guardian.parentAccount?.statut === 'ACTIF',
+    );
+    const teacherOk =
+      thread.type === 'ECOLE' ||
+      (await this.teacherCanReach(actor.id, thread.studentId));
+    if (!parentReachable || !teacherOk) {
+      throw new UnprocessableEntityException(
+        pick({
+          fr: 'Cette conversation ne permet plus de répondre.',
+          en: 'This conversation no longer allows replies.',
+        }),
+      );
+    }
+    const messages = recent.reverse();
+    const last = messages[messages.length - 1];
+    if (!last || last.auteur !== 'PARENT') {
+      throw new UnprocessableEntityException(
+        pick({
+          fr: "Il n'y a aucun message du parent à qui répondre.",
+          en: 'There is no message from the parent to reply to.',
+        }),
+      );
+    }
+    const langue = link?.guardian.parentAccount?.langue;
+    const parentLanguage: 'fr' | 'en' = langue === 'en' ? 'en' : 'fr';
+    return {
+      threadId: thread.id,
+      studentId: thread.studentId,
+      studentFirstName: thread.student.prenom,
+      parentLanguage,
+      messages: messages.map((m) => ({
+        auteur: m.auteur,
+        texte: m.texte,
+      })),
+    };
+  }
+
   async staffCreateThread(
     actor: Actor,
     dto: {
@@ -933,7 +1053,10 @@ export class MessagingService {
     if (!desk && !(await this.teacherCanReach(actor.id, dto.studentId))) {
       // RV09 : un enseignant n'écrit qu'aux responsables des élèves de sa classe.
       throw new ForbiddenException(
-        "Vous n'êtes pas affecté à la classe de cet élève : vous ne pouvez pas écrire à son responsable.",
+        pick({
+          fr: "Vous n'êtes pas affecté à la classe de cet élève : vous ne pouvez pas écrire à son responsable.",
+          en: "You are not assigned to this student's class: you cannot write to their guardian.",
+        }),
       );
     }
     await this.validText(dto.texte);
@@ -982,7 +1105,7 @@ export class MessagingService {
     await this.notifications.notifyMessage(
       dto.studentId,
       dto.guardianId,
-      desk ? SCHOOL_LABEL : fullName(actor),
+      desk ? SCHOOL_LABELS : fullName(actor),
       dto.priorite === 'URGENTE',
     );
     return this.staffThread(actor, thread.id);
@@ -1000,7 +1123,10 @@ export class MessagingService {
       !(await this.teacherCanReach(actor.id, thread.studentId))
     ) {
       throw new ForbiddenException(
-        "Vous n'êtes plus affecté à la classe de cet élève : vous ne pouvez plus écrire à son responsable.",
+        pick({
+          fr: "Vous n'êtes plus affecté à la classe de cet élève : vous ne pouvez plus écrire à son responsable.",
+          en: "You are no longer assigned to this student's class: you can no longer write to their guardian.",
+        }),
       );
     }
     await this.guardianReachable(thread.guardianId, thread.studentId);
@@ -1008,7 +1134,7 @@ export class MessagingService {
     await this.notifications.notifyMessage(
       thread.studentId,
       thread.guardianId,
-      thread.type === 'ECOLE' ? SCHOOL_LABEL : fullName(actor),
+      thread.type === 'ECOLE' ? SCHOOL_LABELS : fullName(actor),
       priorite === 'URGENTE',
     );
     return this.staffThread(actor, threadId);
@@ -1019,11 +1145,17 @@ export class MessagingService {
       where: { id: messageId },
       include: { thread: true },
     });
-    if (!message) throw new NotFoundException('Message introuvable.');
+    if (!message)
+      throw new NotFoundException(
+        pick({ fr: 'Message introuvable.', en: 'Message not found.' }),
+      );
     await this.staffThreadOrThrow(actor, message.threadId);
     if (message.auteur === 'PERSONNEL')
       throw new UnprocessableEntityException(
-        'Vous ne pouvez signaler que les messages reçus des responsables.',
+        pick({
+          fr: 'Vous ne pouvez signaler que les messages reçus des responsables.',
+          en: 'You can only report messages received from guardians.',
+        }),
       );
     return this.createReport(
       messageId,
@@ -1127,7 +1259,7 @@ export class MessagingService {
       type: t.type,
       enfant: fullName(t.student),
       responsable: fullName(t.guardian),
-      interlocuteur: t.staffUser ? fullName(t.staffUser) : SCHOOL_LABEL,
+      interlocuteur: t.staffUser ? fullName(t.staffUser) : schoolLabel(),
       nombreMessages: t._count.messages,
       dernierMessageAt: t.dernierMessageAt,
       signalementsOuverts: t.messages.reduce((n, m) => n + m.reports.length, 0),
@@ -1144,7 +1276,13 @@ export class MessagingService {
         staffUser: { select: { nom: true, prenom: true } },
       },
     });
-    if (!thread) throw new NotFoundException('Conversation introuvable.');
+    if (!thread)
+      throw new NotFoundException(
+        pick({
+          fr: 'Conversation introuvable.',
+          en: 'Conversation not found.',
+        }),
+      );
     const messages = await this.prisma.message.findMany({
       where: { threadId },
       orderBy: { createdAt: 'asc' },
@@ -1173,7 +1311,7 @@ export class MessagingService {
       responsable: fullName(thread.guardian),
       interlocuteur: thread.staffUser
         ? fullName(thread.staffUser)
-        : SCHOOL_LABEL,
+        : schoolLabel(),
       messages: messages.map((m) => ({
         id: m.id,
         auteur:
@@ -1181,7 +1319,7 @@ export class MessagingService {
             ? fullName(thread.guardian)
             : m.auteurUser
               ? fullName(m.auteurUser)
-              : SCHOOL_LABEL,
+              : schoolLabel(),
         cote: m.auteur,
         // La Direction voit le texte d'origine d'un message retiré, avec le motif du retrait.
         texte: m.texte,
@@ -1252,9 +1390,17 @@ export class MessagingService {
     const report = await this.prisma.messageReport.findUnique({
       where: { id: reportId },
     });
-    if (!report) throw new NotFoundException('Signalement introuvable.');
+    if (!report)
+      throw new NotFoundException(
+        pick({ fr: 'Signalement introuvable.', en: 'Report not found.' }),
+      );
     if (report.traiteAt)
-      throw new ConflictException('Ce signalement est déjà traité.');
+      throw new ConflictException(
+        pick({
+          fr: 'Ce signalement est déjà traité.',
+          en: 'This report has already been handled.',
+        }),
+      );
     await this.prisma.messageReport.update({
       where: { id: reportId },
       data: { traiteAt: new Date(), traiteParId: actor.id },
@@ -1274,9 +1420,17 @@ export class MessagingService {
     const message = await this.prisma.message.findUnique({
       where: { id: messageId },
     });
-    if (!message) throw new NotFoundException('Message introuvable.');
+    if (!message)
+      throw new NotFoundException(
+        pick({ fr: 'Message introuvable.', en: 'Message not found.' }),
+      );
     if (message.retireAt)
-      throw new ConflictException('Ce message est déjà retiré.');
+      throw new ConflictException(
+        pick({
+          fr: 'Ce message est déjà retiré.',
+          en: 'This message has already been removed.',
+        }),
+      );
     await this.prisma.message.update({
       where: { id: messageId },
       data: {
@@ -1302,12 +1456,20 @@ export class MessagingService {
       where: { id: dto.classId },
       select: { id: true },
     });
-    if (!klass) throw new NotFoundException('Classe introuvable.');
+    if (!klass)
+      throw new NotFoundException(
+        pick({ fr: 'Classe introuvable.', en: 'Class not found.' }),
+      );
     await this.assertCanUseClass(actor, dto.classId);
     const titre = cleanText(dto.titre);
     const corps = cleanText(dto.corps);
     if (!titre || !corps)
-      throw new BadRequestException('Le titre et le texte sont obligatoires.');
+      throw new BadRequestException(
+        pick({
+          fr: 'Le titre et le texte sont obligatoires.',
+          en: 'The title and the text are required.',
+        }),
+      );
     const announcement = await this.prisma.announcement.create({
       data: { classId: dto.classId, auteurId: actor.id, titre, corps },
     });
@@ -1327,7 +1489,12 @@ export class MessagingService {
     const classes = await this.staffClasses(actor);
     const allowed = classes.map((c) => c.id);
     if (classId && !allowed.includes(classId))
-      throw new ForbiddenException("Vous n'êtes pas affecté à cette classe.");
+      throw new ForbiddenException(
+        pick({
+          fr: "Vous n'êtes pas affecté à cette classe.",
+          en: 'You are not assigned to this class.',
+        }),
+      );
     const rows = await this.prisma.announcement.findMany({
       where: { classId: classId ?? { in: allowed } },
       orderBy: { createdAt: 'desc' },
@@ -1354,14 +1521,25 @@ export class MessagingService {
     const announcement = await this.prisma.announcement.findUnique({
       where: { id },
     });
-    if (!announcement) throw new NotFoundException('Annonce introuvable.');
+    if (!announcement)
+      throw new NotFoundException(
+        pick({ fr: 'Annonce introuvable.', en: 'Announcement not found.' }),
+      );
     if (announcement.auteurId !== actor.id && !this.isSupervisor(actor)) {
       throw new ForbiddenException(
-        "Seul l'auteur de l'annonce ou la Direction peut la retirer.",
+        pick({
+          fr: "Seul l'auteur de l'annonce ou la Direction peut la retirer.",
+          en: 'Only the author of the announcement or the Management can remove it.',
+        }),
       );
     }
     if (announcement.retireAt)
-      throw new ConflictException('Cette annonce est déjà retirée.');
+      throw new ConflictException(
+        pick({
+          fr: 'Cette annonce est déjà retirée.',
+          en: 'This announcement has already been removed.',
+        }),
+      );
     await this.prisma.announcement.update({
       where: { id },
       data: {

@@ -8,6 +8,8 @@ import type { AcademicYear, Class, Cycle, Level, Section } from "@/lib/types";
 import { Badge, Button, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { BookOpen, Building2, GraduationCap, Layers } from "lucide-react";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { translate } from "@/lib/i18n";
 
 // Structure académique : Section > Cycle > Niveau > Classe, présentée en arbre replié. Un + ouvre
 // chaque élément et montre ce qu'il contient, avec le formulaire pour y ajouter un enfant. Les classes
@@ -24,6 +26,7 @@ function InlineCreateForm({
   submitLabel: string;
   onCreate: (dto: { code: string; nom: string }) => void;
 }) {
+  const { t } = useI18n();
   const [code, setCode] = useState("");
   const [nom, setNom] = useState("");
   return (
@@ -43,13 +46,14 @@ function InlineCreateForm({
         onChange={(e) => setCode(uppercaseCode ? e.target.value.toUpperCase() : e.target.value)}
         className="w-36"
       />
-      <Input placeholder="Nom" required value={nom} onChange={(e) => setNom(e.target.value)} className="min-w-0 flex-1" />
+      <Input placeholder={t("adm.struct.name")} required value={nom} onChange={(e) => setNom(e.target.value)} className="min-w-0 flex-1" />
       <Button type="submit">{submitLabel}</Button>
     </form>
   );
 }
 
 function ClassCreateForm({ onCreate }: { onCreate: (dto: { nom: string; capacite?: number }) => void }) {
+  const { t } = useI18n();
   const [nom, setNom] = useState("");
   const [capacite, setCapacite] = useState("");
   return (
@@ -62,22 +66,23 @@ function ClassCreateForm({ onCreate }: { onCreate: (dto: { nom: string; capacite
       }}
       className="mt-2 flex flex-wrap gap-2"
     >
-      <Input placeholder="Nom (ex. CM2 A)" required value={nom} onChange={(e) => setNom(e.target.value)} className="min-w-0 flex-1" />
+      <Input placeholder={t("adm.struct.classNamePh")} required value={nom} onChange={(e) => setNom(e.target.value)} className="min-w-0 flex-1" />
       <Input
-        placeholder="Capacité"
+        placeholder={t("adm.struct.capacity")}
         type="number"
         min={1}
         value={capacite}
         onChange={(e) => setCapacite(e.target.value)}
         className="w-28"
       />
-      <Button type="submit">Ajouter la classe</Button>
+      <Button type="submit">{t("adm.struct.addClass")}</Button>
     </form>
   );
 }
 
 export default function AcademicStructurePage() {
   const { hasPermission } = useAuth();
+  const { t } = useI18n();
   const canManage = hasPermission("ACADEMIC_STRUCTURE_MANAGE");
   const expand = useExpanded();
 
@@ -105,7 +110,7 @@ export default function AcademicStructurePage() {
   }
 
   useEffect(() => {
-    void loadAll().catch((err) => setError(isApiError(err) ? err.message : "Une erreur est survenue."));
+    void loadAll().catch((err) => setError(isApiError(err) ? err.message : translate("common.error")));
   }, []);
 
   async function loadClassesFor(levelId: string, yearId: string) {
@@ -136,7 +141,7 @@ export default function AcademicStructurePage() {
       await loadAll();
       after?.(created);
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("common.error"));
     }
   }
 
@@ -145,17 +150,17 @@ export default function AcademicStructurePage() {
   return (
     <div>
       <PageTitle
-        subtitle="Section → Cycle → Niveau → Classe. Ouvrez un élément avec + pour voir son contenu."
+        subtitle={t("adm.struct.subtitle")}
         helpId="parametres-structure"
       >
-        Structure académique
+        {t("adm.struct.title")}
       </PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
 
       <div className="mb-4 mt-4 flex flex-wrap items-end gap-4">
         {years.length > 0 && (
           <div className="w-full max-w-xs">
-            <Field label="Année scolaire (pour les classes)">
+            <Field label={t("adm.struct.yearFor")}>
               <Select value={selectedYearId} onChange={(e) => setSelectedYearId(e.target.value)}>
                 {years.map((y) => (
                   <option key={y.id} value={y.id}>
@@ -172,7 +177,7 @@ export default function AcademicStructurePage() {
       </div>
 
       <div className="space-y-2">
-        {sections.length === 0 && <p className="py-4 text-sm text-ink-muted">Aucune section.</p>}
+        {sections.length === 0 && <p className="py-4 text-sm text-ink-muted">{t("adm.struct.noSection")}</p>}
         {sections.map((section) => {
           const sectionCycles = cycles.filter((c) => c.sectionId === section.id);
           const isOpen = expand.isOpen(section.id);
@@ -183,12 +188,12 @@ export default function AcademicStructurePage() {
                 <Building2 size={16} className="text-primary" />
                 <span className="font-medium text-ink">{section.nom}</span>
                 <span className="text-xs text-ink-muted">({section.code})</span>
-                <Badge color="slate">{sectionCycles.length} cycle(s)</Badge>
+                <Badge color="slate">{t("adm.struct.cycleCount", { n: sectionCycles.length })}</Badge>
               </div>
 
               {isOpen && (
                 <div className="ml-3 mt-3 space-y-2 border-l border-border pl-4 sm:ml-5">
-                  {sectionCycles.length === 0 && <p className="text-sm text-ink-muted">Aucun cycle.</p>}
+                  {sectionCycles.length === 0 && <p className="text-sm text-ink-muted">{t("adm.struct.noCycle")}</p>}
                   {sectionCycles.map((cycle) => {
                     const cycleLevels = levels.filter((l) => l.cycleId === cycle.id);
                     const cycleOpen = expand.isOpen(cycle.id);
@@ -199,12 +204,12 @@ export default function AcademicStructurePage() {
                           <BookOpen size={15} className="text-primary" />
                           <span className="text-sm font-medium text-ink">{cycle.nom}</span>
                           <span className="text-xs text-ink-muted">({cycle.code})</span>
-                          <Badge color="slate">{cycleLevels.length} niveau(x)</Badge>
+                          <Badge color="slate">{t("adm.struct.levelCount", { n: cycleLevels.length })}</Badge>
                         </div>
 
                         {cycleOpen && (
                           <div className="ml-3 mt-2.5 space-y-2 border-l border-border pl-4 sm:ml-5">
-                            {cycleLevels.length === 0 && <p className="text-sm text-ink-muted">Aucun niveau.</p>}
+                            {cycleLevels.length === 0 && <p className="text-sm text-ink-muted">{t("adm.struct.noLevel")}</p>}
                             {cycleLevels.map((level) => {
                               const levelOpen = expand.isOpen(level.id);
                               const levelClasses = classesByLevel[level.id];
@@ -214,18 +219,18 @@ export default function AcademicStructurePage() {
                                     <ExpandButton open={levelOpen} onClick={() => expand.toggle(level.id)} label={level.nom} />
                                     <Layers size={15} className="text-primary" />
                                     <span className="text-sm font-medium text-ink">{level.nom}</span>
-                                    {levelClasses && <Badge color="slate">{levelClasses.length} classe(s)</Badge>}
+                                    {levelClasses && <Badge color="slate">{t("adm.struct.classCount", { n: levelClasses.length })}</Badge>}
                                   </div>
 
                                   {levelOpen && (
                                     <div className="ml-3 mt-2.5 border-l border-border pl-4 sm:ml-5">
                                       {years.length === 0 ? (
                                         <p className="text-sm text-ink-muted">
-                                          Aucune année scolaire créée. Créez-en une dans{" "}
+                                          {t("adm.struct.noYearBefore")}{" "}
                                           <Link href="/parametres/annees" className="font-medium text-primary hover:underline">
-                                            Années scolaires
+                                            {t("adm.struct.noYearLink")}
                                           </Link>{" "}
-                                          avant de pouvoir ajouter une classe.
+                                          {t("adm.struct.noYearAfter")}
                                         </p>
                                       ) : (
                                         <>
@@ -234,11 +239,11 @@ export default function AcademicStructurePage() {
                                               <li key={c.id} className="flex items-center gap-2 rounded-lg bg-surface-muted px-3 py-1.5 text-sm text-ink">
                                                 <GraduationCap size={14} className="text-primary" />
                                                 {c.nom}
-                                                {c.capacite && <span className="text-ink-muted">, capacité {c.capacite}</span>}
+                                                {c.capacite && <span className="text-ink-muted">{t("adm.struct.capacityOf", { n: c.capacite })}</span>}
                                               </li>
                                             ))}
                                             {levelClasses && levelClasses.length === 0 && (
-                                              <li className="py-1 text-sm text-ink-muted">Aucune classe pour cette année.</li>
+                                              <li className="py-1 text-sm text-ink-muted">{t("adm.struct.noClass")}</li>
                                             )}
                                           </ul>
                                           {canManage && selectedYearId && (
@@ -260,9 +265,9 @@ export default function AcademicStructurePage() {
                             })}
                             {canManage && (
                               <InlineCreateForm
-                                codePlaceholder="Code (ex. CM2, 6e)"
+                                codePlaceholder={t("adm.struct.levelCodePh")}
                                 uppercaseCode={false}
-                                submitLabel="Ajouter le niveau"
+                                submitLabel={t("adm.struct.addLevel")}
                                 onCreate={(dto) =>
                                   void submitOrShowError(
                                     () => api.post<Level>("/levels", { ...dto, cycleId: cycle.id }),
@@ -278,9 +283,9 @@ export default function AcademicStructurePage() {
                   })}
                   {canManage && (
                     <InlineCreateForm
-                      codePlaceholder="CODE"
+                      codePlaceholder={t("adm.struct.codeUpper")}
                       uppercaseCode
-                      submitLabel="Ajouter le cycle"
+                      submitLabel={t("adm.struct.addCycle")}
                       onCreate={(dto) =>
                         void submitOrShowError(
                           () => api.post<Cycle>("/cycles", { ...dto, sectionId: section.id }),
@@ -298,11 +303,11 @@ export default function AcademicStructurePage() {
 
       {canManage && (
         <div className="mt-4 rounded-2xl border border-border bg-surface p-3 shadow-[var(--shadow-soft)]">
-          <p className="text-sm font-semibold text-ink">Ajouter une section</p>
+          <p className="text-sm font-semibold text-ink">{t("adm.struct.addSectionTitle")}</p>
           <InlineCreateForm
-            codePlaceholder="CODE"
+            codePlaceholder={t("adm.struct.codeUpper")}
             uppercaseCode
-            submitLabel="Ajouter la section"
+            submitLabel={t("adm.struct.addSection")}
             onCreate={(dto) =>
               void submitOrShowError(
                 () => api.post<Section>("/sections", dto),

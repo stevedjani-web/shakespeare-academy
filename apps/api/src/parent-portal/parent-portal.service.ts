@@ -11,6 +11,7 @@ import { BulletinsService } from '../grades/bulletins.service';
 import { TextbookService } from '../textbook/textbook.service';
 import { OnlinePaymentsService } from '../online-payments/online-payments.service';
 import type { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
+import { pick } from '../common/language';
 
 /**
  * Ce que voit un responsable, en lecture seule (RV08). Chaque route passe par `assertChild` : l'élève doit
@@ -37,7 +38,9 @@ export class ParentPortalService {
       where: { studentId_guardianId: { studentId, guardianId } },
     });
     if (!link || !link.accesPortail) {
-      throw new NotFoundException('Élève introuvable.');
+      throw new NotFoundException(
+        pick({ fr: 'Élève introuvable.', en: 'Student not found.' }),
+      );
     }
   }
 
@@ -82,12 +85,17 @@ export class ParentPortalService {
         anneeScolaire: enrollment?.academicYear.libelle ?? null,
       });
     }
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { guardianId },
+      select: { langue: true },
+    });
     return {
       responsable: {
         nom: guardian.nom,
         prenom: guardian.prenom,
         telephone: guardian.telephone,
       },
+      langue: account?.langue ?? null,
       enfants,
     };
   }

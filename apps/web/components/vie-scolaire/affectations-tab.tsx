@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { AcademicYear, Class, ClassAssignments, Teacher } from "@/lib/types";
 import { Badge, Card, EmptyState, ErrorMessage, Field, Select } from "@/components/ui";
 import { ListChecks } from "lucide-react";
@@ -19,6 +20,7 @@ export function AffectationsTab({
   levelLabel: (id: string) => string;
   onChanged: () => void;
 }) {
+  const { t: tr } = useI18n();
   const [yearId, setYearId] = useState("");
   const [classes, setClasses] = useState<Class[]>([]);
   const [classId, setClassId] = useState("");
@@ -82,12 +84,12 @@ export function AffectationsTab({
 
   return (
     <Card>
-      <h2 className="font-display text-lg font-semibold text-ink">Affectations</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">{tr("sl.assign.title")}</h2>
       <p className={`mb-3 ${TAB_HINT}`}>
-        Choisissez une classe : la liste montre les matières de son niveau. Sélectionnez l&apos;enseignant de chacune. Une matière n&apos;apparaît ici que si son niveau a été coché dans l&apos;onglet « Matières ».
+        {tr("sl.assign.hint")}
       </p>
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <Field label="Année scolaire">
+        <Field label={tr("sl.assign.year")}>
           <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
             {years.map((y) => (
               <option key={y.id} value={y.id}>
@@ -96,9 +98,9 @@ export function AffectationsTab({
             ))}
           </Select>
         </Field>
-        <Field label="Classe">
+        <Field label={tr("sl.assign.class")}>
           <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
-            <option value="">Choisir une classe…</option>
+            <option value="">{tr("sl.assign.chooseClass")}</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nom} ({levelLabel(c.levelId)})
@@ -110,18 +112,18 @@ export function AffectationsTab({
       <ErrorMessage>{error}</ErrorMessage>
 
       {!grid ? (
-        <EmptyState icon={<ListChecks />} title="Choisissez une classe." description="Les matières à affecter s'afficheront ici." />
+        <EmptyState icon={<ListChecks />} title={tr("sl.assign.emptyPick.title")} description={tr("sl.assign.emptyPick.description")} />
       ) : grid.matieres.length === 0 ? (
         <EmptyState
           icon={<ListChecks />}
-          title="Aucune matière pour ce niveau."
-          description="Cochez ce niveau sur au moins une matière dans l'onglet « Matières »."
+          title={tr("sl.assign.emptyLevel.title")}
+          description={tr("sl.assign.emptyLevel.description")}
         />
       ) : (
         <>
           <p className="mb-2 flex items-center gap-2 text-sm text-ink-muted">
             <Badge color={done === grid.matieres.length ? "green" : "orange"}>
-              {done}/{grid.matieres.length} affectée(s)
+              {tr("sl.assign.doneCount", { done, total: grid.matieres.length })}
             </Badge>
           </p>
           <ul className="space-y-2">
@@ -131,7 +133,7 @@ export function AffectationsTab({
                   <p className="font-medium text-ink">{m.subject.nom}</p>
                   <p className="text-xs text-ink-muted">
                     {m.subject.code}
-                    {m.minutesParSemaine ? ` · ${m.minutesParSemaine} min/semaine` : ""}
+                    {m.minutesParSemaine ? ` · ${tr("sl.assign.minPerWeek", { n: m.minutesParSemaine })}` : ""}
                   </p>
                 </div>
                 <div className="w-full max-w-xs">
@@ -139,9 +141,9 @@ export function AffectationsTab({
                     value={m.assignment?.teacherId ?? ""}
                     disabled={busy === m.subject.id}
                     onChange={(e) => void setTeacher(m.subject.id, e.target.value, m.assignment?.id ?? null)}
-                    aria-label={`Enseignant de ${m.subject.nom}`}
+                    aria-label={tr("sl.assign.teacherOf", { subject: m.subject.nom })}
                   >
-                    <option value="">Aucun enseignant</option>
+                    <option value="">{tr("sl.assign.noTeacher")}</option>
                     {activeTeachers.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.prenom} {t.nom}
@@ -149,7 +151,7 @@ export function AffectationsTab({
                     ))}
                     {m.assignment && !activeTeachers.some((t) => t.id === m.assignment!.teacherId) && (
                       <option value={m.assignment.teacherId}>
-                        {m.assignment.teacher.prenom} {m.assignment.teacher.nom} (inactif)
+                        {m.assignment.teacher.prenom} {m.assignment.teacher.nom} {tr("sl.assign.inactive")}
                       </option>
                     )}
                   </Select>

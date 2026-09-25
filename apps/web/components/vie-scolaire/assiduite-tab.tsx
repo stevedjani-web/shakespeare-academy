@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { AbsenceReason } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, SuccessMessage } from "@/components/ui";
 import { UserX } from "lucide-react";
@@ -19,6 +20,7 @@ interface Settings {
  * la Direction les confirme ou les change ici, sans intervention technique.
  */
 export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
+  const { t } = useI18n();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [form, setForm] = useState({ retard: "", delai: "" });
   const [seuil, setSeuil] = useState("");
@@ -60,15 +62,15 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
 
       <Card>
-        <h2 className="font-display text-lg font-semibold text-ink">Règles d&apos;assiduité</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("sl.att.rules.title")}</h2>
         <p className={`mb-3 ${TAB_HINT}`}>
-          Valeurs de départ provisoires (retard jusqu&apos;à 15 minutes, justificatif sous 3 jours de classe). À confirmer ou à changer par la Direction.
+          {t("sl.att.rules.hint")}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Un élève arrivé après ce nombre de minutes est absent de la séance">
+          <Field label={t("sl.att.rules.lateMax")}>
             <Input type="number" min={1} max={240} value={form.retard} onChange={(e) => setForm({ ...form, retard: e.target.value })} />
           </Field>
-          <Field label="Délai pour justifier une absence (jours de classe)">
+          <Field label={t("sl.att.rules.justifyDelay")}>
             <Input type="number" min={1} max={60} value={form.delai} onChange={(e) => setForm({ ...form, delai: e.target.value })} />
           </Field>
         </div>
@@ -78,77 +80,76 @@ export function AssiduiteTab({ onChanged }: { onChanged: () => void }) {
           onClick={() =>
             void run(
               () => api.patch("/pedagogy/settings", { retardMaxMinutes: Number(form.retard), delaiJustificatifJours: Number(form.delai) }),
-              "Règles enregistrées.",
+              t("sl.att.rules.saved"),
             )
           }
         >
-          Enregistrer les règles
+          {t("sl.att.rules.save")}
         </Button>
       </Card>
 
       <Card>
-        <h2 className="font-display text-lg font-semibold text-ink">Alertes de décrochage</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("sl.att.alerts.title")}</h2>
         <p className={`mb-3 ${TAB_HINT}`}>
-          Aucun seuil n&apos;est proposé : les alertes sont désactivées tant que la Direction n&apos;en fixe pas un. Un élève apparaît dans les alertes du tableau de bord de pilotage
-          quand il atteint ce nombre d&apos;absences non justifiées sur la période affichée (une absence dont le délai de justification court encore n&apos;est pas comptée).
+          {t("sl.att.alerts.hint")}
         </p>
-        <Field label="Nombre d'absences non justifiées à partir duquel signaler un élève (vide = alertes désactivées)">
-          <Input type="number" min={1} max={500} value={seuil} placeholder="Désactivées" onChange={(e) => setSeuil(e.target.value)} />
+        <Field label={t("sl.att.alerts.threshold")}>
+          <Input type="number" min={1} max={500} value={seuil} placeholder={t("sl.att.alerts.placeholder")} onChange={(e) => setSeuil(e.target.value)} />
         </Field>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             disabled={seuil.trim() === "" || !(Number(seuil) >= 1) || Number(seuil) === settings?.seuilAlerteAbsences}
-            onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: Number(seuil) }), "Seuil d'alerte enregistré.")}
+            onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: Number(seuil) }), t("sl.att.alerts.saved"))}
           >
-            Enregistrer le seuil
+            {t("sl.att.alerts.save")}
           </Button>
           {settings?.seuilAlerteAbsences !== null && settings?.seuilAlerteAbsences !== undefined && (
-            <Button variant="secondary" onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: null }), "Alertes désactivées.")}>
-              Désactiver les alertes
+            <Button variant="secondary" onClick={() => void run(() => api.patch("/pedagogy/settings", { seuilAlerteAbsences: null }), t("sl.att.alerts.disabled"))}>
+              {t("sl.att.alerts.disable")}
             </Button>
           )}
         </div>
       </Card>
 
       <Card>
-        <h2 className="font-display text-lg font-semibold text-ink">Motifs d&apos;absence</h2>
-        <p className={`mb-3 ${TAB_HINT}`}>La liste proposée au moment d&apos;enregistrer un justificatif. Aucun motif n&apos;est prérempli.</p>
+        <h2 className="font-display text-lg font-semibold text-ink">{t("sl.att.reasons.title")}</h2>
+        <p className={`mb-3 ${TAB_HINT}`}>{t("sl.att.reasons.hint")}</p>
 
         <form
           className="mb-5 space-y-3 border-b border-border pb-4"
           onSubmit={(e) => {
             e.preventDefault();
-            void run(() => api.post("/absence-reasons", { libelle }), "Motif ajouté.").then(() => setLibelle(""));
+            void run(() => api.post("/absence-reasons", { libelle }), t("sl.att.reasons.added")).then(() => setLibelle(""));
           }}
         >
-          <p className="text-sm font-semibold text-ink">Ajouter un motif</p>
-          <Field label="Libellé">
-            <Input required placeholder="Maladie" value={libelle} onChange={(e) => setLibelle(e.target.value)} />
+          <p className="text-sm font-semibold text-ink">{t("sl.att.reasons.addTitle")}</p>
+          <Field label={t("sl.att.reasons.label")}>
+            <Input required placeholder={t("sl.att.reasons.labelPlaceholder")} value={libelle} onChange={(e) => setLibelle(e.target.value)} />
           </Field>
-          <Button type="submit">Ajouter le motif</Button>
+          <Button type="submit">{t("sl.att.reasons.submit")}</Button>
         </form>
 
         {reasons.length === 0 ? (
-          <EmptyState icon={<UserX />} title="Aucun motif." description="Ajoutez le premier motif ci-dessus (par exemple maladie)." />
+          <EmptyState icon={<UserX />} title={t("sl.att.reasons.empty.title")} description={t("sl.att.reasons.empty.description")} />
         ) : (
           <ul className="space-y-2">
             {reasons.map((r) => (
               <li key={r.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 ${r.actif ? "" : "opacity-70"}`}>
                 <div className="flex items-center gap-2.5">
                   <span className="font-medium text-ink">{r.libelle}</span>
-                  {!r.actif && <Badge color="gray">Désactivé</Badge>}
+                  {!r.actif && <Badge color="gray">{t("sl.att.reasons.inactive")}</Badge>}
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" onClick={() => void run(() => api.patch(`/absence-reasons/${r.id}`, { actif: !r.actif }))}>
-                    {r.actif ? "Désactiver" : "Réactiver"}
+                    {r.actif ? t("sl.common.deactivate") : t("sl.common.reactivate")}
                   </Button>
                   <Button
                     variant="danger"
                     onClick={() => {
-                      if (confirm(`Supprimer le motif « ${r.libelle} » ?`)) void run(() => api.delete(`/absence-reasons/${r.id}`));
+                      if (confirm(t("sl.att.reasons.confirmDelete", { name: r.libelle }))) void run(() => api.delete(`/absence-reasons/${r.id}`));
                     }}
                   >
-                    Supprimer
+                    {t("sl.common.delete")}
                   </Button>
                 </div>
               </li>

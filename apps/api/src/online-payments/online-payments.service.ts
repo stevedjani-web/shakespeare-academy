@@ -16,6 +16,7 @@ import type {
   Payment,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { currentLanguage, pick } from '../common/language';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { computeApprovedDiscountAmount } from '../discounts/discount-amount.util';
@@ -25,7 +26,7 @@ import {
   type OnlinePaymentProvider,
 } from './online-payment-provider.interface';
 import { normalizeMsisdn } from './msisdn.util';
-import { GENERIC_FAILURE } from './pawapay-failures.util';
+import { GENERIC_FAILURE, localizeFailure } from './pawapay-failures.util';
 import {
   InitiateOnlinePaymentDto,
   ListOnlinePaymentsQueryDto,
@@ -133,13 +134,19 @@ export class OnlinePaymentsService {
     const school = await this.schoolService.getDefault();
     if (!school.paiementEnLigneActif || !this.provider.isConfigured()) {
       throw new ConflictException(
-        "Le paiement en ligne n'est pas disponible pour le moment.",
+        pick({
+          fr: "Le paiement en ligne n'est pas disponible pour le moment.",
+          en: 'Online payment is not available at the moment.',
+        }),
       );
     }
     const telephone = normalizeMsisdn(dto.telephone);
     if (!telephone) {
       throw new BadRequestException(
-        'Numéro invalide. Saisissez un numéro Mobile Money à 9 chiffres (par exemple 06 123 45 67).',
+        pick({
+          fr: 'Numéro invalide. Saisissez un numéro Mobile Money à 9 chiffres (par exemple 06 123 45 67).',
+          en: 'Invalid number. Enter a 9-digit Mobile Money number (for example 06 123 45 67).',
+        }),
       );
     }
 
@@ -156,7 +163,9 @@ export class OnlinePaymentsService {
         include: { discounts: true, payments: { where: { statut: 'VALIDE' } } },
       });
     if (!(await loadLine()))
-      throw new NotFoundException('Tranche introuvable.');
+      throw new NotFoundException(
+        pick({ fr: 'Tranche introuvable.', en: 'Instalment not found.' }),
+      );
 
     // Une tentative oubliée (le parent n'a jamais validé sur son téléphone) ne doit pas bloquer la tranche.
     await this.refreshStale(dto.trancheId);
@@ -166,19 +175,33 @@ export class OnlinePaymentsService {
     });
     if (pending) {
       throw new ConflictException(
-        'Un paiement est déjà en attente pour cette tranche. Validez-le sur votre téléphone ou patientez quelques minutes.',
+        pick({
+          fr: 'Un paiement est déjà en attente pour cette tranche. Validez-le sur votre téléphone ou patientez quelques minutes.',
+          en: 'A payment is already pending for this instalment. Approve it on your phone or wait a few minutes.',
+        }),
       );
     }
 
     // Solde relu APRÈS la revérification : elle a pu confirmer un paiement.
     const line = await loadLine();
-    if (!line) throw new NotFoundException('Tranche introuvable.');
+    if (!line)
+      throw new NotFoundException(
+        pick({ fr: 'Tranche introuvable.', en: 'Instalment not found.' }),
+      );
     const solde = soldeOf(line);
     if (solde <= 0)
-      throw new ConflictException('Cette tranche est déjà entièrement soldée.');
+      throw new ConflictException(
+        pick({
+          fr: 'Cette tranche est déjà entièrement soldée.',
+          en: 'This instalment is already fully paid.',
+        }),
+      );
     if (dto.montant > solde) {
       throw new BadRequestException(
-        `Le montant dépasse le solde restant de cette tranche (${solde} ${school.devise}).`,
+        pick({
+          fr: `Le montant dépasse le solde restant de cette tranche (${solde} ${school.devise}).`,
+          en: `The amount exceeds the remaining balance of this instalment (${solde} ${school.devise}).`,
+        }),
       );
     }
 
@@ -214,7 +237,9 @@ export class OnlinePaymentsService {
         where: { id: attempt.id, statut: 'EN_ATTENTE' },
         data: { statut: 'ECHOUE', motifEchec: motif },
       });
-      throw new UnprocessableEntityException(motif);
+      throw new UnprocessableEntityException(
+        localizeFailure(motif, currentLanguage()),
+      );
     }
 
     await this.audit.log({
@@ -392,7 +417,10 @@ export class OnlinePaymentsService {
     let attempt = await this.prisma.onlinePayment.findFirst({
       where: { id, guardianId, schoolId },
     });
-    if (!attempt) throw new NotFoundException('Paiement introuvable.');
+    if (!attempt)
+      throw new NotFoundException(
+        pick({ fr: 'Paiement introuvable.', en: 'Payment not found.' }),
+      );
     if (
       attempt.statut === 'EN_ATTENTE' &&
       attempt.createdAt.getTime() < Date.now() - STALE_AFTER_MS
@@ -412,7 +440,7 @@ export class OnlinePaymentsService {
       id: attempt.id,
       statut: attempt.statut,
       montant: attempt.montant,
-      motifEchec: attempt.motifEchec,
+      motifEchec: localizeFailure(attempt.motifEchec, currentLanguage()),
       paiement: payment,
     };
   }
@@ -447,7 +475,10 @@ export class OnlinePaymentsService {
         },
       },
     });
-    if (!payment) throw new NotFoundException('Reçu introuvable.');
+    if (!payment)
+      throw new NotFoundException(
+        pick({ fr: 'Reçu introuvable.', en: 'Receipt not found.' }),
+      );
     const school = await this.schoolService.getDefault();
     const e = payment.invoiceLine.invoice.enrollment;
     return {
@@ -531,7 +562,13 @@ export class OnlinePaymentsService {
     const attempt = await this.prisma.onlinePayment.findFirst({
       where: { id, schoolId },
     });
-    if (!attempt) throw new NotFoundException('Paiement en ligne introuvable.');
+    if (!attempt)
+      throw new NotFoundException(
+        pick({
+          fr: 'Paiement en ligne introuvable.',
+          en: 'Online payment not found.',
+        }),
+      );
     if (attempt.statut === 'EN_ATTENTE') {
       let status: Awaited<ReturnType<OnlinePaymentProvider['getStatus']>>;
       try {
@@ -541,7 +578,10 @@ export class OnlinePaymentsService {
           `Vérification du paiement ${id} impossible : ${(err as Error).message}`,
         );
         throw new ServiceUnavailableException(
-          'Le service de paiement ne répond pas. Réessayez dans quelques minutes.',
+          pick({
+            fr: 'Le service de paiement ne répond pas. Réessayez dans quelques minutes.',
+            en: 'The payment service is not responding. Please try again in a few minutes.',
+          }),
         );
       }
       if (status.statut === 'COMPLETED')
@@ -556,7 +596,11 @@ export class OnlinePaymentsService {
     const fresh = await this.prisma.onlinePayment.findUniqueOrThrow({
       where: { id },
     });
-    return { id: fresh.id, statut: fresh.statut, motifEchec: fresh.motifEchec };
+    return {
+      id: fresh.id,
+      statut: fresh.statut,
+      motifEchec: localizeFailure(fresh.motifEchec, currentLanguage()),
+    };
   }
 
   /** Clôture d'un paiement reçu sans solde à imputer, après remboursement fait hors de l'application. */
@@ -569,10 +613,19 @@ export class OnlinePaymentsService {
     const attempt = await this.prisma.onlinePayment.findFirst({
       where: { id, schoolId },
     });
-    if (!attempt) throw new NotFoundException('Paiement en ligne introuvable.');
+    if (!attempt)
+      throw new NotFoundException(
+        pick({
+          fr: 'Paiement en ligne introuvable.',
+          en: 'Online payment not found.',
+        }),
+      );
     if (attempt.statut !== 'A_TRAITER' || attempt.motifCloture !== null) {
       throw new ConflictException(
-        "Seul un paiement reçu sans solde à imputer, non encore clôturé, peut l'être.",
+        pick({
+          fr: "Seul un paiement reçu sans solde à imputer, non encore clôturé, peut l'être.",
+          en: 'Only a payment received with no balance to apply, and not yet closed, can be closed.',
+        }),
       );
     }
     const updated = await this.prisma.onlinePayment.update({

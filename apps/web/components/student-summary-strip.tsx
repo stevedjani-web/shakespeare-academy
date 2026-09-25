@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
 import type { FinancialStatus, StudentAttendanceHistory } from "@/lib/types";
 import type { StudentBulletinRow } from "@/lib/grades";
 import { STATUS_META } from "@/components/financial-status-card";
@@ -20,6 +22,7 @@ import { StatCard } from "@/components/ui";
  */
 export function StudentSummaryStrip({ studentId }: { studentId: string }) {
   const { hasPermission } = useAuth();
+  const { t, locale } = useI18n();
   const [finance, setFinance] = useState<FinancialStatus | null>(null);
   const [attendance, setAttendance] = useState<StudentAttendanceHistory | null>(null);
   const [bulletins, setBulletins] = useState<StudentBulletinRow[] | null>(null);
@@ -57,26 +60,34 @@ export function StudentSummaryStrip({ studentId }: { studentId: string }) {
     <div className="mb-6 grid gap-4 lg:grid-cols-3">
       {canGrades && (
         <StatCard
-          label="Moyenne actuelle"
+          label={t("stu.strip.average")}
           value={dernierBulletin?.moyenneGenerale !== null && dernierBulletin?.moyenneGenerale !== undefined ? `${dernierBulletin.moyenneGenerale}/20` : "—"}
-          hint={dernierBulletin ? dernierBulletin.trimestre : bulletins ? "Aucun bulletin pour l'instant" : "Chargement…"}
+          hint={dernierBulletin ? dernierBulletin.trimestre : bulletins ? t("stu.strip.noReport") : t("stu.strip.loading")}
           tone="primary"
         />
       )}
       {canAttendance && attendance && (
         <StatCard
-          label="Assiduité"
+          label={t("stu.strip.attendance")}
           value={tauxPresence !== null ? `${tauxPresence}%` : "—"}
-          hint={`${attendance.compteurs.absences} absence(s), ${attendance.compteurs.retards} retard(s) sur ${attendance.compteurs.seancesAppelees} séance(s)`}
+          hint={t("stu.strip.attHint", {
+            absences: attendance.compteurs.absences,
+            lates: attendance.compteurs.retards,
+            sessions: attendance.compteurs.seancesAppelees,
+          })}
           tone={tauxPresence === null ? "info" : tauxPresence < 80 ? "warning" : "success"}
           progress={tauxPresence}
         />
       )}
       {canFinance && finance && (
         <StatCard
-          label="Situation financière"
+          label={t("stu.strip.finance")}
           value={STATUS_META[finance.statut].label}
-          hint={finance.montantRestant > 0 ? `${finance.montantRestant.toLocaleString("fr-FR")} restant dû` : "À jour"}
+          hint={
+            finance.montantRestant > 0
+              ? t("stu.strip.remaining", { amount: finance.montantRestant.toLocaleString(INTL_LOCALE[locale]) })
+              : t("stu.strip.upToDate")
+          }
           tone={
             finance.statut === "SOLVABLE" || finance.statut === "EXONERE"
               ? "success"

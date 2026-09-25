@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Copy, Check, MessageCircleMore } from "lucide-react";
 import { Button, Card, PageTitle } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 
 interface ActorLink {
   key: string;
-  titre: string;
-  description: string;
+  titre: MessageKey;
+  description: MessageKey;
   chemin: string;
 }
 
@@ -19,34 +21,32 @@ interface ActorLink {
 const ACTOR_LINKS: ActorLink[] = [
   {
     key: "personnel",
-    titre: "Personnel de l'école",
-    description:
-      "Connexion de l'ensemble du personnel — Direction, secrétariat, comptabilité, surveillance et enseignants. Chacun n'y voit que les écrans propres à son rôle.",
+    titre: "adm.links.staff.title",
+    description: "adm.links.staff.desc",
     chemin: "/login",
   },
   {
     key: "parents",
-    titre: "Espace parents",
-    description:
-      "Suivi de l'emploi du temps, des absences, des notes, de la situation financière et des documents de leurs enfants. Un compte s'active avec le code remis par le secrétariat.",
+    titre: "adm.links.parents.title",
+    description: "adm.links.parents.desc",
     chemin: "/parents/connexion",
   },
   {
     key: "preinscription",
-    titre: "Préinscription en ligne",
-    description:
-      "Formulaire public pour qu'une famille dépose une demande de préinscription, sans compte. Le secrétariat l'examine ensuite dans « Préinscriptions ».",
+    titre: "adm.links.prereg.title",
+    description: "adm.links.prereg.desc",
     chemin: "/preinscription",
   },
   {
     key: "guide",
-    titre: "Guide d'utilisation",
-    description: "Explique, pour chaque acteur, comment utiliser l'application au quotidien. Public, sans compte requis.",
+    titre: "adm.links.guide.title",
+    description: "adm.links.guide.desc",
     chemin: "/guide",
   },
 ];
 
 function LinkRow({ link }: { link: ActorLink }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const url = `${origin}${link.chemin}`;
@@ -62,13 +62,13 @@ function LinkRow({ link }: { link: ActorLink }) {
     }
   }
 
-  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`${link.titre} — ${link.description}\n${url}`)}`;
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(`${t(link.titre)} — ${t(link.description)}\n${url}`)}`;
 
   return (
     <Card className="space-y-3">
       <div>
-        <p className="font-display text-base font-semibold text-ink">{link.titre}</p>
-        <p className="mt-1 text-sm text-ink-muted">{link.description}</p>
+        <p className="font-display text-base font-semibold text-ink">{t(link.titre)}</p>
+        <p className="mt-1 text-sm text-ink-muted">{t(link.description)}</p>
       </div>
       <p className="truncate rounded-xl border border-border bg-surface px-3 py-2 font-mono text-xs text-ink" title={url}>
         {url}
@@ -76,7 +76,7 @@ function LinkRow({ link }: { link: ActorLink }) {
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => void copy()}>
           {copied ? <Check size={16} /> : <Copy size={16} />}
-          {copied ? "Lien copié" : "Copier le lien"}
+          {copied ? t("adm.links.copied") : t("adm.links.copy")}
         </Button>
         <a
           href={whatsappHref}
@@ -84,7 +84,7 @@ function LinkRow({ link }: { link: ActorLink }) {
           rel="noopener noreferrer"
           className="sa-interactive inline-flex items-center gap-2 rounded-full bg-success px-4 py-2.5 text-sm font-medium text-white"
         >
-          <MessageCircleMore size={16} /> Partager via WhatsApp
+          <MessageCircleMore size={16} /> {t("adm.links.whatsapp")}
         </a>
       </div>
     </Card>
@@ -92,13 +92,14 @@ function LinkRow({ link }: { link: ActorLink }) {
 }
 
 export default function LiensUtilesPage() {
+  const { t } = useI18n();
   return (
     <div>
       <PageTitle
-        subtitle="Les adresses à transmettre à chaque acteur de l'école — famille, enseignant ou membre du personnel."
+        subtitle={t("adm.links.subtitle")}
         helpId="liens-utiles"
       >
-        Liens utiles
+        {t("adm.links.title")}
       </PageTitle>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {ACTOR_LINKS.map((link) => (

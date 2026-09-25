@@ -1,5 +1,7 @@
 import { setOnline } from "@/lib/connectivity";
 import { cachePut, cacheRead } from "@/lib/offline-cache";
+import { translate } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/store";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -41,13 +43,13 @@ async function extractErrorBody(res: Response): Promise<{ message: string; data:
         ? rawMessage.join(", ")
         : typeof rawMessage === "string"
           ? rawMessage
-          : `Erreur ${res.status}`;
+          : translate("err.generic", { status: res.status });
       return { message, data: body };
     }
   } catch {
     // corps non-JSON, on retombe sur le message générique ci-dessous
   }
-  return { message: `Erreur ${res.status}`, data: null };
+  return { message: translate("err.generic", { status: res.status }), data: null };
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -84,7 +86,7 @@ async function timedFetch(url: string, init: RequestInit, timeoutMs: number): Pr
     return res;
   } catch {
     setOnline(false);
-    throw new ApiError("Pas de connexion Internet.", 0);
+    throw new ApiError(translate("err.offline"), 0);
   } finally {
     clearTimeout(timer);
   }
@@ -98,6 +100,8 @@ async function request<T>(path: string, options: RequestInit = {}, allowRetry = 
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
+  // Langue demandée au serveur : ses messages (erreurs, textes) sont rédigés dans cette langue quand ils sont traduits.
+  headers.set("Accept-Language", getLocale());
 
   const isRead = !options.method || options.method === "GET";
   let res: Response;
@@ -121,14 +125,14 @@ async function request<T>(path: string, options: RequestInit = {}, allowRetry = 
       newToken = await refreshAccessToken();
     } catch {
       // Pas de réseau au moment de rafraîchir : ce n'est pas une session expirée.
-      throw new ApiError("Pas de connexion Internet.", 0);
+      throw new ApiError(translate("err.offline"), 0);
     }
     if (newToken) {
       return request<T>(path, options, false);
     }
     accessToken = null;
     onSessionExpired?.();
-    throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
+    throw new ApiError(translate("err.sessionExpired"), 401);
   }
 
   if (!res.ok) {
@@ -163,7 +167,7 @@ async function fetchBlob(path: string): Promise<Blob> {
   let res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
   if (res.status === 401) {
     const newToken = await refreshAccessToken();
-    if (!newToken) throw new ApiError("Session expirée, veuillez vous reconnecter.", 401);
+    if (!newToken) throw new ApiError(translate("err.sessionExpired"), 401);
     headers.set("Authorization", `Bearer ${newToken}`);
     res = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
   }

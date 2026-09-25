@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Field, Select } from "@/components/ui";
 import type { ClassRef, StudentRef } from "@/lib/discipline";
 import { studentName } from "@/lib/discipline";
@@ -11,6 +12,7 @@ import { studentName } from "@/lib/discipline";
  * l'école, il n'obtient que ses classes (le serveur applique cette portée, ce choix n'en est que le reflet).
  */
 export function StudentPicker({ value, onChange }: { value: string; onChange: (studentId: string) => void }) {
+  const { t } = useI18n();
   const [classes, setClasses] = useState<ClassRef[]>([]);
   const [classId, setClassId] = useState("");
   const [students, setStudents] = useState<StudentRef[]>([]);
@@ -28,9 +30,9 @@ export function StudentPicker({ value, onChange }: { value: string; onChange: (s
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <Field label="Classe">
+      <Field label={t("acd.disc.pick.class")}>
         <Select value={classId} onChange={(e) => pickClass(e.target.value)}>
-          <option value="">Choisir une classe…</option>
+          <option value="">{t("acd.disc.pick.chooseClass")}</option>
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nom}
@@ -38,9 +40,9 @@ export function StudentPicker({ value, onChange }: { value: string; onChange: (s
           ))}
         </Select>
       </Field>
-      <Field label="Élève">
+      <Field label={t("acd.disc.pick.student")}>
         <Select value={value} onChange={(e) => onChange(e.target.value)} disabled={!classId}>
-          <option value="">{classId ? "Choisir un élève…" : "Choisissez d'abord une classe"}</option>
+          <option value="">{classId ? t("acd.disc.pick.chooseStudent") : t("acd.disc.pick.classFirst")}</option>
           {students.map((s) => (
             <option key={s.id} value={s.id}>
               {studentName(s)}

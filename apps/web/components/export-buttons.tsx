@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { api } from "@/lib/api";
+import { translate } from "@/lib/i18n";
 import { exportExcel, exportPdf, type ExportSection } from "@/lib/export";
 import type { School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
@@ -51,7 +52,7 @@ export function ExportButtons({
       if (kind === "excel") await exportExcel(fileName, sections, schoolName);
       else await exportPdf(fileName, title, sections, { schoolName, subtitle, landscape });
     } catch {
-      setError("L'export a échoué, réessayez.");
+      setError(translate("common.exportFailed"));
     } finally {
       setBusy(null);
     }

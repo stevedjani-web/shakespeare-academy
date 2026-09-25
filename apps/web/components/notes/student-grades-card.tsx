@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BookOpenCheck } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { PERIOD_LABEL, rankLabel, type StudentBulletinRow } from "@/lib/grades";
 import { Badge, Card } from "@/components/ui";
 import { ExpandButton, useExpanded } from "@/components/expand";
@@ -23,6 +24,7 @@ const STATUT_COLOR: Record<StudentBulletinRow["statut"], "orange" | "green"> = {
  */
 export function StudentGradesCard({ studentId }: { studentId: string }) {
   const expand = useExpanded();
+  const { t } = useI18n();
   const [bulletins, setBulletins] = useState<StudentBulletinRow[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -40,20 +42,23 @@ export function StudentGradesCard({ studentId }: { studentId: string }) {
   return (
     <Card className="lg:col-span-3">
       <h2 className={`flex flex-wrap items-center gap-2 text-sm font-semibold text-ink ${open ? "mb-3" : ""}`}>
-        <ExpandButton open={open} onClick={() => expand.toggle("notes")} label="les notes et bulletins" />
-        <BookOpenCheck size={16} className="text-primary" /> Notes et bulletins
+        <ExpandButton open={open} onClick={() => expand.toggle("notes")} label={t("stu.grades.expandLabel")} />
+        <BookOpenCheck size={16} className="text-primary" /> {t("stu.grades.title")}
         {!open && (
           <span className="font-normal text-ink-muted">
             {dernier
-              ? `Dernière moyenne : ${dernier.moyenneGenerale !== null ? `${dernier.moyenneGenerale}/20` : "—"} (${dernier.trimestre})`
-              : "Aucun bulletin pour l'instant"}
+              ? t("stu.grades.lastAverage", {
+                  average: dernier.moyenneGenerale !== null ? `${dernier.moyenneGenerale}/20` : "—",
+                  term: dernier.trimestre,
+                })
+              : t("stu.grades.noReport")}
           </span>
         )}
       </h2>
       {open && (
         <>
           {bulletins.length === 0 && (
-            <p className="text-sm text-ink-muted">Aucun trimestre validé pour cet élève pour l&apos;instant.</p>
+            <p className="text-sm text-ink-muted">{t("stu.grades.noTerm")}</p>
           )}
           <ul className="divide-y divide-border">
             {bulletins.map((b) => (
@@ -63,7 +68,12 @@ export function StudentGradesCard({ studentId }: { studentId: string }) {
                     {b.trimestre}
                   </Link>{" "}
                   <span className="text-ink-muted">
-                    — {b.classe} ({b.annee}) · moyenne {b.moyenneGenerale !== null ? `${b.moyenneGenerale}/20` : "—"} · rang {rankLabel(b.rang, b.effectif)}
+                    {t("stu.grades.line", {
+                      class: b.classe,
+                      year: b.annee,
+                      average: b.moyenneGenerale !== null ? `${b.moyenneGenerale}/20` : "—",
+                      rank: rankLabel(b.rang, b.effectif),
+                    })}
                   </span>
                 </div>
                 <Badge color={STATUT_COLOR[b.statut]}>{PERIOD_LABEL[b.statut]}</Badge>

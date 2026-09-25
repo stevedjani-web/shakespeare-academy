@@ -1,4 +1,5 @@
 // Préinscription en ligne (Lot 21) : types renvoyés par l'API et libellés.
+import { translate } from "@/lib/i18n";
 
 export type PreRegistrationStatus = "EN_ATTENTE" | "ACCEPTEE" | "REJETEE";
 
@@ -34,10 +35,18 @@ export interface PreRegistrationView {
   traiteLe: string | null;
 }
 
+// Accesseurs plutôt que des valeurs : le texte est lu au moment de l'affichage, dans la langue courante
+// (une constante évaluée au chargement resterait figée dans la langue de départ).
 export const STATUT_LABEL: Record<PreRegistrationStatus, string> = {
-  EN_ATTENTE: "En attente",
-  ACCEPTEE: "Acceptée",
-  REJETEE: "Refusée",
+  get EN_ATTENTE() {
+    return translate("stu.pre.statusPending");
+  },
+  get ACCEPTEE() {
+    return translate("stu.pre.statusAccepted");
+  },
+  get REJETEE() {
+    return translate("stu.pre.statusRejected");
+  },
 };
 
 export const STATUT_COLOR: Record<PreRegistrationStatus, "orange" | "green" | "red"> = {

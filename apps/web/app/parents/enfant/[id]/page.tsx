@@ -7,9 +7,10 @@ import { ArrowLeft, BookOpenText, CalendarDays, FileText, GraduationCap, ShieldA
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
-import { WEEK_DAYS } from "@/components/vie-scolaire/shared";
 import { formatIso, shiftWeek } from "@/components/emploi-du-temps/shared";
-import { formatMontant } from "@/lib/format";
+import { formatMontant, weekdayName } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import type { MessageKey } from "@/lib/i18n";
 import { ParentBulletinsTab } from "@/components/parents/bulletins-tab";
 import { ParentTextbookTab } from "@/components/parents/textbook-tab";
 import { PayTranches, type PayableTranche } from "@/components/parents/pay-tranche";
@@ -61,29 +62,31 @@ interface Finance {
 }
 
 // Libellés pensés pour un parent : jamais « impayé critique », un seul mot clair pour un retard.
-const FINANCE_STATUS: Record<Finance["situation"]["statut"], { label: string; color: "green" | "blue" | "orange" | "slate" }> = {
-  SOLVABLE: { label: "À jour", color: "green" },
-  A_ECHOIR: { label: "Échéance à venir", color: "blue" },
-  EN_RETARD: { label: "Paiement en retard", color: "orange" },
-  IMPAYE_CRITIQUE: { label: "Paiement en retard", color: "orange" },
-  EXONERE: { label: "Exonéré", color: "slate" },
+const FINANCE_STATUS: Record<Finance["situation"]["statut"], { key: MessageKey; color: "green" | "blue" | "orange" | "slate" }> = {
+  SOLVABLE: { key: "parent.child.finUpToDate", color: "green" },
+  A_ECHOIR: { key: "parent.child.finUpcoming", color: "blue" },
+  EN_RETARD: { key: "parent.child.finLate", color: "orange" },
+  IMPAYE_CRITIQUE: { key: "parent.child.finLate", color: "orange" },
+  EXONERE: { key: "parent.child.finExempt", color: "slate" },
 };
 
-const SESSION_STATUS: Record<string, { label: string; color: "red" | "orange" | "blue" } | undefined> = {
-  ANNULEE: { label: "Annulée", color: "red" },
-  REMPLACEE: { label: "Enseignant remplaçant", color: "orange" },
-  SALLE_MODIFIEE: { label: "Salle changée", color: "blue" },
+const SESSION_STATUS: Record<string, { key: MessageKey; color: "red" | "orange" | "blue" } | undefined> = {
+  ANNULEE: { key: "parent.child.sessionCancelled", color: "red" },
+  REMPLACEE: { key: "parent.child.sessionSubstitute", color: "orange" },
+  SALLE_MODIFIEE: { key: "parent.child.sessionRoomChanged", color: "blue" },
 };
 
-const MODE_LABEL: Record<string, string> = { ESPECES: "Espèces", MOBILE_MONEY: "Mobile Money", VIREMENT: "Virement", CHEQUE: "Chèque" };
-
-function dayName(iso: string): string {
-  return WEEK_DAYS.find((d) => d.value === new Date(`${iso}T00:00:00Z`).getUTCDay())?.label ?? "";
-}
+const MODE_KEY: Record<string, MessageKey> = {
+  ESPECES: "parent.child.modeCash",
+  MOBILE_MONEY: "parent.child.modeMobile",
+  VIREMENT: "parent.child.modeTransfer",
+  CHEQUE: "parent.child.modeCheque",
+};
 
 export default function ChildPage() {
   const { id } = useParams<{ id: string }>();
   const { parent, loading } = useParent();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("emploi");
   const [date, setDate] = useState<string | undefined>(undefined);
@@ -145,21 +148,21 @@ export default function ChildPage() {
   }
 
   const tabs = [
-    { key: "emploi" as const, label: "Emploi du temps", icon: CalendarDays },
-    { key: "devoirs" as const, label: "Devoirs", icon: BookOpenText },
-    { key: "absences" as const, label: "Absences", icon: UserX },
-    { key: "bulletins" as const, label: "Bulletins", icon: GraduationCap },
-    { key: "finances" as const, label: "Finances", icon: Wallet },
-    { key: "discipline" as const, label: "Vie scolaire", icon: ShieldAlert },
-    { key: "documents" as const, label: "Documents", icon: FileText },
+    { key: "emploi" as const, label: t("parent.child.tabTimetable"), icon: CalendarDays },
+    { key: "devoirs" as const, label: t("parent.child.tabHomework"), icon: BookOpenText },
+    { key: "absences" as const, label: t("parent.child.tabAbsences"), icon: UserX },
+    { key: "bulletins" as const, label: t("parent.child.tabReportCards"), icon: GraduationCap },
+    { key: "finances" as const, label: t("parent.child.tabFees"), icon: Wallet },
+    { key: "discipline" as const, label: t("parent.child.tabSchoolLife"), icon: ShieldAlert },
+    { key: "documents" as const, label: t("parent.child.tabDocuments"), icon: FileText },
   ];
 
   return (
     <div>
       <Link href="/parents" className="mb-3 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink hover:underline">
-        <ArrowLeft size={14} /> Mes enfants
+        <ArrowLeft size={14} /> {t("parent.nav.myChildren")}
       </Link>
-      <PageTitle>{tab === "emploi" && timetable?.classe ? `Classe ${timetable.classe}` : "Mon enfant"}</PageTitle>
+      <PageTitle>{tab === "emploi" && timetable?.classe ? t("parent.child.titleClass", { name: timetable.classe }) : t("parent.child.titleChild")}</PageTitle>
 
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
         {tabs.map(({ key, label, icon: Icon }) => (
@@ -186,28 +189,26 @@ export default function ChildPage() {
         <div>
           {timetable && (
             <div className="mb-3 flex items-center justify-between gap-2">
-              <Button variant="secondary" aria-label="Semaine précédente" onClick={() => setDate(shiftWeek(timetable.debut, -7))}>
+              <Button variant="secondary" aria-label={t("parent.child.prevWeek")} onClick={() => setDate(shiftWeek(timetable.debut, -7))}>
                 <ChevronLeft size={16} />
               </Button>
-              <p className="text-sm font-medium text-ink">
-                Semaine du {formatIso(timetable.debut)} au {formatIso(timetable.fin)}
-              </p>
-              <Button variant="secondary" aria-label="Semaine suivante" onClick={() => setDate(shiftWeek(timetable.debut, 7))}>
+              <p className="text-sm font-medium text-ink">{t("parent.child.weekOf", { from: formatIso(timetable.debut), to: formatIso(timetable.fin) })}</p>
+              <Button variant="secondary" aria-label={t("parent.child.nextWeek")} onClick={() => setDate(shiftWeek(timetable.debut, 7))}>
                 <ChevronRight size={16} />
               </Button>
             </div>
           )}
           {!timetable && !error && <Spinner />}
-          {timetable && timetable.jours.length === 0 && <p className="text-sm text-ink-muted">Aucune classe cette année pour cet enfant.</p>}
+          {timetable && timetable.jours.length === 0 && <p className="text-sm text-ink-muted">{t("parent.child.noClassThisYear")}</p>}
           <div className="space-y-3">
             {timetable?.jours.map((j) => (
               <section key={j.date} className="rounded-2xl border border-border bg-surface p-3">
                 <h3 className="mb-2 flex flex-wrap items-center gap-2 font-display text-base font-semibold text-ink">
-                  {dayName(j.date)} {formatIso(j.date)}
+                  {weekdayName(j.date, locale)} {formatIso(j.date)}
                   {j.sansClasse && <Badge color="gray">{j.sansClasse.libelle}</Badge>}
                 </h3>
                 {j.seances.length === 0 ? (
-                  <p className="text-sm text-ink-muted">{j.sansClasse ? "Pas de cours ce jour." : "Aucune séance."}</p>
+                  <p className="text-sm text-ink-muted">{j.sansClasse ? t("parent.child.noLessonsToday") : t("parent.child.noSessions")}</p>
                 ) : (
                   <ul className="space-y-2">
                     {j.seances.map((s, i) => {
@@ -223,7 +224,7 @@ export default function ChildPage() {
                                 {s.enseignant} · {s.salle}
                               </p>
                             </div>
-                            {st && <Badge color={st.color}>{st.label}</Badge>}
+                            {st && <Badge color={st.color}>{t(st.key)}</Badge>}
                           </div>
                         </li>
                       );
@@ -242,13 +243,13 @@ export default function ChildPage() {
           {attendance && (
             <>
               <div className="mb-4 flex flex-wrap gap-2 text-sm">
-                <Badge color="red">{attendance.compteurs.absences} absence(s)</Badge>
-                <Badge color="orange">{attendance.compteurs.retards} retard(s)</Badge>
-                <Badge color="green">{attendance.compteurs.excusees} excusée(s)</Badge>
-                <Badge color="blue">{attendance.compteurs.nonJustifiees} non justifiée(s)</Badge>
+                <Badge color="red">{t("parent.child.absencesCount", { n: attendance.compteurs.absences })}</Badge>
+                <Badge color="orange">{t("parent.child.lateCount", { n: attendance.compteurs.retards })}</Badge>
+                <Badge color="green">{t("parent.child.excusedCount", { n: attendance.compteurs.excusees })}</Badge>
+                <Badge color="blue">{t("parent.child.unjustifiedCount", { n: attendance.compteurs.nonJustifiees })}</Badge>
               </div>
               {attendance.lignes.length === 0 ? (
-                <p className="text-sm text-ink-muted">Aucune absence ni aucun retard enregistré.</p>
+                <p className="text-sm text-ink-muted">{t("parent.child.noAbsences")}</p>
               ) : (
                 <ul className="space-y-2">
                   {attendance.lignes.map((l, i) => (
@@ -261,18 +262,26 @@ export default function ChildPage() {
                           <p className="text-sm text-ink-muted">{l.matiere}</p>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          <Badge color={l.statut === "ABSENT" ? "red" : "orange"}>{l.statut === "ABSENT" ? "Absent" : `Retard${l.minutesRetard ? ` ${l.minutesRetard} min` : ""}`}</Badge>
+                          <Badge color={l.statut === "ABSENT" ? "red" : "orange"}>
+                            {l.statut === "ABSENT" ? t("parent.child.absent") : l.minutesRetard ? t("parent.child.lateMinutes", { min: l.minutesRetard }) : t("parent.child.late")}
+                          </Badge>
                           <Badge color={l.justificatif?.statut === "ACCEPTEE" ? "green" : l.justificatif?.statut === "REFUSEE" ? "red" : l.justificatif ? "blue" : "gray"}>
-                            {l.justificatif ? (l.justificatif.statut === "ACCEPTEE" ? "Excusée" : l.justificatif.statut === "REFUSEE" ? "Justificatif refusé" : "Justificatif en cours d'examen") : "Non justifiée"}
+                            {l.justificatif
+                              ? l.justificatif.statut === "ACCEPTEE"
+                                ? t("parent.child.excused")
+                                : l.justificatif.statut === "REFUSEE"
+                                  ? t("parent.child.noteRefused")
+                                  : t("parent.child.noteReview")
+                              : t("parent.child.notJustified")}
                           </Badge>
                         </div>
                       </div>
-                      {l.justificatif?.motif && <p className="mt-1 text-xs text-ink-muted">Motif : {l.justificatif.motif}</p>}
+                      {l.justificatif?.motif && <p className="mt-1 text-xs text-ink-muted">{t("parent.child.reason", { reason: l.justificatif.motif })}</p>}
                     </li>
                   ))}
                 </ul>
               )}
-              <p className="mt-4 text-xs text-ink-muted">Pour justifier une absence, remettez un mot au secrétariat de l&apos;école.</p>
+              <p className="mt-4 text-xs text-ink-muted">{t("parent.child.howToJustify")}</p>
             </>
           )}
         </div>
@@ -285,32 +294,36 @@ export default function ChildPage() {
             <>
               <Card className="mb-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge color={FINANCE_STATUS[finance.situation.statut].color}>{FINANCE_STATUS[finance.situation.statut].label}</Badge>
+                  <Badge color={FINANCE_STATUS[finance.situation.statut].color}>{t(FINANCE_STATUS[finance.situation.statut].key)}</Badge>
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="text-ink-muted">Facturé</dt>
+                    <dt className="text-ink-muted">{t("parent.child.finInvoiced")}</dt>
                     <dd className="font-medium text-ink">{formatMontant(finance.situation.montantFacture)}</dd>
                   </div>
                   <div>
-                    <dt className="text-ink-muted">Déjà payé</dt>
+                    <dt className="text-ink-muted">{t("parent.child.finPaid")}</dt>
                     <dd className="font-medium text-success">{formatMontant(finance.situation.montantPaye)}</dd>
                   </div>
                   {finance.situation.montantRemise > 0 && (
                     <div>
-                      <dt className="text-ink-muted">Remises</dt>
+                      <dt className="text-ink-muted">{t("parent.child.finDiscounts")}</dt>
                       <dd className="font-medium text-ink">{formatMontant(finance.situation.montantRemise)}</dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-ink-muted">Reste à payer</dt>
+                    <dt className="text-ink-muted">{t("parent.child.finRemaining")}</dt>
                     <dd className="font-medium text-ink">{formatMontant(finance.situation.montantRestant)}</dd>
                   </div>
                 </dl>
                 {finance.situation.prochaineEcheance && (
                   <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${finance.situation.prochaineEcheance.enRetard ? "bg-warning-soft text-warning" : "bg-info-soft text-info"}`}>
-                    {finance.situation.prochaineEcheance.enRetard ? "En retard : " : "Prochaine échéance : "}
-                    {finance.situation.prochaineEcheance.libelle}, {formatMontant(finance.situation.prochaineEcheance.montant)}, avant le {formatIso(finance.situation.prochaineEcheance.dateLimite.slice(0, 10))}.
+                    {finance.situation.prochaineEcheance.enRetard ? t("parent.child.finOverdue") : t("parent.child.finNextDue")}
+                    {t("parent.child.finDueLine", {
+                      label: finance.situation.prochaineEcheance.libelle,
+                      amount: formatMontant(finance.situation.prochaineEcheance.montant),
+                      date: formatIso(finance.situation.prochaineEcheance.dateLimite.slice(0, 10)),
+                    })}
                   </p>
                 )}
               </Card>
@@ -319,9 +332,9 @@ export default function ChildPage() {
                 <PayTranches studentId={id} tranches={finance.tranches} defaultPhone={parent.telephone} onChanged={reloadFinance} />
               )}
 
-              <h2 className="mb-2 font-display text-base font-semibold text-ink">Paiements et reçus</h2>
+              <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.child.finPayments")}</h2>
               {finance.paiements.length === 0 ? (
-                <p className="text-sm text-ink-muted">Aucun paiement enregistré.</p>
+                <p className="text-sm text-ink-muted">{t("parent.child.finNoPayments")}</p>
               ) : (
                 <ul className="space-y-2">
                   {finance.paiements.map((p) => (
@@ -330,12 +343,12 @@ export default function ChildPage() {
                         <div>
                           <p className={`font-medium text-ink ${p.statut === "ANNULE" ? "line-through" : ""}`}>{formatMontant(p.montant)}</p>
                           <p className="text-sm text-ink-muted">
-                            {p.libelle} · {formatIso(p.date.slice(0, 10))} · {MODE_LABEL[p.modePaiement] ?? p.modePaiement}
+                            {p.libelle} · {formatIso(p.date.slice(0, 10))} · {MODE_KEY[p.modePaiement] ? t(MODE_KEY[p.modePaiement]) : p.modePaiement}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-mono text-xs text-ink-muted">Reçu {p.numeroRecu}</p>
-                          {p.statut === "ANNULE" && <Badge color="red">Annulé</Badge>}
+                          <p className="font-mono text-xs text-ink-muted">{t("parent.child.finReceipt", { number: p.numeroRecu })}</p>
+                          {p.statut === "ANNULE" && <Badge color="red">{t("parent.child.finCancelled")}</Badge>}
                         </div>
                       </div>
                     </li>

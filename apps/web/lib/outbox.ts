@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, isOfflineError, sendWithKey } from "@/lib/api";
 import { dbDelete, dbGet, dbPut, dbValues } from "@/lib/offline-db";
 import { isOnline } from "@/lib/connectivity";
+import { translate } from "@/lib/i18n";
 
 // File d'attente des saisies faites sans Internet (D49). Chaque entrée est une vraie requête
 // d'écriture, rejouée dans l'ordre au retour du réseau avec sa clé d'idempotence (jamais deux fois
@@ -63,6 +64,12 @@ export interface OutboxEntry {
   receipt?: ProvisionalReceipt;
 }
 
+// Le motif « dépend d'une saisie en échec » est écrit dans la langue de l'interface au moment de l'échec : pour le
+// reconnaître plus tard (la langue a pu changer entre-temps), on le compare aux deux versions.
+function isDependencyError(error: string | undefined): boolean {
+  return error === translate("adm.sync.errDependency", undefined, "fr") || error === translate("adm.sync.errDependency", undefined, "en");
+}
+
 const REF_PREFIX = "$ref:";
 const MAX_ATTEMPTS = 5;
 
@@ -116,7 +123,7 @@ export interface EnqueueInput {
 }
 
 export async function enqueue(input: EnqueueInput): Promise<OutboxEntry> {
-  if (!current) throw new Error("Aucun utilisateur connecté pour cette saisie.");
+  if (!current) throw new Error(translate("adm.sync.errNoUser"));
   const entry: OutboxEntry = {
     id: input.id ?? newId(),
     key: input.key ?? newId(),
@@ -167,7 +174,7 @@ export async function retryEntry(id: string, patchBody?: (body: unknown) => unkn
   });
   // Les saisies qui n'avaient échoué que parce qu'elles dépendaient de celle-ci repartent avec elle.
   for (const other of await listOutbox()) {
-    if (other.status === "failed" && other.dependsOn?.includes(id) && other.error?.startsWith("Dépend d'une saisie")) {
+    if (other.status === "failed" && other.dependsOn?.includes(id) && isDependencyError(other.error)) {
       await save({ ...other, status: "pending", error: undefined, attempts: 0 });
     }
   }
@@ -199,7 +206,7 @@ export async function processOutbox(): Promise<void> {
 
       const deps = (entry.dependsOn ?? []).map((d) => byId.get(d));
       if (deps.some((d) => d && d.status === "failed")) {
-        await save({ ...entry, status: "failed", error: "Dépend d'une saisie précédente en échec." });
+        await save({ ...entry, status: "failed", error: translate("adm.sync.errDependency") });
         continue;
       }
       if (deps.some((d) => !d || d.status !== "done")) continue;
@@ -224,7 +231,7 @@ export async function processOutbox(): Promise<void> {
       } catch (err) {
         if (isOfflineError(err)) break;
         if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-          await save({ ...entry, error: err.status === 401 ? "Session expirée : reconnectez-vous." : err.message });
+          await save({ ...entry, error: err.status === 401 ? translate("adm.sync.errSession") : err.message });
           if (err.status === 401) break;
           const failed: OutboxEntry = { ...entry, status: "failed", error: err.message };
           byId.set(entry.id, failed);
@@ -243,7 +250,7 @@ export async function processOutbox(): Promise<void> {
           ...entry,
           attempts,
           status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
-          error: "Le serveur n'a pas pu traiter cette saisie pour l'instant.",
+          error: translate("adm.sync.errServer"),
         });
         break;
       }

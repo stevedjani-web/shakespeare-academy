@@ -2,6 +2,9 @@
 
 import { Flag } from "lucide-react";
 import { priorityText, type MessagePriority } from "@/lib/message-priority";
+import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { getLocale } from "@/lib/i18n/store";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 export interface ThreadMessage {
   id: string;
@@ -17,7 +20,7 @@ export interface ThreadMessage {
 }
 
 export function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(value).toLocaleString(INTL_LOCALE[getLocale()], { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 // Un message important ou urgent se reconnaît de loin (couleur du cadre) et se lit (libellé et icône) : la couleur
@@ -40,6 +43,7 @@ const CHIP: Record<MessagePriority, string> = {
 
 /** Fil de messages : les miens à droite, ceux de l'autre à gauche. Un message retiré n'est plus lisible. */
 export function MessageList({ messages, onReport }: { messages: ThreadMessage[]; onReport?: (id: string) => void }) {
+  const { t } = useI18n();
   return (
     <ul className="space-y-3">
       {messages.map((m) => {
@@ -58,17 +62,17 @@ export function MessageList({ messages, onReport }: { messages: ThreadMessage[];
                 {m.auteur} · {formatDateTime(m.date)}
               </p>
               {m.retire ? (
-                <p className={`text-sm italic ${m.moi ? "text-white/80" : "text-ink-muted"}`}>Ce message a été retiré par la Direction.</p>
+                <p className={`text-sm italic ${m.moi ? "text-white/80" : "text-ink-muted"}`}>{t("msg.removed")}</p>
               ) : (
                 <p className="whitespace-pre-wrap text-sm">{m.texte}</p>
               )}
               {onReport && !m.moi && !m.retire && (
                 <div className="mt-1.5 text-right">
                   {m.signale ? (
-                    <span className="text-xs text-ink-muted">Signalé à la Direction</span>
+                    <span className="text-xs text-ink-muted">{t("msg.reportedShort")}</span>
                   ) : (
                     <button type="button" onClick={() => onReport(m.id)} className="inline-flex items-center gap-1 text-xs text-ink-muted underline hover:text-danger">
-                      <Flag size={12} /> Signaler à la Direction
+                      <Flag size={12} /> {t("msg.report")}
                     </button>
                   )}
                 </div>

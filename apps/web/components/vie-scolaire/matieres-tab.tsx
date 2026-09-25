@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { Cycle, Level, Section, Subject } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
@@ -22,6 +23,7 @@ export function MatieresTab({
   levelLabel: (id: string) => string;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState({ code: "", nom: "" });
@@ -112,7 +114,7 @@ export function MatieresTab({
   }
 
   async function remove(subject: Subject) {
-    if (!confirm(`Supprimer la matière « ${subject.nom} » ?`)) return;
+    if (!confirm(t("sl.subjects.confirmDelete", { name: subject.nom }))) return;
     setError(null);
     try {
       await api.delete(`/subjects/${subject.id}`);
@@ -133,27 +135,27 @@ export function MatieresTab({
 
   return (
     <Card>
-      <h2 className="font-display text-lg font-semibold text-ink">Matières</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">{t("sl.subjects.title")}</h2>
       <p className={`mb-3 ${TAB_HINT}`}>
-        Aucune matière n&apos;est préchargée. Ajoutez celles de l&apos;école, puis cochez les niveaux où chacune est enseignée : c&apos;est ce qui permet ensuite d&apos;affecter un enseignant à une classe.
+        {t("sl.subjects.hint")}
       </p>
       <ErrorMessage>{error}</ErrorMessage>
 
       <form onSubmit={addSubject} className="mb-5 space-y-3 border-b border-border pb-4">
-        <p className="text-sm font-semibold text-ink">Ajouter une matière</p>
+        <p className="text-sm font-semibold text-ink">{t("sl.subjects.add.title")}</p>
         <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
-          <Field label="Code">
+          <Field label={t("sl.subjects.add.code")}>
             <Input required placeholder="MATH" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
           </Field>
-          <Field label="Nom">
-            <Input required placeholder="Mathématiques" value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+          <Field label={t("sl.subjects.add.name")}>
+            <Input required placeholder={t("sl.subjects.add.namePlaceholder")} value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
           </Field>
         </div>
-        <Button type="submit">Ajouter la matière</Button>
+        <Button type="submit">{t("sl.subjects.add.submit")}</Button>
       </form>
 
       {loaded && subjects.length === 0 ? (
-        <EmptyState icon={<BookOpen />} title="Aucune matière." description="Ajoutez la première matière ci-dessus." />
+        <EmptyState icon={<BookOpen />} title={t("sl.subjects.empty.title")} description={t("sl.subjects.empty.description")} />
       ) : (
         <>
           <ExpandAll count={subjects.length} onOpenAll={() => expand.openAll(subjects.map((s) => s.id))} onCloseAll={expand.closeAll} />
@@ -169,15 +171,15 @@ export function MatieresTab({
                     <span className="font-medium text-ink">{subject.nom}</span>
                     <span className="font-mono text-xs text-ink-muted">{subject.code}</span>
                     <Badge color={subject.levels.length > 0 ? "green" : "orange"}>
-                      {subject.levels.length > 0 ? `${subject.levels.length} niveau(x)` : "Aucun niveau"}
+                      {subject.levels.length > 0 ? t("sl.subjects.levelCount", { n: subject.levels.length }) : t("sl.subjects.noLevel")}
                     </Badge>
-                    {!subject.actif && <Badge color="gray">Désactivée</Badge>}
+                    {!subject.actif && <Badge color="gray">{t("sl.subjects.inactive")}</Badge>}
                   </div>
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-border pt-3">
-                      <p className="text-sm font-medium text-ink">Enseignée aux niveaux :</p>
+                      <p className="text-sm font-medium text-ink">{t("sl.subjects.taughtAt")}</p>
                       {levelsBySection.length === 0 && (
-                        <p className={TAB_HINT}>Aucun niveau n&apos;existe encore. Créez la structure académique d&apos;abord.</p>
+                        <p className={TAB_HINT}>{t("sl.subjects.noLevelExists")}</p>
                       )}
                       {levelsBySection.map((g) => (
                         <div key={g.section.id}>
@@ -195,11 +197,11 @@ export function MatieresTab({
                                     <input
                                       type="number"
                                       min={1}
-                                      placeholder="min/sem."
+                                      placeholder={t("sl.subjects.minPlaceholder")}
                                       value={current[l.id] ?? ""}
                                       onChange={(e) => setMinutes(subject, l.id, e.target.value)}
                                       className="w-20 rounded-md border border-border px-1.5 py-0.5 text-xs"
-                                      aria-label={`Minutes par semaine, ${l.nom}`}
+                                      aria-label={t("sl.subjects.minAria", { level: l.nom })}
                                     />
                                   )}
                                 </div>
@@ -208,16 +210,16 @@ export function MatieresTab({
                           </div>
                         </div>
                       ))}
-                      <p className={TAB_HINT}>Le volume par semaine (en minutes) est facultatif et indicatif.</p>
+                      <p className={TAB_HINT}>{t("sl.subjects.minHint")}</p>
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={() => void saveLevels(subject)} disabled={savingId === subject.id || !changed}>
-                          {savingId === subject.id ? "Enregistrement…" : "Enregistrer les niveaux"}
+                          {savingId === subject.id ? t("sl.subjects.saving") : t("sl.subjects.saveLevels")}
                         </Button>
                         <Button variant="secondary" onClick={() => void toggleActive(subject)}>
-                          {subject.actif ? "Désactiver" : "Réactiver"}
+                          {subject.actif ? t("sl.common.deactivate") : t("sl.common.reactivate")}
                         </Button>
                         <Button variant="danger" onClick={() => void remove(subject)}>
-                          Supprimer
+                          {t("sl.common.delete")}
                         </Button>
                       </div>
                     </div>

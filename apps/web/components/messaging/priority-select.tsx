@@ -1,7 +1,8 @@
 "use client";
 
 import { useId } from "react";
-import { PRIORITY_META, priorityText, type MessagePriority } from "@/lib/message-priority";
+import { priorityLabel, priorityText, type MessagePriority } from "@/lib/message-priority";
+import { useI18n } from "@/lib/i18n/use-i18n";
 
 const SELECTED: Record<MessagePriority, string> = {
   NORMALE: "border-primary bg-primary text-white",
@@ -22,12 +23,13 @@ export function PrioritySelect({
   onChange: (p: MessagePriority) => void;
   allowUrgent: boolean;
 }) {
+  const { t } = useI18n();
   const labelId = useId();
   const options: MessagePriority[] = allowUrgent ? ["NORMALE", "IMPORTANTE", "URGENTE"] : ["NORMALE", "IMPORTANTE"];
   return (
     <div>
       <span id={labelId} className="mb-1 block text-xs font-medium text-ink-muted">
-        Priorité
+        {t("priority.label")}
       </span>
       <div role="radiogroup" aria-labelledby={labelId} className="flex flex-wrap gap-2">
         {options.map((p) => (
@@ -47,14 +49,10 @@ export function PrioritySelect({
       </div>
       {value !== "NORMALE" && (
         <p className="mt-1 text-xs text-ink-muted">
-          {value === "URGENTE"
-            ? "Le destinataire sera prévenu tout de suite, et ce message passera en tête. À réserver aux vraies urgences."
-            : `Ce message sera marqué « ${PRIORITY_META[value].label} » pour le destinataire.`}
+          {value === "URGENTE" ? t("priority.urgentHint") : t("priority.markedAs", { level: priorityLabel(value) })}
         </p>
       )}
-      {!allowUrgent && (
-        <p className="mt-1 text-xs text-ink-muted">Pour une urgence immédiate (santé, sécurité), appelez l&apos;école.</p>
-      )}
+      {!allowUrgent && <p className="mt-1 text-xs text-ink-muted">{t("priority.callSchool")}</p>}
     </div>
   );
 }

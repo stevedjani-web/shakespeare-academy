@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, isOfflineError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { translate, type MessageKey } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { useOnOutboxChange } from "@/lib/outbox";
@@ -22,15 +24,17 @@ import { StudentSummaryStrip } from "@/components/student-summary-strip";
 import { downloadStudentSummaryPdf } from "@/lib/student-summary-pdf";
 import { ArrowLeft, CalendarDays, Download, IdCard, Pencil, UserPlus, Users } from "lucide-react";
 
-const SEXE_LABEL: Record<string, string> = { M: "Masculin", F: "Féminin" };
+function sexLabel(sexe: string): string {
+  return translate(sexe === "M" ? "stu.sexM" : "stu.sexF");
+}
 
 function describeError(err: unknown): string {
-  if (isOfflineError(err)) return "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.";
-  return isApiError(err) ? err.message : "Une erreur est survenue.";
+  if (isOfflineError(err)) return translate("stu.doss.errOffline");
+  return isApiError(err) ? err.message : translate("stu.doss.errGeneric");
 }
-const ENROLLMENT_STATUS_BADGE: Record<string, { label: string; color: "green" | "gray" }> = {
-  ACTIVE: { label: "Active", color: "green" },
-  ANNULEE: { label: "Annulée", color: "gray" },
+const ENROLLMENT_STATUS_BADGE: Record<string, { label: MessageKey; color: "green" | "gray" }> = {
+  ACTIVE: { label: "stu.doss.enrActive", color: "green" },
+  ANNULEE: { label: "stu.doss.enrCancelled", color: "gray" },
 };
 
 export default function StudentDossierPage() {
@@ -38,6 +42,7 @@ export default function StudentDossierPage() {
   const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canManage = hasPermission("ENROLLMENT_MANAGE");
+  const { t } = useI18n();
 
   const [student, setStudent] = useState<StudentDossier | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +83,15 @@ export default function StudentDossierPage() {
           telephone: guardianForm.telephone || undefined,
           lien: guardianForm.lien || undefined,
         },
-        label: `${guardianForm.prenom} ${guardianForm.nom}${guardianForm.lien ? ` (${guardianForm.lien})` : ""} pour ${student?.prenom ?? ""} ${student?.nom ?? ""}`.trim(),
+        label: t("stu.doss.guardianFor", {
+          guardian: `${guardianForm.prenom} ${guardianForm.nom}${guardianForm.lien ? ` (${guardianForm.lien})` : ""}`,
+          student: `${student?.prenom ?? ""} ${student?.nom ?? ""}`,
+        }).trim(),
         studentId: params.id,
       });
       setGuardianForm({ nom: "", prenom: "", telephone: "", lien: "" });
       setShowGuardianForm(false);
-      if (res.queued) setNotice("Responsable enregistré sur cet appareil : il sera ajouté au dossier au retour d'Internet.");
+      if (res.queued) setNotice(t("stu.doss.guardianQueued"));
       await load();
     } catch (err) {
       setError(describeError(err));
@@ -91,7 +99,7 @@ export default function StudentDossierPage() {
   }
 
   async function handleDetachGuardian(guardianId: string) {
-    if (!confirm("Détacher ce responsable de l'élève ?")) return;
+    if (!confirm(t("stu.doss.confirmDetach"))) return;
     try {
       await api.delete(`/students/${params.id}/guardians/${guardianId}`);
       await load();
@@ -127,12 +135,12 @@ export default function StudentDossierPage() {
         method: "PATCH",
         path: `/students/${params.id}`,
         body: { ...studentForm, dateNaissance: studentForm.dateNaissance || undefined },
-        label: `Correction de ${studentForm.prenom} ${studentForm.nom}`,
+        label: t("stu.doss.correctionOf", { name: `${studentForm.prenom} ${studentForm.nom}` }),
         studentId: params.id,
       });
       setEditingStudent(false);
       if (res.queued) {
-        setNotice("Correction enregistrée sur cet appareil : elle sera envoyée au retour d'Internet.");
+        setNotice(t("stu.doss.correctionQueued"));
         // Affichage immédiat de ce qui a été saisi ; le serveur reste la référence à la synchronisation.
         setStudent((s) =>
           s
@@ -157,7 +165,7 @@ export default function StudentDossierPage() {
   }
 
   async function handleCancelEnrollment(enrollmentId: string) {
-    const motif = prompt("Motif de l'annulation (obligatoire) :");
+    const motif = prompt(t("stu.doss.promptCancel"));
     if (!motif) return;
     try {
       await api.post(`/enrollments/${enrollmentId}/cancel`, { motif });
@@ -211,7 +219,7 @@ export default function StudentDossierPage() {
         finance,
         assiduite,
         bulletins,
-        editePar: user ? `${user.prenom} ${user.nom}` : "Personnel de l'école",
+        editePar: user ? `${user.prenom} ${user.nom}` : t("stu.doss.staffFallback"),
       });
     } catch (err) {
       alert(describeError(err));
@@ -235,17 +243,17 @@ export default function StudentDossierPage() {
             canEdit={canManage}
             onChanged={() => void load().catch(() => {})}
           />
-          <PageTitle subtitle={`Matricule ${student.matricule}`} helpId="eleves-dossier">
+          <PageTitle subtitle={t("stu.doss.subtitle", { number: student.matricule })} helpId="eleves-dossier">
             {student.prenom} {student.nom}
           </PageTitle>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => void handleDownloadSummary()} disabled={downloadingSummary}>
-            <Download size={15} /> {downloadingSummary ? "Génération…" : "Fiche de synthèse (PDF)"}
+            <Download size={15} /> {downloadingSummary ? t("stu.doss.generating") : t("stu.doss.summaryPdf")}
           </Button>
           {canManage && (
             <Button onClick={() => router.push(`/eleves/inscription?studentId=${student.id}`)}>
-              Inscrire pour une nouvelle année
+              {t("stu.doss.enrolNewYear")}
             </Button>
           )}
         </div>
@@ -259,31 +267,31 @@ export default function StudentDossierPage() {
         <Card>
           <div className={`flex flex-wrap items-center justify-between gap-2 ${expand.isOpen("identite") ? "mb-3" : ""}`}>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <ExpandButton open={expand.isOpen("identite")} onClick={() => expand.toggle("identite")} label="l'identité" />
-              <IdCard size={16} className="text-primary" /> Identité
+              <ExpandButton open={expand.isOpen("identite")} onClick={() => expand.toggle("identite")} label={t("stu.doss.identityLabel")} />
+              <IdCard size={16} className="text-primary" /> {t("stu.doss.identity")}
               {!expand.isOpen("identite") && (
                 <span className="font-normal text-ink-muted">
-                  {SEXE_LABEL[student.sexe]}, né(e) le {formatDate(student.dateNaissance)}
+                  {t("stu.doss.bornOn", { sex: sexLabel(student.sexe), date: formatDate(student.dateNaissance) })}
                 </span>
               )}
             </h2>
             {canManage && !editingStudent && (
               <Button variant="ghost" onClick={startEditStudent}>
-                <Pencil size={14} /> Modifier
+                <Pencil size={14} /> {t("stu.doss.edit")}
               </Button>
             )}
           </div>
           {(expand.isOpen("identite") || editingStudent) && (editingStudent ? (
             <form onSubmit={handleSaveStudent} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Nom">
+                <Field label={t("stu.doss.fSurname")}>
                   <Input
                     required
                     value={studentForm.nom}
                     onChange={(e) => setStudentForm({ ...studentForm, nom: e.target.value })}
                   />
                 </Field>
-                <Field label="Prénom">
+                <Field label={t("stu.doss.fFirstName")}>
                   <Input
                     required
                     value={studentForm.prenom}
@@ -292,16 +300,16 @@ export default function StudentDossierPage() {
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sexe">
+                <Field label={t("stu.doss.fSex")}>
                   <Select
                     value={studentForm.sexe}
                     onChange={(e) => setStudentForm({ ...studentForm, sexe: e.target.value })}
                   >
-                    <option value="M">Masculin</option>
-                    <option value="F">Féminin</option>
+                    <option value="M">{t("stu.sexM")}</option>
+                    <option value="F">{t("stu.sexF")}</option>
                   </Select>
                 </Field>
-                <Field label="Date de naissance (facultatif)">
+                <Field label={t("stu.doss.fBirth")}>
                   <Input
                     type="date"
                     value={studentForm.dateNaissance}
@@ -309,13 +317,13 @@ export default function StudentDossierPage() {
                   />
                 </Field>
               </div>
-              <Field label="Lieu de naissance (facultatif)">
+              <Field label={t("stu.doss.fBirthPlace")}>
                 <Input
                   value={studentForm.lieuNaissance}
                   onChange={(e) => setStudentForm({ ...studentForm, lieuNaissance: e.target.value })}
                 />
               </Field>
-              <Field label="Nationalité">
+              <Field label={t("stu.doss.fNationality")}>
                 <Input
                   value={studentForm.nationalite}
                   onChange={(e) => setStudentForm({ ...studentForm, nationalite: e.target.value })}
@@ -324,22 +332,26 @@ export default function StudentDossierPage() {
               <ErrorMessage>{studentError}</ErrorMessage>
               <div className="flex gap-2">
                 <Button type="submit" disabled={savingStudent}>
-                  {savingStudent ? "Enregistrement…" : "Enregistrer"}
+                  {savingStudent ? t("stu.doss.saving") : t("stu.doss.save")}
                 </Button>
                 <Button type="button" variant="secondary" onClick={() => setEditingStudent(false)}>
-                  Annuler
+                  {t("stu.doss.cancel")}
                 </Button>
               </div>
             </form>
           ) : (
             <dl className="space-y-2 text-sm">
-              <Row label="Sexe" value={SEXE_LABEL[student.sexe]} />
-              <Row label="Date de naissance" value={formatDate(student.dateNaissance)} />
-              <Row label="Lieu de naissance" value={student.lieuNaissance ?? "—"} />
-              <Row label="Nationalité" value={student.nationalite ?? "—"} />
+              <Row label={t("stu.doss.fSex")} value={sexLabel(student.sexe)} />
+              <Row label={t("stu.doss.rBirth")} value={formatDate(student.dateNaissance)} />
+              <Row label={t("stu.doss.rBirthPlace")} value={student.lieuNaissance ?? "—"} />
+              <Row label={t("stu.doss.fNationality")} value={student.nationalite ?? "—"} />
               <Row
-                label="Statut"
-                value={<Badge color={student.statut === "ACTIF" ? "green" : "gray"}>{student.statut}</Badge>}
+                label={t("stu.doss.rStatus")}
+                value={
+                  <Badge color={student.statut === "ACTIF" ? "green" : "gray"}>
+                    {student.statut === "ACTIF" ? t("stu.doss.stActif") : t("stu.doss.stInactif")}
+                  </Badge>
+                }
               />
             </dl>
           ))}
@@ -348,10 +360,10 @@ export default function StudentDossierPage() {
         <Card className="lg:col-span-2">
           <div className={`flex flex-wrap items-center justify-between gap-2 ${expand.isOpen("resp") || showGuardianForm ? "mb-3" : ""}`}>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <ExpandButton open={expand.isOpen("resp")} onClick={() => expand.toggle("resp")} label="les responsables" />
-              <Users size={16} className="text-primary" /> Responsables
+              <ExpandButton open={expand.isOpen("resp")} onClick={() => expand.toggle("resp")} label={t("stu.doss.guardiansLabel")} />
+              <Users size={16} className="text-primary" /> {t("stu.doss.guardians")}
               {!expand.isOpen("resp") && (
-                <span className="font-normal text-ink-muted">{student.studentGuardians.length} responsable(s)</span>
+                <span className="font-normal text-ink-muted">{t("stu.doss.guardianCount", { count: student.studentGuardians.length })}</span>
               )}
             </h2>
             {canManage && (
@@ -363,7 +375,7 @@ export default function StudentDossierPage() {
                 }}
               >
                 <UserPlus size={15} />
-                {showGuardianForm ? "Annuler" : "Ajouter"}
+                {showGuardianForm ? t("stu.doss.cancel") : t("stu.doss.add")}
               </Button>
             )}
           </div>
@@ -373,40 +385,43 @@ export default function StudentDossierPage() {
               <li key={sg.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
                 <div>
                   <span className="font-medium text-ink">
-                    {sg.guardian.prenom || sg.guardian.nom ? `${sg.guardian.prenom ?? ""} ${sg.guardian.nom ?? ""}`.trim() : "Responsable sans nom"}
+                    {sg.guardian.prenom || sg.guardian.nom ? `${sg.guardian.prenom ?? ""} ${sg.guardian.nom ?? ""}`.trim() : t("stu.doss.unnamedGuardian")}
                   </span>{" "}
                   <span className="text-ink-muted">
-                    — {sg.lien ?? "lien non précisé"} · {sg.guardian.telephone ?? "téléphone non renseigné"}
+                    {t("stu.doss.guardianMeta", {
+                      link: sg.lien ?? t("stu.doss.linkUnspecified"),
+                      phone: sg.guardian.telephone ?? t("stu.doss.phoneMissing"),
+                    })}
                   </span>
                   {sg.prioritaire && (
                     <span className="ml-2">
-                      <Badge color="blue">Contact prioritaire</Badge>
+                      <Badge color="blue">{t("stu.doss.priorityContact")}</Badge>
                     </span>
                   )}
                 </div>
                 {canManage && (
                   <Button variant="ghost" onClick={() => void handleDetachGuardian(sg.guardianId)}>
-                    Détacher
+                    {t("stu.doss.detach")}
                   </Button>
                 )}
               </li>
             ))}
             {student.studentGuardians.length === 0 && (
-              <li className="py-4 text-sm text-ink-muted">Aucun responsable rattaché.</li>
+              <li className="py-4 text-sm text-ink-muted">{t("stu.doss.noGuardian")}</li>
             )}
           </ul>
           )}
           {showGuardianForm && (
             <form onSubmit={handleAttachGuardian} className="mt-4 space-y-3 border-t border-border pt-4">
-              <p className="text-xs text-ink-muted">Tous ces champs sont facultatifs (à compléter plus tard si inconnus).</p>
+              <p className="text-xs text-ink-muted">{t("stu.doss.guardianOptional")}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Nom">
+                <Field label={t("stu.doss.fSurname")}>
                   <Input
                     value={guardianForm.nom}
                     onChange={(e) => setGuardianForm({ ...guardianForm, nom: e.target.value })}
                   />
                 </Field>
-                <Field label="Prénom">
+                <Field label={t("stu.doss.fFirstName")}>
                   <Input
                     value={guardianForm.prenom}
                     onChange={(e) => setGuardianForm({ ...guardianForm, prenom: e.target.value })}
@@ -414,13 +429,13 @@ export default function StudentDossierPage() {
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Téléphone">
+                <Field label={t("stu.doss.fPhone")}>
                   <Input
                     value={guardianForm.telephone}
                     onChange={(e) => setGuardianForm({ ...guardianForm, telephone: e.target.value })}
                   />
                 </Field>
-                <Field label="Lien (Père, Mère, Tuteur…)">
+                <Field label={t("stu.doss.fRelationship")}>
                   <Input
                     value={guardianForm.lien}
                     onChange={(e) => setGuardianForm({ ...guardianForm, lien: e.target.value })}
@@ -428,7 +443,7 @@ export default function StudentDossierPage() {
                 </Field>
               </div>
               <ErrorMessage>{error}</ErrorMessage>
-              <Button type="submit">Rattacher</Button>
+              <Button type="submit">{t("stu.doss.attach")}</Button>
             </form>
           )}
         </Card>
@@ -463,10 +478,10 @@ export default function StudentDossierPage() {
 
         <Card className="lg:col-span-3">
           <h2 className={`flex items-center gap-2 text-sm font-semibold text-ink ${expand.isOpen("parcours") ? "mb-3" : ""}`}>
-            <ExpandButton open={expand.isOpen("parcours")} onClick={() => expand.toggle("parcours")} label="le parcours annuel" />
-            <CalendarDays size={16} className="text-primary" /> Parcours annuel
+            <ExpandButton open={expand.isOpen("parcours")} onClick={() => expand.toggle("parcours")} label={t("stu.doss.annualLabel")} />
+            <CalendarDays size={16} className="text-primary" /> {t("stu.doss.annual")}
             {!expand.isOpen("parcours") && (
-              <span className="font-normal text-ink-muted">{student.enrollments.length} inscription(s)</span>
+              <span className="font-normal text-ink-muted">{t("stu.doss.enrolmentCount", { count: student.enrollments.length })}</span>
             )}
           </h2>
           {expand.isOpen("parcours") && (
@@ -474,12 +489,12 @@ export default function StudentDossierPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-ink-muted">
-                  <th className="py-2 pr-4">Année</th>
-                  <th className="py-2 pr-4">Classe</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Numéro</th>
-                  <th className="py-2 pr-4">Statut</th>
-                  {canManage && <th className="py-2 pr-4">Actions</th>}
+                  <th className="py-2 pr-4">{t("stu.doss.cYear")}</th>
+                  <th className="py-2 pr-4">{t("stu.doss.cClass")}</th>
+                  <th className="py-2 pr-4">{t("stu.doss.cType")}</th>
+                  <th className="py-2 pr-4">{t("stu.doss.cNumber")}</th>
+                  <th className="py-2 pr-4">{t("stu.doss.cStatus")}</th>
+                  {canManage && <th className="py-2 pr-4">{t("stu.doss.cActions")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -487,11 +502,11 @@ export default function StudentDossierPage() {
                   <tr key={en.id} className="border-b border-border">
                     <td className="py-2 pr-4">{en.academicYear.libelle}</td>
                     <td className="py-2 pr-4">{en.class.nom}</td>
-                    <td className="py-2 pr-4">{en.type === "INSCRIPTION" ? "Inscription" : "Réinscription"}</td>
+                    <td className="py-2 pr-4">{en.type === "INSCRIPTION" ? t("stu.doss.typeEnrolment") : t("stu.doss.typeReEnrolment")}</td>
                     <td className="py-2 pr-4 font-mono text-xs">{en.numero}</td>
                     <td className="py-2 pr-4">
                       <Badge color={ENROLLMENT_STATUS_BADGE[en.statut].color}>
-                        {ENROLLMENT_STATUS_BADGE[en.statut].label}
+                        {t(ENROLLMENT_STATUS_BADGE[en.statut].label)}
                       </Badge>
                       {en.motifAnnulation && <p className="mt-1 text-xs text-ink-muted">{en.motifAnnulation}</p>}
                     </td>
@@ -501,7 +516,7 @@ export default function StudentDossierPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <ChangeClassAction enrollment={en} onChanged={load} />
                             <Button variant="ghost" onClick={() => void handleCancelEnrollment(en.id)}>
-                              Annuler
+                              {t("stu.doss.cancel")}
                             </Button>
                           </div>
                         )}
@@ -512,7 +527,7 @@ export default function StudentDossierPage() {
                 {student.enrollments.length === 0 && (
                   <tr>
                     <td colSpan={canManage ? 6 : 5} className="py-6 text-center text-ink-muted">
-                      Aucune inscription enregistrée.
+                      {t("stu.doss.noEnrolment")}
                     </td>
                   </tr>
                 )}
@@ -530,7 +545,7 @@ export default function StudentDossierPage() {
 
       <div className="mt-4">
         <Link href="/eleves" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink hover:underline">
-          <ArrowLeft size={14} /> Retour à la liste des élèves
+          <ArrowLeft size={14} /> {t("stu.doss.backToList")}
         </Link>
       </div>
     </div>
@@ -548,6 +563,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 /** Corrige une erreur de saisie sur la classe (même niveau uniquement — voir EnrollmentsService.changeClass). */
 function ChangeClassAction({ enrollment, onChanged }: { enrollment: Enrollment; onChanged: () => Promise<void> }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState("");
@@ -575,7 +591,7 @@ function ChangeClassAction({ enrollment, onChanged }: { enrollment: Enrollment; 
       setEditing(false);
       await onChanged();
     } catch (err) {
-      setError(isApiError(err) ? err.message : "Une erreur est survenue.");
+      setError(isApiError(err) ? err.message : t("stu.doss.errGeneric"));
     } finally {
       setSaving(false);
     }
@@ -584,7 +600,7 @@ function ChangeClassAction({ enrollment, onChanged }: { enrollment: Enrollment; 
   if (!editing) {
     return (
       <Button variant="ghost" onClick={() => void startEditing()}>
-        <Pencil size={14} /> Classe
+        <Pencil size={14} /> {t("stu.doss.cClass")}
       </Button>
     );
   }

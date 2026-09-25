@@ -16,6 +16,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { CurrentUserData } from './types/current-user.interface';
+import { SetLanguageDto } from '../common/language';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const REFRESH_COOKIE_PATH = '/auth';
@@ -72,6 +73,15 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: CurrentUserData) {
     return user;
+  }
+
+  @Patch('language')
+  async setLanguage(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: SetLanguageDto,
+  ) {
+    await this.authService.setLanguage(user.id, dto.langue);
+    return { langue: dto.langue };
   }
 
   @Patch('change-password')

@@ -294,7 +294,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       code,
       motDePasse: 'MotDePasse123',
       consentement: true,
-      versionPolitique: '2026-09-v7',
+      versionPolitique: '2026-09-v8',
       ...extra,
     });
 
@@ -313,7 +313,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       code: body.code,
       motDePasse,
       consentement: true,
-      versionPolitique: '2026-09-v7',
+      versionPolitique: '2026-09-v8',
     }).expect(201);
     return res.body.accessToken as string;
   }
@@ -439,7 +439,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
 
       const consent = await prisma.parentConsent.findMany();
       expect(consent).toHaveLength(1);
-      expect(consent[0].version).toBe('2026-09-v7');
+      expect(consent[0].version).toBe('2026-09-v8');
       expect(
         (await prisma.parentAccount.findFirstOrThrow()).motDePasseHash,
       ).not.toContain('MotDePasse123');
@@ -451,7 +451,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       );
       expect(list.compte).toMatchObject({
         statut: 'ACTIF',
-        consentement: { version: '2026-09-v7' },
+        consentement: { version: '2026-09-v8' },
       });
       expect(list.codeEnAttente).toBeNull();
     });
@@ -474,7 +474,7 @@ describe('Comptes parents et portail (e2e, Lot 11)', () => {
       const info = await request(app.getHttpServer())
         .get('/portal/consent-info')
         .expect(200);
-      expect(info.body.version).toBe('2026-09-v7');
+      expect(info.body.version).toBe('2026-09-v8');
     });
 
     it('un code faux ne dit jamais si le numéro existe, et se brûle après cinq essais', async () => {

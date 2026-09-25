@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import type { AcademicYear, Class, PedagogySummary, Teacher } from "@/lib/types";
 import { Badge, Button, Card, ErrorMessage, Field, Select, Spinner, SuccessMessage } from "@/components/ui";
 import { CheckCircle2, Circle, FileText } from "lucide-react";
 import { describeError, TAB_HINT, WEEK_DAYS } from "./shared";
 
-export type VieScolaireTab = "recap" | "horaires" | "matieres" | "enseignants" | "affectations" | "calendrier" | "salles" | "assiduite";
+export type VieScolaireTab = "recap" | "horaires" | "matieres" | "enseignants" | "affectations" | "calendrier" | "salles" | "assiduite" | "assistant";
 
 /** Où en est la saisie : ce qui est rempli, ce qui manque, avec un raccourci vers chaque écran. */
 export function RecapTab({
@@ -25,6 +26,7 @@ export function RecapTab({
   onGo: (tab: VieScolaireTab) => void;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [classes, setClasses] = useState<Class[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classId, setClassId] = useState("");
@@ -33,7 +35,7 @@ export function RecapTab({
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    void api.get<Teacher[]>("/teachers").then((t) => setTeachers(t.filter((x) => x.statut === "ACTIF"))).catch(() => {});
+    void api.get<Teacher[]>("/teachers").then((list) => setTeachers(list.filter((x) => x.statut === "ACTIF"))).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function RecapTab({
   if (!summary) {
     return (
       <div className="flex items-center gap-2 py-10 text-sm text-ink-muted">
-        <Spinner /> Chargement…
+        <Spinner /> {t("sl.recap.loading")}
       </div>
     );
   }
@@ -72,72 +74,88 @@ export function RecapTab({
   const items: Array<{ done: boolean; title: string; detail: string; tab: VieScolaireTab; action: string }> = [
     {
       done: nbCreneaux > 0,
-      title: "Jours et horaires",
-      detail: `Jours de classe : ${jours}. ${nbCreneaux} créneau(x) saisi(s)${summary.creneaux.parSection > 0 ? `, dont ${summary.creneaux.parSection} propre(s) à une section` : ""}.`,
+      title: t("sl.recap.days.title"),
+      detail: t("sl.recap.days.detail", {
+        jours,
+        n: nbCreneaux,
+        own: summary.creneaux.parSection > 0 ? t("sl.recap.days.own", { n: summary.creneaux.parSection }) : "",
+      }),
       tab: "horaires",
-      action: "Saisir les horaires",
+      action: t("sl.recap.days.action"),
     },
     {
       done: summary.matieres.total > 0 && summary.matieres.sansNiveau === 0,
-      title: "Matières par niveau",
+      title: t("sl.recap.subjects.title"),
       detail:
         summary.matieres.total === 0
-          ? "Aucune matière saisie."
-          : `${summary.matieres.total} matière(s)${summary.matieres.sansNiveau > 0 ? `, dont ${summary.matieres.sansNiveau} sans niveau` : ""}.`,
+          ? t("sl.recap.subjects.none")
+          : t("sl.recap.subjects.detail", {
+              n: summary.matieres.total,
+              noLevel: summary.matieres.sansNiveau > 0 ? t("sl.recap.subjects.noLevel", { n: summary.matieres.sansNiveau }) : "",
+            }),
       tab: "matieres",
-      action: "Saisir les matières",
+      action: t("sl.recap.subjects.action"),
     },
     {
       done: summary.enseignants.total > 0,
-      title: "Enseignants",
+      title: t("sl.recap.teachers.title"),
       detail:
         summary.enseignants.total === 0
-          ? "Aucun enseignant saisi."
-          : `${summary.enseignants.actifs} actif(s) sur ${summary.enseignants.total}${summary.enseignants.sansAffectation > 0 ? `, ${summary.enseignants.sansAffectation} sans affectation` : ""}.`,
+          ? t("sl.recap.teachers.none")
+          : t("sl.recap.teachers.detail", {
+              active: summary.enseignants.actifs,
+              total: summary.enseignants.total,
+              noAssign: summary.enseignants.sansAffectation > 0 ? t("sl.recap.teachers.noAssign", { n: summary.enseignants.sansAffectation }) : "",
+            }),
       tab: "enseignants",
-      action: "Saisir les enseignants",
+      action: t("sl.recap.teachers.action"),
     },
     {
       done: summary.affectations.requises > 0 && summary.affectations.manquantes === 0,
-      title: "Affectations aux classes",
+      title: t("sl.recap.assign.title"),
       detail:
         summary.affectations.classes === 0
-          ? "Aucune classe pour cette année."
+          ? t("sl.recap.assign.noClass")
           : summary.affectations.requises === 0
-            ? "Aucune matière n'est encore rattachée aux niveaux : rien à affecter."
-            : `${summary.affectations.classesCompletes}/${summary.affectations.classes} classe(s) complète(s), ${summary.affectations.manquantes} affectation(s) manquante(s).`,
+            ? t("sl.recap.assign.nothing")
+            : t("sl.recap.assign.detail", {
+                done: summary.affectations.classesCompletes,
+                total: summary.affectations.classes,
+                missing: summary.affectations.manquantes,
+              }),
       tab: "affectations",
-      action: "Affecter les enseignants",
+      action: t("sl.recap.assign.action"),
     },
     {
       done: summary.trimestres >= 3,
-      title: "Trimestres",
-      detail: `${summary.trimestres} trimestre(s) saisi(s) sur 3 prévus.`,
+      title: t("sl.recap.terms.title"),
+      detail: t("sl.recap.terms.detail", { n: summary.trimestres }),
       tab: "calendrier",
-      action: "Saisir le calendrier",
+      action: t("sl.recap.calendar.action"),
     },
     {
       done: summary.calendrier.vacances + summary.calendrier.feries > 0,
-      title: "Vacances et jours fériés",
-      detail: `${summary.calendrier.vacances} période(s) de vacances, ${summary.calendrier.feries} jour(s) férié(s).`,
+      title: t("sl.recap.holidays.title"),
+      detail: t("sl.recap.holidays.detail", { v: summary.calendrier.vacances, f: summary.calendrier.feries }),
       tab: "calendrier",
-      action: "Saisir le calendrier",
+      action: t("sl.recap.calendar.action"),
     },
     {
       done: summary.salles > 0,
-      title: "Salles",
-      detail: summary.salles === 0 ? "Aucune salle saisie." : `${summary.salles} salle(s).`,
+      title: t("sl.recap.rooms.title"),
+      detail: summary.salles === 0 ? t("sl.recap.rooms.none") : t("sl.recap.rooms.detail", { n: summary.salles }),
       tab: "salles",
-      action: "Saisir les salles",
+      action: t("sl.recap.rooms.action"),
     },
     {
       done: !!summary.pilote.classe && !!summary.pilote.enseignant,
-      title: "Classe pilote et enseignant volontaire",
-      detail: `Classe : ${summary.pilote.classe?.nom ?? "non choisie"}. Enseignant : ${
-        summary.pilote.enseignant ? `${summary.pilote.enseignant.prenom} ${summary.pilote.enseignant.nom}` : "non choisi"
-      }.`,
+      title: t("sl.recap.pilot.title"),
+      detail: t("sl.recap.pilot.detail", {
+        classe: summary.pilote.classe?.nom ?? t("sl.recap.pilot.classNone"),
+        teacher: summary.pilote.enseignant ? `${summary.pilote.enseignant.prenom} ${summary.pilote.enseignant.nom}` : t("sl.recap.pilot.teacherNone"),
+      }),
       tab: "recap",
-      action: "Choisir ci-dessous",
+      action: t("sl.recap.pilot.action"),
     },
   ];
   const doneCount = items.filter((i) => i.done).length;
@@ -147,17 +165,17 @@ export function RecapTab({
       <Card>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Où en est la saisie ?</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">{t("sl.recap.heading")}</h2>
             <p className={TAB_HINT}>
-              {doneCount}/{items.length} rubriques complètes. Les affectations et le calendrier dépendent de l&apos;année scolaire choisie.
+              {t("sl.recap.progress", { done: doneCount, total: items.length })}
             </p>
           </div>
           <div className="w-full max-w-xs">
-            <Select value={yearId} onChange={(e) => onYearChange(e.target.value)} aria-label="Année scolaire">
+            <Select value={yearId} onChange={(e) => onYearChange(e.target.value)} aria-label={t("sl.recap.year")}>
               {years.map((y) => (
                 <option key={y.id} value={y.id}>
                   {y.libelle}
-                  {y.statut === "ACTIVE" ? " (active)" : ""}
+                  {y.statut === "ACTIVE" ? t("sl.recap.yearActive") : ""}
                 </option>
               ))}
             </Select>
@@ -180,7 +198,7 @@ export function RecapTab({
               </div>
               {item.tab !== "recap" && (
                 <Button variant={item.done ? "secondary" : "primary"} onClick={() => onGo(item.tab)}>
-                  {item.done ? "Modifier" : item.action}
+                  {item.done ? t("sl.recap.edit") : item.action}
                 </Button>
               )}
             </li>
@@ -189,14 +207,14 @@ export function RecapTab({
       </Card>
 
       <Card>
-        <h3 className="mb-1 font-display text-base font-semibold text-ink">Classe pilote et enseignant volontaire</h3>
+        <h3 className="mb-1 font-display text-base font-semibold text-ink">{t("sl.recap.pilot.title")}</h3>
         <p className={`mb-3 ${TAB_HINT}`}>
-          Une seule classe et un seul enseignant : ils testeront en premier l&apos;appel et le pointage. Choisir une nouvelle classe retire la précédente.
+          {t("sl.recap.pilot.hint")}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Classe pilote">
+          <Field label={t("sl.recap.pilot.classLabel")}>
             <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
-              <option value="">Aucune</option>
+              <option value="">{t("sl.recap.pilot.classNoneOption")}</option>
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nom}
@@ -204,9 +222,9 @@ export function RecapTab({
               ))}
             </Select>
           </Field>
-          <Field label="Enseignant volontaire">
+          <Field label={t("sl.recap.pilot.teacherLabel")}>
             <Select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
-              <option value="">Aucun</option>
+              <option value="">{t("sl.recap.pilot.teacherNoneOption")}</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.prenom} {t.nom}
@@ -216,25 +234,25 @@ export function RecapTab({
           </Field>
         </div>
         <ErrorMessage>{error}</ErrorMessage>
-        <SuccessMessage>{saved ? "Désignation enregistrée." : null}</SuccessMessage>
+        <SuccessMessage>{saved ? t("sl.recap.pilot.saved") : null}</SuccessMessage>
         <Button className="mt-3" onClick={() => void savePilot()}>
-          Enregistrer
+          {t("sl.common.save")}
         </Button>
       </Card>
 
       <Card>
         <h3 className="mb-2 flex items-center gap-2 font-display text-base font-semibold text-ink">
-          <FileText size={16} className="text-primary" /> À transmettre en document
+          <FileText size={16} className="text-primary" /> {t("sl.recap.docs.title")}
         </h3>
         <p className="text-sm text-ink-muted">
-          Ces deux éléments ne se saisissent pas dans l&apos;application : merci de les remettre à l&apos;équipe de développement.
+          {t("sl.recap.docs.intro")}
         </p>
         <ul className="mt-2 space-y-1 text-sm text-ink">
           <li>
-            <Badge color="slate">Document</Badge> Le règlement intérieur actuel sur les retards et les absences.
+            <Badge color="slate">{t("sl.recap.docs.badge")}</Badge> {t("sl.recap.docs.rules")}
           </li>
           <li>
-            <Badge color="slate">Document</Badge> Le modèle de justificatif d&apos;absence utilisé aujourd&apos;hui.
+            <Badge color="slate">{t("sl.recap.docs.badge")}</Badge> {t("sl.recap.docs.template")}
           </li>
         </ul>
       </Card>

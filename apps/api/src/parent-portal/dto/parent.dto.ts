@@ -10,6 +10,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { msg } from '../../common/language';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,7 +25,10 @@ export class ActivateDto {
 
   @IsString()
   @MinLength(8, {
-    message: 'Le mot de passe doit contenir au moins 8 caractères.',
+    message: msg(
+      'Le mot de passe doit contenir au moins 8 caractères.',
+      'The password must be at least 8 characters long.',
+    ),
   })
   @MaxLength(100)
   motDePasse!: string;
@@ -54,7 +58,10 @@ export class ParentChangePasswordDto {
 
   @IsString()
   @MinLength(8, {
-    message: 'Le mot de passe doit contenir au moins 8 caractères.',
+    message: msg(
+      'Le mot de passe doit contenir au moins 8 caractères.',
+      'The password must be at least 8 characters long.',
+    ),
   })
   @MaxLength(100)
   nouveauMotDePasse!: string;
@@ -66,13 +73,20 @@ export class SetLinkAccessDto {
 
   // Toujours demandé : retirer ou rétablir l'accès d'un responsable est une décision qui doit rester justifiée.
   @IsString()
-  @MinLength(1, { message: 'Le motif est obligatoire.' })
+  @MinLength(1, {
+    message: msg('Le motif est obligatoire.', 'A reason is required.'),
+  })
   motif!: string;
 }
 
 export class WeekQueryDto {
   @IsOptional()
-  @Matches(DATE, { message: 'date doit être au format AAAA-MM-JJ.' })
+  @Matches(DATE, {
+    message: msg(
+      'date doit être au format AAAA-MM-JJ.',
+      'date must be in the YYYY-MM-DD format.',
+    ),
+  })
   date?: string;
 }
 

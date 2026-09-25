@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
 import { Button, PageTitle } from "@/components/ui";
 import { ReportForm } from "@/components/discipline/report-form";
 import { RecordsPanel } from "@/components/discipline/records-panel";
@@ -16,6 +17,7 @@ type Tab = "signalements" | "traiter" | "convocations" | "catalogues";
  * convoque ; la Direction décide, publie et annule. Le serveur applique ces droits, l'écran n'en montre que le reflet.
  */
 export default function DisciplinePage() {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canReport = hasPermission("DISCIPLINE_REPORT");
   const canReadAll = hasPermission("DISCIPLINE_READ") || hasPermission("DISCIPLINE_DECIDE");
@@ -24,12 +26,12 @@ export default function DisciplinePage() {
   const canCatalogue = hasPermission("PEDAGOGY_MANAGE");
 
   const tabs: Array<{ key: Tab; label: string; visible: boolean }> = [
-    { key: "signalements", label: canReadAll ? "Signalements" : "Mes signalements", visible: canReport || canReadAll },
-    { key: "traiter", label: "À traiter", visible: canDecide },
-    { key: "convocations", label: "Convocations", visible: canConvoke || canReadAll },
-    { key: "catalogues", label: "Catalogues", visible: canCatalogue },
+    { key: "signalements", label: canReadAll ? t("acd.disc.tabReports") : t("acd.disc.tabMyReports"), visible: canReport || canReadAll },
+    { key: "traiter", label: t("acd.disc.tabTodo"), visible: canDecide },
+    { key: "convocations", label: t("acd.disc.tabSummons"), visible: canConvoke || canReadAll },
+    { key: "catalogues", label: t("acd.disc.tabCatalogues"), visible: canCatalogue },
   ];
-  const visible = tabs.filter((t) => t.visible);
+  const visible = tabs.filter((tabItem) => tabItem.visible);
   const [tab, setTab] = useState<Tab>(visible[0]?.key ?? "signalements");
   const [reporting, setReporting] = useState(false);
   const [version, setVersion] = useState(0);
@@ -38,27 +40,23 @@ export default function DisciplinePage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <PageTitle
-          eyebrow="Lot 20"
-          subtitle="Signalements, sanctions, convocations des familles et points positifs. Les textes saisis ici sont confidentiels."
-          helpId="discipline"
-        >
-          Discipline
+        <PageTitle eyebrow={t("acd.disc.eyebrow")} subtitle={t("acd.disc.subtitle")} helpId="discipline">
+          {t("acd.disc.title")}
         </PageTitle>
-        {canReport && tab === "signalements" && !reporting && <Button onClick={() => setReporting(true)}>Signaler</Button>}
+        {canReport && tab === "signalements" && !reporting && <Button onClick={() => setReporting(true)}>{t("acd.disc.report")}</Button>}
       </div>
 
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-full border border-border bg-surface-muted p-1">
-        {visible.map((t) => (
+        {visible.map((item) => (
           <button
-            key={t.key}
+            key={item.key}
             type="button"
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab(item.key)}
             className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-              tab === t.key ? "bg-surface text-ink shadow-[var(--shadow-soft)]" : "text-ink-muted hover:text-ink"
+              tab === item.key ? "bg-surface text-ink shadow-[var(--shadow-soft)]" : "text-ink-muted hover:text-ink"
             }`}
           >
-            {t.label}
+            {item.label}
           </button>
         ))}
       </div>

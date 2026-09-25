@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, CloudOff } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/lib/i18n/use-i18n";
+import { Rich } from "@/lib/i18n/rich";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { formatNote, parseNote, type GradeSheet, type NoteStatus } from "@/lib/grades";
 import { Badge, Button, Card, ErrorMessage, Field, Input, Spinner, SuccessMessage } from "@/components/ui";
@@ -24,6 +26,7 @@ function cellFrom(row: GradeSheet["eleves"][number]): Cell {
  * envoyé au retour du réseau, sans jamais créer de doublon.
  */
 export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string; onBack: () => void }) {
+  const { t } = useI18n();
   const { hasPermission } = useAuth();
   const canEnter = hasPermission("GRADE_ENTER");
   const canCorrect = hasPermission("GRADE_CORRECT");
@@ -61,12 +64,12 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
     for (const [id, cell] of Object.entries(cells)) {
       if (cell.mode !== "NOTE") continue;
       const n = parseNote(cell.text);
-      if (n === null) out[id] = "Saisissez un nombre.";
-      else if (n < 0 || n > sheet.evaluation.bareme) out[id] = `Entre 0 et ${sheet.evaluation.bareme}.`;
-      else if (Math.round(n * 100) / 100 !== n) out[id] = "Deux décimales au plus.";
+      if (n === null) out[id] = t("acd.sheet.errNumber");
+      else if (n < 0 || n > sheet.evaluation.bareme) out[id] = t("acd.sheet.errRange", { max: sheet.evaluation.bareme });
+      else if (Math.round(n * 100) / 100 !== n) out[id] = t("acd.sheet.errDecimals");
     }
     return out;
-  }, [cells, sheet]);
+  }, [cells, sheet, t]);
 
   const changed = useMemo(
     () =>
@@ -104,7 +107,7 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
   async function save() {
     if (!sheet || changed.length === 0) return;
     if (locked && !motif.trim()) {
-      setError("Une correction exige un motif.");
+      setError(t("acd.sheet.errReason"));
       return;
     }
     setBusy(true);
@@ -121,18 +124,18 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
         method: "POST",
         path: `/grades/evaluations/${evaluationId}/notes`,
         body: { notes, ...(locked ? { motif: motif.trim() } : {}) },
-        label: `Notes : ${sheet.evaluation.titre} (${sheet.evaluation.className})`,
+        label: t("acd.sheet.queueLabel", { title: sheet.evaluation.titre, class: sheet.evaluation.className }),
       });
       if (res.queued) {
         setInitial(cells);
-        setNotice({ text: "Enregistré sur cet appareil. Les notes seront envoyées dès le retour d'Internet.", queued: true });
+        setNotice({ text: t("acd.sheet.queuedNotice"), queued: true });
       } else {
         setSheet(res.result);
         const next = Object.fromEntries(res.result.eleves.map((e) => [e.studentId, cellFrom(e)]));
         setCells(next);
         setInitial(next);
         setMotif("");
-        setNotice({ text: "Notes enregistrées.", queued: false });
+        setNotice({ text: t("acd.sheet.savedNotice"), queued: false });
       }
     } catch (err) {
       setError(describeError(err));
@@ -145,7 +148,7 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
     return (
       <div>
         <Button variant="ghost" onClick={onBack}>
-          <ArrowLeft size={15} /> Retour
+          <ArrowLeft size={15} /> {t("acd.sheet.back")}
         </Button>
         {error ? <ErrorMessage>{error}</ErrorMessage> : <Spinner className="mt-6 h-6 w-6 text-primary" />}
       </div>
@@ -156,7 +159,7 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
   return (
     <div>
       <Button variant="ghost" onClick={onBack} className="mb-3">
-        <ArrowLeft size={15} /> Retour aux évaluations
+        <ArrowLeft size={15} /> {t("acd.sheet.backToEvals")}
       </Button>
       <Card className="mb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -165,25 +168,22 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
               {ev.titre} · {ev.subjectName}
             </h2>
             <p className="text-sm text-ink-muted">
-              {ev.className} · {ev.trimestre} · {ev.date} · sur {ev.bareme} · coefficient {ev.coefficient}
+              {t("acd.sheet.meta", { class: ev.className, term: ev.trimestre, date: ev.date, bareme: ev.bareme, coef: ev.coefficient })}
             </p>
           </div>
-          {locked && <Badge color="orange">Trimestre validé</Badge>}
+          {locked && <Badge color="orange">{t("acd.sheet.termValidated")}</Badge>}
         </div>
-        {locked && !canCorrect && (
-          <p className="mt-2 text-sm text-ink-muted">
-            Ce trimestre est validé : seule la Direction peut corriger une note. Elle peut aussi rouvrir le trimestre.
-          </p>
-        )}
+        {locked && !canCorrect && <p className="mt-2 text-sm text-ink-muted">{t("acd.sheet.lockedInfo")}</p>}
       </Card>
 
       <div className="sticky top-0 z-10 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surface/95 px-4 py-2.5 text-sm backdrop-blur">
         <span className="text-ink-muted">
-          {stats.saisies} / {sheet.eleves.length} saisie(s) · moyenne du devoir <strong className="text-ink">{formatNote(stats.moyenne)}</strong> / 20
+          <Rich text={t("acd.sheet.stats", { done: stats.saisies, total: sheet.eleves.length, avg: formatNote(stats.moyenne) })} />
         </span>
         {editable && (
           <Button onClick={save} disabled={busy || changed.length === 0 || Object.keys(invalid).length > 0}>
-            {busy && <Spinner />} Enregistrer{changed.length > 0 ? ` (${changed.length})` : ""}
+            {busy && <Spinner />} {t("acd.sheet.save")}
+            {changed.length > 0 ? ` (${changed.length})` : ""}
           </Button>
         )}
       </div>
@@ -206,8 +206,8 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
 
       {locked && canCorrect && (
         <Card className="mb-3">
-          <Field label="Motif de la correction (obligatoire)">
-            <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Ex. erreur de report de la note" maxLength={500} />
+          <Field label={t("acd.sheet.reasonLabel")}>
+            <Input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder={t("acd.sheet.reasonPlaceholder")} maxLength={500} />
           </Field>
         </Card>
       )}
@@ -229,7 +229,7 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
                   <div className="w-24">
                     <Input
                       inputMode="decimal"
-                      aria-label={`Note de ${row.prenom} ${row.nom}`}
+                      aria-label={t("acd.sheet.gradeAria", { name: `${row.prenom} ${row.nom}` })}
                       placeholder={`/ ${ev.bareme}`}
                       value={cell.mode === "NOTE" ? cell.text : ""}
                       disabled={!editable || cell.mode === "ABSENT" || cell.mode === "DISPENSE"}
@@ -246,7 +246,7 @@ export function GradeSheetView({ evaluationId, onBack }: { evaluationId: string;
                         cell.mode === mode ? "bg-danger text-white" : "border border-border text-ink-muted hover:text-ink"
                       }`}
                     >
-                      {mode === "ABSENT" ? "Absent" : "Dispensé"}
+                      {mode === "ABSENT" ? t("acd.sheet.absent") : t("acd.sheet.exempt")}
                     </button>
                   ))}
                 </div>
