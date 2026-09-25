@@ -202,14 +202,17 @@ function StudentStep({ onSelected }: { onSelected: (s: Student, origin: "known" 
           </ul>
         </div>
       ) : (
-        <NewStudentForm onCreated={(s) => onSelected(s, "new")} />
+        <NewStudentForm onCreated={(s, reinscription) => onSelected(s, reinscription ? "known" : "new")} />
       )}
     </Card>
   );
 }
 
-function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
+function NewStudentForm({ onCreated }: { onCreated: (s: Student, reinscription: boolean) => void }) {
   const { t } = useI18n();
+  // Première année d'utilisation de l'outil : un élève déjà scolarisé à l'école n'a encore aucun dossier ici. Cette
+  // case le déclare en réinscription dès la création du dossier (le choix reste modifiable à la confirmation).
+  const [reinscription, setReinscription] = useState(false);
   const [form, setForm] = useState({
     nom: "",
     prenom: "",
@@ -258,7 +261,8 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
       });
       if (res.queued) {
         // Élève provisoire : le matricule est attribué par le serveur à la synchronisation.
-        onCreated({
+        onCreated(
+          {
           id: refOf(res.entry.id),
           matricule: t("stu.enrol.numberOnSync"),
           nom: form.nom,
@@ -268,9 +272,11 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
           lieuNaissance: form.lieuNaissance.trim() || null,
           nationalite: form.nationalite || null,
           statut: "ACTIF",
-        });
+          },
+          reinscription,
+        );
       } else {
-        onCreated(res.result);
+        onCreated(res.result, reinscription);
       }
     } catch (err) {
       if (isApiError(err) && err.status === 409 && err.data && typeof err.data === "object" && "doublonPotentiel" in err.data) {
@@ -292,6 +298,22 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
       }}
       className="space-y-4"
     >
+      <label
+        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
+          reinscription ? "border-primary bg-primary-soft" : "border-border bg-surface hover:bg-surface-muted"
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={reinscription}
+          onChange={(e) => setReinscription(e.target.checked)}
+          className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-primary)]"
+        />
+        <span>
+          <span className="block text-sm font-semibold text-ink">{t("stu.enrol.reenrolCheckbox")}</span>
+          <span className="mt-0.5 block text-xs text-ink-muted">{t("stu.enrol.reenrolCheckboxHelp")}</span>
+        </span>
+      </label>
       <div className="grid grid-cols-2 gap-4">
         <Field label={t("stu.enrol.fSurname")}>
           <Input required value={form.nom} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
