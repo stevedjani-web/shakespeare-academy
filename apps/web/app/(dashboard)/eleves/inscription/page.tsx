@@ -43,11 +43,15 @@ function EnrollmentWizard() {
 
   const [step, setStep] = useState<Step>("eleve");
   const [student, setStudent] = useState<Student | null>(null);
+  // Un élève retrouvé dans la base est présumé déjà scolarisé (réinscription) ; un élève créé ici, nouveau.
+  // La secrétaire peut toujours changer ce choix à la confirmation.
+  const [defaultType, setDefaultType] = useState<"INSCRIPTION" | "REINSCRIPTION">("INSCRIPTION");
 
   useEffect(() => {
     if (preselectedStudentId) {
       void api.get<Student>(`/students/${preselectedStudentId}`).then((s) => {
         setStudent(s);
+        setDefaultType("REINSCRIPTION");
         setStep("classe");
       });
     }
@@ -73,8 +77,9 @@ function EnrollmentWizard() {
 
       {step === "eleve" && (
         <StudentStep
-          onSelected={(s) => {
+          onSelected={(s, origin) => {
             setStudent(s);
+            setDefaultType(origin === "known" ? "REINSCRIPTION" : "INSCRIPTION");
             setStep("classe");
           }}
         />
@@ -98,6 +103,7 @@ function EnrollmentWizard() {
           classId={classId}
           className={className}
           academicYearId={academicYearId}
+          defaultType={defaultType}
           onBack={() => setStep("classe")}
           onConfirmed={setResult}
           onQueued={() => setQueued(true)}
@@ -137,7 +143,7 @@ function EnrollmentWizard() {
   );
 }
 
-function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
+function StudentStep({ onSelected }: { onSelected: (s: Student, origin: "known" | "new") => void }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"search" | "create">("search");
   const [query, setQuery] = useState("");
@@ -178,7 +184,7 @@ function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
             {results.map((s) => (
               <li key={s.id}>
                 <button
-                  onClick={() => onSelected(s)}
+                  onClick={() => onSelected(s, "known")}
                   className="w-full rounded-md px-2 py-2 text-left text-sm hover:bg-surface-muted"
                 >
                   <span className="font-medium text-ink">
@@ -196,7 +202,7 @@ function StudentStep({ onSelected }: { onSelected: (s: Student) => void }) {
           </ul>
         </div>
       ) : (
-        <NewStudentForm onCreated={onSelected} />
+        <NewStudentForm onCreated={(s) => onSelected(s, "new")} />
       )}
     </Card>
   );
@@ -503,6 +509,7 @@ function ConfirmationStep({
   classId,
   className,
   academicYearId,
+  defaultType,
   onBack,
   onConfirmed,
   onQueued,
@@ -511,6 +518,7 @@ function ConfirmationStep({
   classId: string;
   className: string;
   academicYearId: string;
+  defaultType: "INSCRIPTION" | "REINSCRIPTION";
   onBack: () => void;
   onConfirmed: (e: Enrollment) => void;
   onQueued: () => void;
@@ -518,12 +526,13 @@ function ConfirmationStep({
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [type, setType] = useState<"INSCRIPTION" | "REINSCRIPTION">(defaultType);
 
   async function handleConfirm() {
     setError(null);
     setSubmitting(true);
     try {
-      const body = { studentId: student.id, classId, academicYearId };
+      const body = { studentId: student.id, classId, academicYearId, type };
       const label = t("stu.enrol.labelInClass", { student: `${student.prenom} ${student.nom}`, className });
       if (isPendingStudent(student)) {
         // L'élève lui-même n'existe pas encore côté serveur : l'inscription attend sa création.
@@ -570,9 +579,36 @@ function ConfirmationStep({
           <dd className="font-medium text-ink">{className}</dd>
         </div>
       </dl>
-      <p className="mt-4 text-xs text-ink-muted">
-        {t("stu.enrol.notCalculated")}
-      </p>
+      <fieldset className="mt-5">
+        <legend className="mb-2 text-sm font-medium text-ink">{t("stu.enrol.typeTitle")}</legend>
+        <div role="radiogroup" aria-label={t("stu.enrol.typeTitle")} className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ["INSCRIPTION", "stu.enrol.typeNew", "stu.enrol.typeNewHelp"],
+              ["REINSCRIPTION", "stu.enrol.typeRe", "stu.enrol.typeReHelp"],
+            ] as const
+          ).map(([value, titleKey, helpKey]) => {
+            const selected = type === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setType(value)}
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  selected ? "border-primary bg-primary-soft" : "border-border bg-surface hover:bg-surface-muted"
+                }`}
+              >
+                <span className="block text-sm font-semibold text-ink">{t(titleKey)}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{t(helpKey)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+      <p className="mt-3 text-xs text-ink-muted">{t("stu.enrol.typeFees")}</p>
+      <p className="mt-2 text-xs text-ink-muted">{t("stu.enrol.notCalculated")}</p>
       <ErrorMessage>{error}</ErrorMessage>
       <div className="mt-4 flex justify-between">
         <Button variant="secondary" onClick={onBack}>

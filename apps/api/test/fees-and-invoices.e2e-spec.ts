@@ -417,6 +417,160 @@ describe('Tarifs, factures, remises, solvabilité (e2e)', () => {
       expect(invoice2.body.lines[0].montant).toBe(60000);
     });
 
+    describe('type d’inscription choisi (première année d’utilisation de l’outil)', () => {
+      async function setupTariffs() {
+        const y1 = await createClassInYear('2025-2026');
+        const y2 = await createClassInYear('2026-2027');
+        const feeInscription = await createFeeType({
+          code: 'FRAIS_INSCRIPTION',
+          nom: "Frais d'inscription",
+          appliesTo: 'INSCRIPTION',
+        });
+        const feeReinscription = await createFeeType({
+          code: 'FRAIS_REINSCRIPTION',
+          nom: 'Frais de réinscription',
+          appliesTo: 'REINSCRIPTION',
+        });
+        for (const { level, year } of [y1, y2]) {
+          await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+            academicYearId: year.id,
+            levelId: level.id,
+            feeTypeId: feeInscription.id,
+            montant: 60000,
+          });
+          await auth(request(app.getHttpServer()).post('/fee-schedules')).send({
+            academicYearId: year.id,
+            levelId: level.id,
+            feeTypeId: feeReinscription.id,
+            montant: 45000,
+          });
+        }
+        return { y1, y2 };
+      }
+      async function lines(enrollmentId: string) {
+        const invoice = await auth(
+          request(app.getHttpServer()).get(
+            `/invoices/by-enrollment/${enrollmentId}`,
+          ),
+        );
+        return invoice.body.lines as { libelle: string; montant: number }[];
+      }
+
+      it('sans choix, un élève sans inscription antérieure est inscrit au tarif d’inscription (60 000)', async () => {
+        const { y2 } = await setupTariffs();
+        const student = await createStudent();
+        const res = await auth(
+          request(app.getHttpServer()).post('/enrollments'),
+        ).send({
+          studentId: student.id,
+          classId: y2.class.id,
+          academicYearId: y2.year.id,
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.type).toBe('INSCRIPTION');
+        const l = await lines(res.body.id);
+        expect(l).toHaveLength(1);
+        expect(l[0]).toMatchObject({
+          libelle: "Frais d'inscription",
+          montant: 60000,
+        });
+      });
+
+      it('déclarer une réinscription pour un élève déjà scolarisé avant l’outil : frais de réinscription (45 000), jamais ceux d’inscription', async () => {
+        const { y2 } = await setupTariffs();
+        const student = await createStudent();
+        const res = await auth(
+          request(app.getHttpServer()).post('/enrollments'),
+        ).send({
+          studentId: student.id,
+          classId: y2.class.id,
+          academicYearId: y2.year.id,
+          type: 'REINSCRIPTION',
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.type).toBe('REINSCRIPTION');
+        const l = await lines(res.body.id);
+        expect(l).toHaveLength(1);
+        expect(l[0]).toMatchObject({
+          libelle: 'Frais de réinscription',
+          montant: 45000,
+        });
+      });
+
+      it('le choix est journalisé avec le type que le système aurait déduit', async () => {
+        const { y2 } = await setupTariffs();
+        const student = await createStudent();
+        const res = await auth(
+          request(app.getHttpServer()).post('/enrollments'),
+        ).send({
+          studentId: student.id,
+          classId: y2.class.id,
+          academicYearId: y2.year.id,
+          type: 'REINSCRIPTION',
+        });
+        const log = await prisma.auditLog.findFirst({
+          where: { action: 'ENROLLMENT_CREATE', entiteId: res.body.id },
+        });
+        expect(log?.nouvelleValeur).toMatchObject({
+          choixDuType: { choisi: 'REINSCRIPTION', deduit: 'INSCRIPTION' },
+        });
+      });
+
+      it('choisir explicitement « inscription » pour un vrai nouvel élève donne le même résultat que sans choix', async () => {
+        const { y2 } = await setupTariffs();
+        const student = await createStudent();
+        const res = await auth(
+          request(app.getHttpServer()).post('/enrollments'),
+        ).send({
+          studentId: student.id,
+          classId: y2.class.id,
+          academicYearId: y2.year.id,
+          type: 'INSCRIPTION',
+        });
+        expect(res.status).toBe(201);
+        expect(res.body.type).toBe('INSCRIPTION');
+        expect((await lines(res.body.id))[0].montant).toBe(60000);
+      });
+
+      it('refuse « inscription » pour un élève qui a déjà une inscription dans le système (409), sans rien créer', async () => {
+        const { y1, y2 } = await setupTariffs();
+        const student = await createStudent();
+        await auth(request(app.getHttpServer()).post('/enrollments'))
+          .send({
+            studentId: student.id,
+            classId: y1.class.id,
+            academicYearId: y1.year.id,
+          })
+          .expect(201);
+        const res = await auth(
+          request(app.getHttpServer()).post('/enrollments'),
+        ).send({
+          studentId: student.id,
+          classId: y2.class.id,
+          academicYearId: y2.year.id,
+          type: 'INSCRIPTION',
+        });
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/réinscription/);
+        expect(
+          await prisma.enrollment.count({ where: { studentId: student.id } }),
+        ).toBe(1);
+      });
+
+      it('refuse un type inconnu (400)', async () => {
+        const { y2 } = await setupTariffs();
+        const student = await createStudent();
+        await auth(request(app.getHttpServer()).post('/enrollments'))
+          .send({
+            studentId: student.id,
+            classId: y2.class.id,
+            academicYearId: y2.year.id,
+            type: 'AUTRE',
+          })
+          .expect(400);
+      });
+    });
+
     it('un frais facultatif (obligatoire=false) n’est jamais facturé automatiquement', async () => {
       const {
         year,

@@ -100,8 +100,16 @@ export class EnrollmentsService {
       );
     }
 
-    const type =
+    const derivedType =
       student.enrollments.length > 0 ? 'REINSCRIPTION' : 'INSCRIPTION';
+    if (dto.type === 'INSCRIPTION' && derivedType === 'REINSCRIPTION') {
+      throw new ConflictException(
+        'Cet élève a déjà été inscrit à l’école : c’est une réinscription, pas une première inscription.',
+      );
+    }
+    // Le type demandé (première année d'utilisation de l'outil : des élèves déjà scolarisés n'ont aucune
+    // inscription enregistrée) l'emporte sur le type déduit, et le choix est journalisé.
+    const type = dto.type ?? derivedType;
     const sequenceNumber = await this.numberSequenceService.next(
       schoolId,
       'ENROLLMENT',
@@ -141,7 +149,12 @@ export class EnrollmentsService {
       action: 'ENROLLMENT_CREATE',
       entite: 'Enrollment',
       entiteId: enrollment.id,
-      nouvelleValeur: enrollment,
+      nouvelleValeur: dto.type
+        ? {
+            ...enrollment,
+            choixDuType: { choisi: dto.type, deduit: derivedType },
+          }
+        : enrollment,
     });
 
     return enrollment;
