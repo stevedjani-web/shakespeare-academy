@@ -15,6 +15,7 @@ import {
   schoolLogoMulterOptions,
   schoolSignatureMulterOptions,
 } from './school-logo.storage';
+import { optimizeImageFile } from '../common/optimize-image';
 import { Public } from '../auth/decorators/public.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -45,13 +46,16 @@ export class SchoolController {
   @Post('logo')
   @RequirePermission('SETTINGS_MANAGE')
   @UseInterceptors(FileInterceptor('file', schoolLogoMulterOptions))
-  uploadLogo(
+  async uploadLogo(
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: CurrentUserData,
   ) {
     if (!file) {
       throw new BadRequestException('Aucun fichier reçu.');
     }
+    // Un logo importé pèse souvent plus d'un mégaoctet : il est réduit à l'enregistrement (voir optimizeImageFile),
+    // ce qui allège chaque page publique et chaque reçu. Un fichier qui n'est pas une image est refusé ici.
+    await optimizeImageFile(file.path);
     return this.schoolService.updateLogo(
       `/uploads/school/${file.filename}`,
       user.id,

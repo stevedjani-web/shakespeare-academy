@@ -1,5 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import sharp from 'sharp';
+import { readdir, stat, unlink } from 'fs/promises';
+import { join } from 'path';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
@@ -122,6 +125,106 @@ describe('Paramétrage établissement (e2e)', () => {
       .attach('file', TINY_PNG, 'logo.png')
       .expect(201);
     expect(res.body.logoUrl).toMatch(/^\/uploads\/school\/.+\.png$/);
+  });
+
+  describe('réduction du logo à l’enregistrement', () => {
+    const uploaded = (logoUrl: string) => join(process.cwd(), logoUrl);
+
+    // Une image grande et peu compressible : du bruit, comme une photo ou un export lourd.
+    async function bigPng(width: number, height: number) {
+      const raw = Buffer.alloc(width * height * 3);
+      for (let i = 0; i < raw.length; i++) raw[i] = (i * 2654435761) >>> 24;
+      return sharp(raw, { raw: { width, height, channels: 3 } })
+        .png({ compressionLevel: 0 })
+        .toBuffer();
+    }
+
+    it('réduit un logo trop large et trop lourd, sans le déformer', async () => {
+      const original = await bigPng(1600, 800);
+      const res = await request(app.getHttpServer())
+        .post('/school/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .attach('file', original, 'logo.png')
+        .expect(201);
+      const path = uploaded(res.body.logoUrl);
+      const meta = await sharp(path).metadata();
+      expect(meta.width).toBe(800);
+      expect(meta.height).toBe(400);
+      expect(meta.format).toBe('png');
+      expect((await stat(path)).size).toBeLessThan(original.length / 2);
+      await unlink(path);
+    });
+
+    it('garde la transparence d’un logo PNG', async () => {
+      const transparent = await sharp({
+        create: {
+          width: 1600,
+          height: 800,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        },
+      })
+        .png()
+        .toBuffer();
+      const res = await request(app.getHttpServer())
+        .post('/school/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .attach('file', transparent, 'logo.png')
+        .expect(201);
+      const path = uploaded(res.body.logoUrl);
+      const meta = await sharp(path).metadata();
+      expect(meta.hasAlpha).toBe(true);
+      expect(meta.width).toBe(800);
+      await unlink(path);
+    });
+
+    it('n’agrandit jamais un petit logo', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/school/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .attach('file', TINY_PNG, 'logo.png')
+        .expect(201);
+      const path = uploaded(res.body.logoUrl);
+      const meta = await sharp(path).metadata();
+      expect(meta.width).toBe(1);
+      await unlink(path);
+    });
+
+    it('accepte un JPEG et le réduit', async () => {
+      const jpeg = await sharp(await bigPng(1600, 800))
+        .jpeg({ quality: 100 })
+        .toBuffer();
+      const res = await request(app.getHttpServer())
+        .post('/school/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .attach('file', jpeg, {
+          filename: 'logo.jpg',
+          contentType: 'image/jpeg',
+        })
+        .expect(201);
+      const path = uploaded(res.body.logoUrl);
+      const meta = await sharp(path).metadata();
+      expect(meta.format).toBe('jpeg');
+      expect(meta.width).toBe(800);
+      await unlink(path);
+    });
+
+    it('refuse et supprime un fichier qui se dit PNG sans en être un', async () => {
+      const before = await readdir(join(process.cwd(), 'uploads', 'school'));
+      const school = await prisma.school.findFirstOrThrow();
+      await request(app.getHttpServer())
+        .post('/school/logo')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .attach('file', Buffer.from('ceci n’est pas une image'), {
+          filename: 'logo.png',
+          contentType: 'image/png',
+        })
+        .expect(400);
+      const after = await readdir(join(process.cwd(), 'uploads', 'school'));
+      expect(after.sort()).toEqual(before.sort());
+      const unchanged = await prisma.school.findFirstOrThrow();
+      expect(unchanged.logoUrl).toBe(school.logoUrl);
+    });
   });
 
   it('POST /school/logo refuse un format non autorisé (400)', async () => {
