@@ -1,7 +1,7 @@
 // Textes des écrans du personnel : domaine « admin ». Français (référence) et anglais dans le même fichier :
 // l'anglais est typé sur les clés du français, une clé oubliée ne compile pas.
 export const frAdmin = {
-  "adm.audit.eyebrow": "Lot 1",
+  "adm.audit.eyebrow": "Traçabilité",
   "adm.audit.subtitle": "Traçabilité des actions sensibles (RG15) — journal en lecture seule, jamais modifiable.",
   "adm.audit.title": "Journal d'audit",
   "adm.audit.objectColon": "Objet :",
@@ -246,7 +246,7 @@ export const frAdmin = {
   "adm.users.lastLogin": "Dernière connexion",
   "adm.users.never": "Jamais",
   "adm.users.mustChange": "Doit changer son mot de passe",
-  "adm.users.eyebrow": "Lot 1",
+  "adm.users.eyebrow": "Administration",
   "adm.users.subtitle": "Comptes du personnel et permissions par rôle.",
   "adm.users.title": "Utilisateurs & rôles",
   "adm.users.tabUsers": "Utilisateurs",
@@ -301,7 +301,7 @@ export const frAdmin = {
 } as const;
 
 export const enAdmin: Record<keyof typeof frAdmin, string> = {
-  "adm.audit.eyebrow": "Batch 1",
+  "adm.audit.eyebrow": "Traceability",
   "adm.audit.subtitle": "Traceability of sensitive actions (RG15). The log is read-only and can never be modified.",
   "adm.audit.title": "Audit log",
   "adm.audit.objectColon": "Object:",
@@ -546,7 +546,7 @@ export const enAdmin: Record<keyof typeof frAdmin, string> = {
   "adm.users.lastLogin": "Last login",
   "adm.users.never": "Never",
   "adm.users.mustChange": "Must change password",
-  "adm.users.eyebrow": "Batch 1",
+  "adm.users.eyebrow": "Administration",
   "adm.users.subtitle": "Staff accounts and permissions by role.",
   "adm.users.title": "Users & roles",
   "adm.users.tabUsers": "Users",

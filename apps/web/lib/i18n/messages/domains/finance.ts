@@ -2,7 +2,9 @@
 // l'anglais est typé sur les clés du français, une clé oubliée ne compile pas.
 export const frFinance = {
   // ---------------------------------------------------------------------------------------------- Communs
-  "fin.eyebrow": "Lot {n}",
+  "fin.eyebrow.tariffs": "Configuration",
+  "fin.eyebrow.cash": "Caisse",
+  "fin.eyebrow.followup": "Suivi des paiements",
   "fin.needsOnline": "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.",
   "fin.student": "Élève",
   "fin.awaitingSend": "En attente d'envoi au serveur",
@@ -53,7 +55,7 @@ export const frFinance = {
   "fin.metric.billed": "Facturé",
   "fin.metric.discounts": "Remises",
   "fin.metric.paid": "Payé",
-  "fin.metric.paidHint": "Encaissements : Lot 4",
+  "fin.metric.paidHint": "Encaissements enregistrés",
   "fin.metric.remaining": "Restant dû",
   "fin.card.overdueDue": "Échéance en retard :",
   "fin.card.nextDue": "Prochaine échéance :",
@@ -261,7 +263,9 @@ export const frFinance = {
 
 export const enFinance: Record<keyof typeof frFinance, string> = {
   // ---------------------------------------------------------------------------------------------- Communs
-  "fin.eyebrow": "Batch {n}",
+  "fin.eyebrow.tariffs": "Set-up",
+  "fin.eyebrow.cash": "Cash desk",
+  "fin.eyebrow.followup": "Payment follow-up",
   "fin.needsOnline": "This action needs an Internet connection. Try again when it is back.",
   "fin.student": "Student",
   "fin.awaitingSend": "Waiting to be sent to the server",
@@ -312,7 +316,7 @@ export const enFinance: Record<keyof typeof frFinance, string> = {
   "fin.metric.billed": "Billed",
   "fin.metric.discounts": "Discounts",
   "fin.metric.paid": "Paid",
-  "fin.metric.paidHint": "Payments: Batch 4",
+  "fin.metric.paidHint": "Payments recorded",
   "fin.metric.remaining": "Balance due",
   "fin.card.overdueDue": "Overdue instalment:",
   "fin.card.nextDue": "Next instalment:",

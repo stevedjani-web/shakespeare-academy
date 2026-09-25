@@ -93,7 +93,7 @@ export default function CashClosingPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle
-          eyebrow={t("fin.eyebrow", { n: 5 })}
+          eyebrow={t("fin.eyebrow.cash")}
           subtitle={t("fin.closing.subtitle")}
           helpId="cloture"
         >

@@ -268,8 +268,8 @@ function NewStudentForm({ onCreated }: { onCreated: (s: Student) => void }) {
       }
     } catch (err) {
       if (isApiError(err) && err.status === 409 && err.data && typeof err.data === "object" && "doublonPotentiel" in err.data) {
+        // Le bandeau ci-dessous explique déjà le doublon : le message brut du serveur cite un paramètre technique.
         setDuplicate((err.data as { doublonPotentiel: { id: string; nom: string; prenom: string } }).doublonPotentiel);
-        setError(err.message);
       } else {
         setError(describeError(err));
       }

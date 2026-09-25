@@ -51,7 +51,7 @@ export default function InsolventStudentsPage() {
     <div>
       <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
         <PageTitle
-          eyebrow={t("fin.eyebrow", { n: 5 })}
+          eyebrow={t("fin.eyebrow.followup")}
           subtitle={t("fin.overdue.subtitle")}
           helpId="insolvables"
         >

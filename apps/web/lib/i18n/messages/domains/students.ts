@@ -1,7 +1,7 @@
 // Textes des écrans du personnel : domaine « students ». Français (référence) et anglais dans le même fichier :
 // l'anglais est typé sur les clés du français, une clé oubliée ne compile pas.
 export const frStudents = {
-  "stu.list.eyebrow": "Lot 2",
+  "stu.list.eyebrow": "Dossiers élèves",
   "stu.list.subtitle": "Recherche par matricule, nom, prénom, téléphone d'un responsable ou date de naissance (AAAA-MM-JJ).",
   "stu.list.title": "Élèves",
   "stu.list.exportFile": "liste-des-eleves",
@@ -150,7 +150,7 @@ export const frStudents = {
   "stu.enrol.labelInClass": "{student} en {className}",
   "stu.enrol.cStudent": "Élève",
   "stu.enrol.cClass": "Classe",
-  "stu.enrol.notCalculated": "Le total des frais applicables, les échéances et la solvabilité ne sont pas encore calculés à ce stade (Lot 3). Cette action crée uniquement l'inscription administrative.",
+  "stu.enrol.notCalculated": "La facture de l'élève est créée automatiquement à la confirmation : frais d'inscription ou de réinscription, et écolage en tranches, selon le niveau choisi.",
   "stu.enrol.confirming": "Confirmation…",
   "stu.enrol.confirmEnrolment": "Confirmer l'inscription",
   "stu.enrol.errOffline": "Cette action nécessite une connexion Internet. Réessayez quand elle sera revenue.",
@@ -204,7 +204,7 @@ export const frStudents = {
   "stu.pre.confirmDespiteDuplicate": "Confirmer malgré le doublon",
   "stu.pre.cancel": "Annuler",
   "stu.pre.rejectPrompt": "Motif du refus de la demande de {name} :",
-  "stu.pre.eyebrow": "Lot 21",
+  "stu.pre.eyebrow": "Inscriptions",
   "stu.pre.subtitle": "Demandes déposées par des familles sans compte. Accepter crée l'élève et son inscription réels.",
   "stu.pre.title": "Préinscriptions",
   "stu.pre.emptyTitle": "Aucune demande",
@@ -355,7 +355,7 @@ export const frStudents = {
 } as const;
 
 export const enStudents: Record<keyof typeof frStudents, string> = {
-  "stu.list.eyebrow": "Batch 2",
+  "stu.list.eyebrow": "Student records",
   "stu.list.subtitle": "Search by student number, surname, first name, a guardian's phone number or date of birth (YYYY-MM-DD).",
   "stu.list.title": "Students",
   "stu.list.exportFile": "student-list",
@@ -504,7 +504,7 @@ export const enStudents: Record<keyof typeof frStudents, string> = {
   "stu.enrol.labelInClass": "{student} in {className}",
   "stu.enrol.cStudent": "Student",
   "stu.enrol.cClass": "Class",
-  "stu.enrol.notCalculated": "The total of applicable fees, due dates and solvency are not yet calculated at this stage (Batch 3). This action only creates the administrative enrolment.",
+  "stu.enrol.notCalculated": "The student's invoice is created automatically on confirmation: enrolment or re-enrolment fee, and tuition in instalments, depending on the level chosen.",
   "stu.enrol.confirming": "Confirming…",
   "stu.enrol.confirmEnrolment": "Confirm the enrolment",
   "stu.enrol.errOffline": "This action needs an Internet connection. Try again once it is back.",
@@ -558,7 +558,7 @@ export const enStudents: Record<keyof typeof frStudents, string> = {
   "stu.pre.confirmDespiteDuplicate": "Confirm despite the duplicate",
   "stu.pre.cancel": "Cancel",
   "stu.pre.rejectPrompt": "Reason for rejecting the request from {name}:",
-  "stu.pre.eyebrow": "Batch 21",
+  "stu.pre.eyebrow": "Enrolment",
   "stu.pre.subtitle": "Requests submitted by families without an account. Accepting creates the actual student and enrolment.",
   "stu.pre.title": "Pre-registrations",
   "stu.pre.emptyTitle": "No requests",

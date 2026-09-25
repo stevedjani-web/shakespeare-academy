@@ -131,7 +131,7 @@ export default function TarifsPage() {
 
   return (
     <div>
-      <PageTitle eyebrow={t("fin.eyebrow", { n: 3 })} subtitle={t("fin.tariffs.subtitle")} helpId="tarifs">
+      <PageTitle eyebrow={t("fin.eyebrow.tariffs")} subtitle={t("fin.tariffs.subtitle")} helpId="tarifs">
         {t("fin.tariffs.title")}
       </PageTitle>
 
