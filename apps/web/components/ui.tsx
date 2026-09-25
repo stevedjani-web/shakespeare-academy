@@ -18,8 +18,11 @@ export function Card({
 }) {
   return (
     <div
-      className={`sa-interactive rounded-2xl border border-border bg-surface p-5 sm:p-6 shadow-[var(--shadow-soft)] ${
-        interactive ? "sa-card-hover cursor-pointer" : ""
+      // `sa-interactive` (retour visuel à l'appui : la carte rétrécit à 97 %) seulement pour une carte cliquable dans son
+      // ensemble. Sur une carte ordinaire, il déplacerait tout son contenu pendant l'appui : avec un long tableau
+      // (170 élèves, 12 000 px de haut) le bouton visé s'éloigne de 180 px et le clic n'atteint plus rien.
+      className={`rounded-2xl border border-border bg-surface p-5 sm:p-6 shadow-[var(--shadow-soft)] ${
+        interactive ? "sa-interactive sa-card-hover cursor-pointer" : ""
       } ${className}`}
     >
       {children}
