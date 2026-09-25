@@ -70,6 +70,7 @@ export const fr = {
   "shell.closeMenu": "Fermer le menu",
   "shell.myAccount": "Mon compte et mot de passe",
   "shell.logout": "Déconnexion",
+  "shell.userMenu": "Menu du compte",
   "shell.logoutConfirm": "{count} saisie(s) n'ont pas encore été envoyées au serveur. Elles restent sur cet appareil et partiront à votre prochaine connexion. Se déconnecter quand même ?",
 
   // ---------------------------------------------------------------------------------------------- Connexion

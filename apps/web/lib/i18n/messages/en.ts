@@ -71,6 +71,7 @@ export const en: Record<MessageKey, string> = {
   "shell.closeMenu": "Close the menu",
   "shell.myAccount": "My account and password",
   "shell.logout": "Log out",
+  "shell.userMenu": "Account menu",
   "shell.logoutConfirm": "{count} entry(ies) have not been sent to the server yet. They stay on this device and will be sent the next time you sign in. Log out anyway?",
 
   // ---------------------------------------------------------------------------------------------- Sign in

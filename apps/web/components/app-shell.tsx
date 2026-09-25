@@ -12,7 +12,6 @@ import {
   ScrollText,
   Menu,
   X,
-  LogOut,
   Receipt,
   Wallet,
   Smartphone,
@@ -33,13 +32,11 @@ import {
   ShieldAlert,
   UserPlus,
 } from "lucide-react";
-import { Link2, LifeBuoy, HelpCircle, Lock } from "lucide-react";
+import { Link2, LifeBuoy, HelpCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { MessageKey } from "@/lib/i18n";
-import { LanguageSwitcher } from "@/components/language-switcher";
-import { Button } from "@/components/ui";
+import { UserMenu } from "@/components/user-menu";
 import { InstallAppButton } from "@/components/install-app-button";
 import { OfflineStatus } from "@/components/offline-status";
 import { CopyrightFooter } from "@/components/copyright-footer";
@@ -133,22 +130,10 @@ function NavItems({ links, pathname, onNavigate }: { links: NavLink[]; pathname:
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, logout, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const { t, locale } = useI18n();
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { pending, failed } = useOutbox();
-
-  function handleLogout() {
-    const waiting = pending + failed;
-    if (waiting > 0 && !window.confirm(t("shell.logoutConfirm", { count: waiting }))) {
-      return;
-    }
-    void logout();
-  }
-
-  // Le choix de langue s'applique tout de suite ; il est aussi enregistré sur le compte pour suivre l'utilisateur.
-  const saveLanguage = (langue: string) => api.patch("/auth/language", { langue });
 
   const visibleLinks = LINKS.filter(
     (link) =>
@@ -163,38 +148,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Brand />
         <NavItems links={visibleLinks} pathname={pathname} />
         <InstallAppButton variant="dark" />
-        <div className="rounded-xl bg-white/5 p-3">
-          <p className="truncate text-sm font-medium text-white">
-            {user?.prenom} {user?.nom}
-          </p>
-          <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
-          <Link
-            href="/mon-compte"
-            className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
-          >
-            <Lock size={14} /> {t("shell.myAccount")}
-          </Link>
-          <LanguageSwitcher variant="dark" className="mt-2" onChoose={saveLanguage} />
-          <button
-            onClick={handleLogout}
-            className="sa-interactive mt-2 flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-accent"
-          >
-            <LogOut size={14} /> {t("shell.logout")}
-          </button>
-        </div>
       </aside>
 
-      {/* Top bar mobile */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-primary px-4 py-3 md:hidden">
+        {/* Barre du haut, mobile : marque, langue et compte, menu */}
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-primary px-4 py-2.5 md:hidden">
           <Brand />
-          <button
-            onClick={() => setDrawerOpen(true)}
-            aria-label={t("shell.openMenu")}
-            className="sa-interactive rounded-lg p-2 text-white hover:bg-white/10"
-          >
-            <Menu size={22} />
-          </button>
+          <div className="flex items-center gap-2">
+            <UserMenu />
+            <button
+              onClick={() => setDrawerOpen(true)}
+              aria-label={t("shell.openMenu")}
+              className="sa-interactive rounded-lg p-2 text-white hover:bg-white/10"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
+        </header>
+
+        {/* Barre du haut, ordinateur : langue et compte toujours visibles, à droite */}
+        <header className="sticky top-0 z-40 hidden items-center justify-end border-b border-border bg-surface/95 px-6 py-2.5 backdrop-blur md:flex">
+          <UserMenu />
         </header>
 
         {/* Drawer mobile */}
@@ -214,23 +188,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               <NavItems links={visibleLinks} pathname={pathname} onNavigate={() => setDrawerOpen(false)} />
               <InstallAppButton variant="dark" />
-              <div className="rounded-xl bg-white/5 p-3">
-                <p className="truncate text-sm font-medium text-white">
-                  {user?.prenom} {user?.nom}
-                </p>
-                <p className="truncate text-xs text-white/50">{user?.roleCode}</p>
-                <Link
-                  href="/mon-compte"
-                  onClick={() => setDrawerOpen(false)}
-                  className="sa-interactive mt-2 flex items-center gap-1.5 text-sm font-medium text-white/80 hover:text-accent"
-                >
-                  <Lock size={14} /> {t("shell.myAccount")}
-                </Link>
-                <LanguageSwitcher variant="dark" className="mt-2" onChoose={saveLanguage} />
-                <Button variant="secondary" className="mt-2 w-full bg-white/10 text-white border-white/10 hover:bg-white/20" onClick={handleLogout}>
-                  <LogOut size={14} /> {t("shell.logout")}
-                </Button>
-              </div>
             </div>
           </div>
         )}
