@@ -8,7 +8,7 @@ import { ParentProvider, useParent } from "@/contexts/parent-context";
 import { portalApi } from "@/lib/portal-api";
 import { Button } from "@/components/ui";
 import { CopyrightFooter } from "@/components/copyright-footer";
-import { MessageAlert } from "@/components/parents/message-alert";
+import { ParentAlert } from "@/components/parents/parent-alert";
 
 /** Icône de la messagerie avec le nombre de messages non lus. */
 function MessagesLink() {
@@ -99,7 +99,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
-        {parent && <MessageAlert />}
+        {parent && <ParentAlert />}
         {children}
       </main>
       <footer className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-8 text-center text-xs text-ink-muted">

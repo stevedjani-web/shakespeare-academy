@@ -1586,6 +1586,82 @@ describe('Messagerie sécurisée et annonces (e2e, Lot 13)', () => {
     });
   });
 
+  // ================================================================ Lecture et cloche
+
+  describe('lire une conversation solde les notifications de message', () => {
+    const bell = async (t: string) =>
+      (await get('/portal/notifications/unread-count', t).expect(200)).body
+        .nonLues as number;
+    const dirWrites = (w: World, studentId: string, texte: string) =>
+      post(
+        '/messaging/threads',
+        { studentId, guardianId: w.moukala.id, texte },
+        w.dir.token,
+      ).expect(201);
+
+    it('la cloche redescend à zéro quand le parent ouvre la conversation', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await post(
+        `/messaging/threads/${id}/messages`,
+        { texte: 'Un mot.' },
+        w.ngoma.token,
+      ).expect(201);
+      await notifications.idle();
+      expect(await bell(w.pMoukala)).toBe(1);
+      await get(`/portal/messages/threads/${id}`, w.pMoukala).expect(200);
+      expect(await bell(w.pMoukala)).toBe(0);
+    });
+
+    it('tant qu’une autre conversation du même enfant reste à lire, la notification reste', async () => {
+      const w = await world();
+      const withTeacher = await threadWithNgoma(w);
+      await post(
+        `/messaging/threads/${withTeacher}/messages`,
+        { texte: 'De l’enseignant.' },
+        w.ngoma.token,
+      ).expect(201);
+      await dirWrites(w, w.alice.id, 'De l’école.');
+      await notifications.idle();
+      expect(await bell(w.pMoukala)).toBe(1); // regroupées en une notification
+      await get(`/portal/messages/threads/${withTeacher}`, w.pMoukala).expect(
+        200,
+      );
+      expect(await bell(w.pMoukala)).toBe(1); // le fil de l'école n'est pas lu
+      const schoolThread = await prisma.messageThread.findFirstOrThrow({
+        where: { type: 'ECOLE' },
+      });
+      await get(
+        `/portal/messages/threads/${schoolThread.id}`,
+        w.pMoukala,
+      ).expect(200);
+      expect(await bell(w.pMoukala)).toBe(0);
+    });
+
+    it('les notifications d’un autre type, ou d’un autre enfant, ne sont pas touchées', async () => {
+      const w = await world();
+      const id = await threadWithNgoma(w);
+      await post(
+        `/messaging/threads/${id}/messages`,
+        { texte: 'Pour Alice.' },
+        w.ngoma.token,
+      ).expect(201);
+      await dirWrites(w, w.brice.id, 'Pour Brice.');
+      await notifications.idle();
+      expect(await bell(w.pMoukala)).toBe(2); // une par enfant
+      await get(`/portal/messages/threads/${id}`, w.pMoukala).expect(200);
+      expect(await bell(w.pMoukala)).toBe(1); // celle de Brice reste
+      const left = (await get('/portal/notifications', w.pMoukala).expect(200))
+        .body.notifications as Array<{
+        enfant: { prenom: string };
+        lue: boolean;
+      }>;
+      expect(left.filter((n) => !n.lue).map((n) => n.enfant.prenom)).toEqual([
+        'Brice',
+      ]);
+    });
+  });
+
   // ==================================================================================== Annonces
 
   describe('annonces de classe', () => {

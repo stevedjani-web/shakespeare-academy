@@ -7,7 +7,8 @@ import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
 import { ParentPushOptIn } from "@/components/parent-push-opt-in";
-import type { UnreadPreview } from "@/components/parents/message-alert";
+import type { UnreadPreview } from "@/components/parents/parent-alert";
+import { notificationTarget } from "@/lib/parent-alerts";
 
 interface Notification {
   id: string;
@@ -117,8 +118,7 @@ export default function ParentNotificationsPage() {
         // Repli sur la liste des conversations.
       }
       router.push(target);
-    } else if (n.type === "ANNONCE") router.push("/parents/annonces");
-    else router.push(`/parents/enfant/${n.enfant.id}`);
+    } else router.push(notificationTarget(n.type, n.enfant.id));
   }
 
   async function readAll() {

@@ -328,6 +328,38 @@ export class MessagingService {
     return [...items].sort((a, b) => rank(b) - rank(a));
   }
 
+  /**
+   * Quand le parent a tout lu pour un enfant, ses notifications « nouveau message » sont soldées : sinon la cloche
+   * continue d'annoncer des messages déjà lus. S'il reste un message non lu dans une autre conversation du même
+   * enfant, rien n'est soldé.
+   */
+  private async settleMessageNotifications(
+    guardianId: string,
+    studentId: string,
+  ) {
+    const threads = await this.prisma.messageThread.findMany({
+      where: { guardianId, studentId },
+      select: { id: true, parentLuAt: true },
+    });
+    for (const t of threads) {
+      if (await this.unreadPriority(t.id, 'PERSONNEL', t.parentLuAt)) return;
+    }
+    const account = await this.prisma.parentAccount.findUnique({
+      where: { guardianId },
+      select: { id: true },
+    });
+    if (!account) return;
+    await this.prisma.parentNotification.updateMany({
+      where: {
+        accountId: account.id,
+        studentId,
+        type: 'MESSAGE_RECU',
+        luAt: null,
+      },
+      data: { luAt: new Date() },
+    });
+  }
+
   /** Un parent choisit entre NORMALE et IMPORTANTE : l'urgence immédiate (santé, sécurité) passe par un appel. */
   private assertParentPriority(priorite?: MessagePriority) {
     if (priorite === 'URGENTE') {
@@ -510,6 +542,9 @@ export class MessagingService {
       where: { id: threadId },
       data: { parentLuAt: new Date() },
     });
+    await this.settleMessageNotifications(guardianId, thread.studentId).catch(
+      () => undefined,
+    );
     const canReply =
       thread.type === 'ECOLE' ||
       (thread.staffUserId
