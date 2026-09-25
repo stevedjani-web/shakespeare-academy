@@ -87,9 +87,14 @@ export default function ParentThreadPage({ params }: { params: Promise<{ id: str
 
   return (
     <div>
-      <Link href="/parents/messages" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
-        <ArrowLeft size={15} /> Toutes les conversations
-      </Link>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Link href="/parents/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
+          <ArrowLeft size={15} /> Toutes les conversations
+        </Link>
+        <Link href="/parents" className="text-sm font-medium text-primary underline">
+          Mes enfants
+        </Link>
+      </div>
       <ErrorMessage>{error}</ErrorMessage>
       {notice && <SuccessMessage>{notice}</SuccessMessage>}
       {!thread && !error && (

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Bell, CheckCheck } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
@@ -151,6 +152,9 @@ export default function ParentNotificationsPage() {
 
   return (
     <div>
+      <Link href="/parents" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
+        <ArrowLeft size={15} /> Mes enfants
+      </Link>
       <PageTitle subtitle="Absences, retards, cours annulés, changements d'emploi du temps, messages et annonces.">Notifications</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
 

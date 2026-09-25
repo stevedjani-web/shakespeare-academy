@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageSquarePlus, MessagesSquare } from "lucide-react";
+import { ArrowLeft, MessageSquarePlus, MessagesSquare } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, PageTitle, Select, Spinner } from "@/components/ui";
@@ -81,6 +81,9 @@ export default function ParentMessagesPage() {
 
   return (
     <div>
+      <Link href="/parents" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
+        <ArrowLeft size={15} /> Mes enfants
+      </Link>
       <PageTitle subtitle="Écrivez aux enseignants de la classe de votre enfant ou à l'école.">Messages</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
       <p className="mb-3 rounded-xl bg-info-soft p-3 text-sm text-info">
@@ -205,6 +208,11 @@ function NewMessage({ childrenList, onDone }: { childrenList: Child[]; onDone: (
             ))}
           </Select>
         </Field>
+        {contacts && contacts.enseignants.length === 0 && (
+          <p className="rounded-xl bg-info-soft p-3 text-sm text-info">
+            Aucun enseignant{contacts.classe ? ` de la classe ${contacts.classe}` : ""} n&apos;est joignable pour le moment (il doit avoir un compte sur la plateforme et être affecté à la classe). Vous pouvez écrire à l&apos;école.
+          </p>
+        )}
         {contacts && (
           <Field label="À qui écrivez-vous ?">
             <Select value={who} onChange={(e) => setWho(e.target.value)} required>

@@ -48,9 +48,14 @@ export default function ParentAnnouncementsPage() {
 
   return (
     <div>
-      <Link href="/parents/messages" className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
-        <ArrowLeft size={15} /> Messages
-      </Link>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Link href="/parents/messages" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline">
+          <ArrowLeft size={15} /> Messages
+        </Link>
+        <Link href="/parents" className="text-sm font-medium text-primary underline">
+          Mes enfants
+        </Link>
+      </div>
       <PageTitle subtitle="Informations de l'école et des enseignants pour les classes de vos enfants.">Annonces</PageTitle>
       <ErrorMessage>{error}</ErrorMessage>
       {!items && !error && (
