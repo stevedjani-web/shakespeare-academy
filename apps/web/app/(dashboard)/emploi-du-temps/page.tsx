@@ -16,6 +16,7 @@ import type {
 } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, PageTitle, Select, SuccessMessage } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
+import { TimetableExcelButtons } from "@/components/emploi-du-temps/excel-exports";
 import { buildSection, type ExportColumn } from "@/lib/export";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/use-i18n";
@@ -394,6 +395,15 @@ export default function EmploiDuTempsPage() {
                     subtitle={versionTitle}
                     sections={[versionSection]}
                     landscape
+                  />
+                  <TimetableExcelButtons
+                    entries={entries}
+                    slots={slots}
+                    classes={classes}
+                    teachers={teachers.filter((x) => x.statut === "ACTIF")}
+                    days={joursClasse}
+                    yearLabel={structure.years.find((y) => y.id === yearId)?.libelle ?? ""}
+                    versionLabel={`v${timetable.numero}`}
                   />
                   {canManage && !hasDraft && (
                     <Button variant="secondary" onClick={() => void createVersion(false)}>
