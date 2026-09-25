@@ -6,12 +6,12 @@ import Link from "next/link";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
-import { API_URL } from "@/lib/api";
 import { formatDate, formatMontant } from "@/lib/format";
 import { amountInWords } from "@/lib/amount-in-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { MessageKey } from "@/lib/i18n";
 import { Badge, Button, ErrorMessage, Spinner } from "@/components/ui";
+import { SchoolLogo } from "@/components/school-logo";
 
 interface Receipt {
   numeroRecu: string;
@@ -94,8 +94,7 @@ export default function ParentReceiptPage() {
         <div className="mx-auto max-w-md rounded-2xl border border-border bg-surface p-6">
           <div className="text-center">
             {receipt.ecole.logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- logo servi par l'API, jamais une image next/image
-              <img src={`${API_URL}${receipt.ecole.logoUrl}`} alt="" className="mx-auto mb-2 h-16 w-auto object-contain" />
+              <SchoolLogo logoUrl={receipt.ecole.logoUrl} className="mx-auto mb-2 h-14 w-auto max-w-full object-contain" />
             )}
             <p className="font-display text-lg font-semibold text-ink">{receipt.ecole.nom}</p>
             {receipt.ecole.adresse && <p className="text-xs text-ink-muted">{receipt.ecole.adresse}</p>}

@@ -41,6 +41,7 @@ import { InstallAppButton } from "@/components/install-app-button";
 import { OfflineStatus } from "@/components/offline-status";
 import { CopyrightFooter } from "@/components/copyright-footer";
 import { useOutbox } from "@/lib/outbox";
+import { useSchoolBrand } from "@/lib/school-brand";
 
 interface NavLink {
   href: string;
@@ -84,7 +85,21 @@ const LINKS: NavLink[] = [
   { href: "/guide", labelKey: "nav.guide", icon: LifeBuoy },
 ];
 
-function Brand() {
+function Brand({ compact = false }: { compact?: boolean }) {
+  const { brand, logoSrc } = useSchoolBrand();
+  // Le logo de l'école, sur une pastille blanche : ses couleurs (bleu nuit, vert, or) sont faites pour un fond clair.
+  if (logoSrc) {
+    return (
+      <div className={`flex justify-center rounded-xl bg-white shadow-sm ${compact ? "px-2 py-1" : "w-full px-3 py-2"}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logo servi par l'API, recadré dans le navigateur */}
+        <img
+          src={logoSrc}
+          alt={brand?.nom ?? "Shakespeare Academy"}
+          className={`w-auto max-w-full object-contain ${compact ? "h-8" : "max-h-14"}`}
+        />
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2.5 px-1">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
@@ -153,7 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barre du haut, mobile : marque, langue et compte, menu */}
         <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-border bg-primary px-4 py-2.5 md:hidden">
-          <Brand />
+          <Brand compact />
           <div className="flex items-center gap-2">
             <UserMenu />
             <button

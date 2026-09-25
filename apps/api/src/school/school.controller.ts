@@ -15,6 +15,7 @@ import {
   schoolLogoMulterOptions,
   schoolSignatureMulterOptions,
 } from './school-logo.storage';
+import { Public } from '../auth/decorators/public.decorator';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
@@ -22,6 +23,13 @@ import type { CurrentUserData } from '../auth/types/current-user.interface';
 @Controller('school')
 export class SchoolController {
   constructor(private readonly schoolService: SchoolService) {}
+
+  // Public : nom, adresse, téléphone et logo seulement (préinscription, marque de l'application).
+  @Public()
+  @Get('public')
+  publicProfile() {
+    return this.schoolService.getPublicProfile();
+  }
 
   @Get()
   findDefault() {

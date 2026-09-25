@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { api, API_URL } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { formatDate, formatMontant } from "@/lib/format";
 import { amountInWords } from "@/lib/amount-in-words";
@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import type { Payment, School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { ExpandButton, useExpanded } from "@/components/expand";
+import { SchoolLogo } from "@/components/school-logo";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
@@ -98,10 +99,7 @@ export default function ReceiptPage() {
         )}
 
         <div className="mb-4 flex flex-col items-center text-center">
-          {school?.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- logo externe servi par l'API, hors du domaine web (next/image l'exigerait en config supplémentaire)
-            <img src={`${API_URL}${school.logoUrl}`} alt="" className="mb-2 h-16 w-auto object-contain" />
-          )}
+          {school?.logoUrl && <SchoolLogo logoUrl={school.logoUrl} className="mb-2 h-14 w-auto max-w-full object-contain" />}
           <p className="font-display text-lg font-semibold text-ink">{school?.nom ?? "Shakespeare Academy"}</p>
           {school?.adresse && <p className="text-xs text-ink-muted">{school.adresse}</p>}
           {school?.telephone && <p className="text-xs text-ink-muted">{school.telephone}</p>}

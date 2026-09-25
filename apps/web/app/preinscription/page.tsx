@@ -7,6 +7,7 @@ import { Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/c
 import type { SectionNode } from "@/lib/pre-registrations";
 import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SchoolHeader } from "@/components/school-header";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { translate } from "@/lib/i18n";
 
@@ -107,6 +108,7 @@ export default function PreRegistrationPage() {
         <div className="mb-3 flex justify-end">
           <LanguageSwitcher />
         </div>
+        <SchoolHeader />
         <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-[var(--shadow-soft)]">
           <p className="font-display text-lg font-semibold text-ink">{t("cnt.pre.sentTitle")}</p>
           <p className="mt-2 text-sm text-ink-muted">{t("cnt.pre.sentNote")}</p>
@@ -128,6 +130,7 @@ export default function PreRegistrationPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
+      <SchoolHeader />
       <PageTitle subtitle={t("cnt.pre.subtitle")}>{t("cnt.pre.title")}</PageTitle>
       <Card>
         <form onSubmit={submit} className="space-y-4">

@@ -41,6 +41,33 @@ describe('Paramétrage établissement (e2e)', () => {
     expect(res.body.fuseauHoraire).toBe('Africa/Brazzaville');
   });
 
+  it('GET /school/public est ouvert sans compte et ne renvoie que l’identité de l’établissement', async () => {
+    const school = await prisma.school.findFirstOrThrow();
+    await prisma.school.update({
+      where: { id: school.id },
+      data: {
+        adresse: '12 avenue de la Paix',
+        telephone: '06 853 8686',
+        logoUrl: '/uploads/school/logo.png',
+        seuilImpayeCritiqueFcfa: 250000,
+        directeurNom: 'Jean Dupont',
+      },
+    });
+    const res = await request(app.getHttpServer())
+      .get('/school/public')
+      .expect(200);
+    expect(Object.keys(res.body).sort()).toEqual([
+      'adresse',
+      'logoUrl',
+      'nom',
+      'telephone',
+    ]);
+    expect(res.body.nom).toBe(school.nom);
+    expect(res.body.logoUrl).toBe('/uploads/school/logo.png');
+    expect(JSON.stringify(res.body)).not.toContain('250000');
+    expect(JSON.stringify(res.body)).not.toContain('Dupont');
+  });
+
   it('PATCH /school exige SETTINGS_MANAGE', async () => {
     const school = await prisma.school.findFirstOrThrow();
     const { user, motDePasse } = await createUserWithRole(

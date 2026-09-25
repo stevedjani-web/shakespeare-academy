@@ -19,6 +19,16 @@ export class SchoolService {
     return this.prisma.school.findFirstOrThrow();
   }
 
+  /**
+   * Identité publique de l'établissement (nom, adresse, téléphone, logo), pour les pages sans compte
+   * (préinscription) et la marque de l'application. Rien d'autre : jamais un réglage ni un chiffre.
+   */
+  async getPublicProfile() {
+    return this.prisma.school.findFirstOrThrow({
+      select: { nom: true, adresse: true, telephone: true, logoUrl: true },
+    });
+  }
+
   async getDefaultId(): Promise<string> {
     const school = await this.prisma.school.findFirst({ select: { id: true } });
     return school!.id;

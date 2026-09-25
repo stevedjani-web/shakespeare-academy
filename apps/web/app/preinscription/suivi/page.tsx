@@ -9,6 +9,7 @@ import { formatDocDate } from "@/lib/documents";
 import type { MessageKey } from "@/lib/i18n";
 import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SchoolHeader } from "@/components/school-header";
 import { useI18n } from "@/lib/i18n/use-i18n";
 
 interface Tracking {
@@ -60,6 +61,7 @@ export default function PreRegistrationTrackingPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
+      <SchoolHeader />
       <PageTitle subtitle={t("cnt.pre.trackSubtitle")}>{t("cnt.pre.trackTitle")}</PageTitle>
       <Card>
         <form onSubmit={submit} className="space-y-4">

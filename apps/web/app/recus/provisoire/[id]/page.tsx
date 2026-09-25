@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, API_URL } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { formatMontant } from "@/lib/format";
 import { amountInWords } from "@/lib/amount-in-words";
@@ -14,6 +14,7 @@ import { getEntry, useOutbox, type OutboxEntry } from "@/lib/outbox";
 import type { School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { ExpandButton, useExpanded } from "@/components/expand";
+import { SchoolLogo } from "@/components/school-logo";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
@@ -98,10 +99,7 @@ export default function ProvisionalReceiptPage() {
         </div>
 
         <div className="mb-4 flex flex-col items-center text-center">
-          {school?.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- logo servi par l'API, hors du domaine web
-            <img src={`${API_URL}${school.logoUrl}`} alt="" className="mb-2 h-16 w-auto object-contain" />
-          )}
+          {school?.logoUrl && <SchoolLogo logoUrl={school.logoUrl} className="mb-2 h-14 w-auto max-w-full object-contain" />}
           <p className="font-display text-lg font-semibold text-ink">{school?.nom ?? "Shakespeare Academy"}</p>
           {school?.adresse && <p className="text-xs text-ink-muted">{school.adresse}</p>}
           {school?.telephone && <p className="text-xs text-ink-muted">{school.telephone}</p>}
