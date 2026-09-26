@@ -130,7 +130,7 @@ export default function PreRegistrationPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
-      <SchoolHeader title={t("cnt.pre.title")} />
+      <SchoolHeader title={t("cnt.pre.title")} subtitle={t("cnt.pre.subtitle")} />
       <Card>
         <form onSubmit={submit} className="space-y-4">
           <h2 className="font-display text-sm font-semibold text-ink">{t("cnt.pre.child")}</h2>

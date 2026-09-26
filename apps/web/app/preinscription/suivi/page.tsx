@@ -61,7 +61,7 @@ export default function PreRegistrationTrackingPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
-      <SchoolHeader title={t("cnt.pre.trackTitle")} />
+      <SchoolHeader title={t("cnt.pre.trackTitle")} subtitle={t("cnt.pre.trackSubtitle")} />
       <Card>
         <form onSubmit={submit} className="space-y-4">
           <Field label={t("cnt.pre.refLabel")}>
