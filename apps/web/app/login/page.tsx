@@ -10,10 +10,12 @@ import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ExpandButton, useExpanded } from "@/components/expand";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import { useSchoolBrand } from "@/lib/school-brand";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { t } = useI18n();
+  const { brand, logoSrc } = useSchoolBrand();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
@@ -49,15 +51,26 @@ export default function LoginPage() {
               "radial-gradient(circle at 20% 20%, rgba(201,154,46,0.35), transparent 40%), radial-gradient(circle at 80% 70%, rgba(201,154,46,0.2), transparent 45%)",
           }}
         />
-        <div className="relative flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 font-display text-xl font-bold text-accent">
-            S
-          </span>
-          <div>
-            <p className="font-display text-lg font-semibold">Shakespeare Academy</p>
+        {logoSrc ? (
+          <div className="relative flex flex-col items-start gap-3">
+            {/* Le logo sur une pastille blanche : ses couleurs sont faites pour un fond clair. */}
+            <div className="rounded-2xl bg-white px-5 py-3 shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo servi par l'API, recadré dans le navigateur */}
+              <img src={logoSrc} alt={brand?.nom ?? "Shakespeare Academy"} className="h-16 w-auto max-w-full object-contain lg:h-20" />
+            </div>
             <p className="text-xs uppercase tracking-[0.2em] text-white/50">{t("shell.tagline")}</p>
           </div>
-        </div>
+        ) : (
+          <div className="relative flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 font-display text-xl font-bold text-accent">
+              S
+            </span>
+            <div>
+              <p className="font-display text-lg font-semibold">Shakespeare Academy</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-white/50">{t("shell.tagline")}</p>
+            </div>
+          </div>
+        )}
         <div className="relative max-w-md">
           <p className="font-display text-3xl font-medium leading-snug lg:text-4xl">
             {t("login.heroBefore")}
@@ -73,12 +86,17 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center bg-bg px-4 py-12 sm:px-6">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 md:hidden">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
-                S
-              </span>
-              <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
-            </div>
+            {logoSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element -- logo servi par l'API, recadré dans le navigateur
+              <img src={logoSrc} alt={brand?.nom ?? "Shakespeare Academy"} className="h-12 w-auto max-w-[60%] object-contain md:hidden" />
+            ) : (
+              <div className="flex items-center gap-2.5 md:hidden">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
+                  S
+                </span>
+                <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
+              </div>
+            )}
             <LanguageSwitcher className="ml-auto" />
           </div>
           <h1 className="font-display text-2xl font-semibold text-ink">{t("login.title")}</h1>
