@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { API_URL } from "@/lib/api";
-import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle } from "@/components/ui";
+import { Badge, Button, Card, ErrorMessage, Field, Input } from "@/components/ui";
 import { STATUT_COLOR, type PreRegistrationStatus } from "@/lib/pre-registrations";
 import { formatDocDate } from "@/lib/documents";
 import type { MessageKey } from "@/lib/i18n";
@@ -61,8 +61,7 @@ export default function PreRegistrationTrackingPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
-      <SchoolHeader />
-      <PageTitle subtitle={t("cnt.pre.trackSubtitle")}>{t("cnt.pre.trackTitle")}</PageTitle>
+      <SchoolHeader title={t("cnt.pre.trackTitle")} />
       <Card>
         <form onSubmit={submit} className="space-y-4">
           <Field label={t("cnt.pre.refLabel")}>

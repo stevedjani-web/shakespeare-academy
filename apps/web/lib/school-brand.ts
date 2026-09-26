@@ -127,7 +127,7 @@ export interface UseSchoolBrand {
 }
 
 /** Marque de l'établissement : la dernière copie connue s'affiche tout de suite, le serveur la met à jour. */
-export function useSchoolBrand(): UseSchoolBrand {
+export function useSchoolBrand({ withLogo = true }: { withLogo?: boolean } = {}): UseSchoolBrand {
   const [state, setState] = useState<UseSchoolBrand>({ loading: true, brand: null, logoSrc: null });
 
   useEffect(() => {
@@ -145,6 +145,10 @@ export function useSchoolBrand(): UseSchoolBrand {
       // Le nom et les coordonnées s'affichent tout de suite ; le logo (une image lourde à télécharger la première
       // fois) les rejoint quand il est prêt.
       setState((s) => ({ loading: false, brand, logoSrc: brand.logoUrl ? s.logoSrc : null }));
+      if (!withLogo) {
+        setState({ loading: false, brand, logoSrc: null });
+        return;
+      }
       const trimmed = brand.logoUrl ? await trimmedLogo(brand.logoUrl) : null;
       const logoSrc = trimmed ?? (brand.logoUrl ? `${API_URL}${brand.logoUrl}` : null);
       if (cancelled) return;
@@ -158,6 +162,7 @@ export function useSchoolBrand(): UseSchoolBrand {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- withLogo est fixe pour la vie du composant
   }, []);
 
   return state;

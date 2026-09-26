@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_URL } from "@/lib/api";
-import { Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
+import { Button, Card, ErrorMessage, Field, Input, Select } from "@/components/ui";
 import type { SectionNode } from "@/lib/pre-registrations";
 import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -108,7 +108,7 @@ export default function PreRegistrationPage() {
         <div className="mb-3 flex justify-end">
           <LanguageSwitcher />
         </div>
-        <SchoolHeader />
+        <SchoolHeader title={t("cnt.pre.title")} />
         <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-[var(--shadow-soft)]">
           <p className="font-display text-lg font-semibold text-ink">{t("cnt.pre.sentTitle")}</p>
           <p className="mt-2 text-sm text-ink-muted">{t("cnt.pre.sentNote")}</p>
@@ -130,8 +130,7 @@ export default function PreRegistrationPage() {
       <div className="mb-3 flex justify-end">
         <LanguageSwitcher />
       </div>
-      <SchoolHeader />
-      <PageTitle subtitle={t("cnt.pre.subtitle")}>{t("cnt.pre.title")}</PageTitle>
+      <SchoolHeader title={t("cnt.pre.title")} />
       <Card>
         <form onSubmit={submit} className="space-y-4">
           <h2 className="font-display text-sm font-semibold text-ink">{t("cnt.pre.child")}</h2>
