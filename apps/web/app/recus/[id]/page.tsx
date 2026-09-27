@@ -6,15 +6,13 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
-import { formatDate, formatMontant } from "@/lib/format";
-import { amountInWords } from "@/lib/amount-in-words";
+import { formatDate } from "@/lib/format";
 import { type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { Payment, School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
-import { ExpandButton, useExpanded } from "@/components/expand";
-import { SchoolLogo } from "@/components/school-logo";
-import { ParentSpaceCallout } from "@/components/parent-space-callout";
+import { ReceiptSheet } from "@/components/receipt/receipt-sheet";
+import { useAuthImage } from "@/lib/use-auth-image";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
@@ -28,7 +26,6 @@ export default function ReceiptPage() {
   const [school, setSchool] = useState<School | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const details = useExpanded();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,8 +45,11 @@ export default function ReceiptPage() {
   useEffect(() => {
     if (!payment) return;
     const url = `${window.location.origin}/verifier-recu/${payment.verificationToken}`;
-    QRCode.toDataURL(url, { width: 120, margin: 1 }).then(setQrDataUrl).catch(() => {});
+    QRCode.toDataURL(url, { width: 240, margin: 1 }).then(setQrDataUrl).catch(() => {});
   }, [payment]);
+
+  const cachetSrc = useAuthImage(user ? "/receipt-assets/cachet" : null);
+  const signatureSrc = useAuthImage(payment && payment.statut !== "ANNULE" ? `/receipt-assets/signature/payment/${payment.id}` : null);
 
   if (loading || !user) {
     return (
@@ -91,90 +91,32 @@ export default function ReceiptPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-[var(--shadow-soft)] print:rounded-none print:border-0 print:shadow-none">
-        {payment.statut === "ANNULE" && (
-          <div className="mb-4 rounded-xl bg-danger-soft px-3 py-2 text-center text-sm font-semibold text-danger">
-            {t("fin.receipt.cancelledBanner")}
-            {payment.motifAnnulation && <p className="mt-1 text-xs font-normal">{payment.motifAnnulation}</p>}
-          </div>
-        )}
-
-        <div className="mb-4 flex flex-col items-center text-center">
-          {school?.logoUrl && <SchoolLogo logoUrl={school.logoUrl} className="mb-2 h-14 w-auto max-w-full object-contain" />}
-          <p className="font-display text-lg font-semibold text-ink">{school?.nom ?? "Shakespeare Academy"}</p>
-          {school?.adresse && <p className="text-xs text-ink-muted">{school.adresse}</p>}
-          {school?.telephone && <p className="text-xs text-ink-muted">{school.telephone}</p>}
-          <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">{t("receipt.title")}</p>
-          <p className="font-mono text-sm text-ink">{payment.numeroRecu}</p>
-          {payment.numeroProvisoire && (
-            <p className="text-[11px] text-ink-muted">{t("fin.receipt.replaces", { number: payment.numeroProvisoire })}</p>
-          )}
-          <p className="text-xs text-ink-muted">{formatDate(payment.datePaiement)}</p>
-        </div>
-
-        {/* Le + ne concerne que l'écran : à l'impression, le détail est toujours imprimé. */}
-        <div className="flex items-center gap-2.5 border-t border-dashed border-border pt-4 print:hidden">
-          <ExpandButton open={details.isOpen("details")} onClick={() => details.toggle("details")} label={t("fin.receipt.expandLabel")} />
-          <span className="text-sm font-medium text-ink">{t("fin.receipt.details")}</span>
-        </div>
-        <dl className={`space-y-2 pt-3 text-sm print:block print:border-t print:border-dashed print:border-border print:pt-4 ${details.isOpen("details") ? "" : "hidden"}`}>
-          {enrollment && (
-            <>
-              <Row label={t("receipt.student")} value={`${enrollment.student.prenom} ${enrollment.student.nom}`} />
-              <Row label={t("receipt.studentId")} value={enrollment.student.matricule} />
-              <Row label={t("receipt.class")} value={`${enrollment.class.nom} (${enrollment.academicYear.libelle})`} />
-            </>
-          )}
-          <Row label={t("receipt.reason")} value={payment.invoiceLine?.libelle ?? "—"} />
-          <Row label={t("receipt.method")} value={MODE_KEY[payment.modePaiement] ? t(MODE_KEY[payment.modePaiement]) : payment.modePaiement} />
-          {payment.referenceExterne && <Row label={t("receipt.reference")} value={payment.referenceExterne} />}
-          <Row label={t("fin.receipt.receivedBy")} value={payment.recuParUser ? `${payment.recuParUser.prenom} ${payment.recuParUser.nom}` : t("fin.receipt.online")} />
-        </dl>
-
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
-          <span className="text-sm font-medium text-ink">{t("receipt.amountPaid")}</span>
-          <span className="font-display text-xl font-semibold text-ink">{formatMontant(payment.montant)}</span>
-        </div>
-        <p className="mt-2 text-xs italic text-ink-muted">
-          {t("receipt.inWords", { words: amountInWords(payment.montant, school?.devise) })}
-        </p>
-
-        <div className="mt-8 grid grid-cols-2 gap-4 text-center text-xs text-ink-muted">
-          <div>
-            <div className="h-16 border-b border-dashed border-border" />
-            <p className="mt-1">{t("fin.receipt.cashierSignature")}</p>
-          </div>
-          <div>
-            <div className="h-16 border-b border-dashed border-border" />
-            <p className="mt-1">{t("fin.receipt.managementStamp")}</p>
-          </div>
-        </div>
-
-        <ParentSpaceCallout />
-
-        <div className="mt-6 flex flex-col items-center gap-1 border-t border-dashed border-border pt-4">
-          {qrDataUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- data URL générée côté client, jamais une image next/image
-            <img src={qrDataUrl} alt={t("fin.receipt.qrAlt")} className="h-20 w-20" />
-          )}
-          <p className="text-center text-[10px] text-ink-muted">
-            {t("fin.receipt.scanHint")}
-          </p>
-        </div>
-
-        <p className="mt-6 text-center text-[11px] text-ink-muted">
-          {t("fin.receipt.footer")}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-ink-muted">{label}</dt>
-      <dd className="text-right font-medium text-ink">{value}</dd>
+      <ReceiptSheet
+        school={school}
+        numero={payment.numeroRecu}
+        replacesNumber={payment.numeroProvisoire}
+        dateLabel={formatDate(payment.datePaiement)}
+        cancelled={payment.statut === "ANNULE" ? { motif: payment.motifAnnulation ?? null } : null}
+        student={
+          enrollment
+            ? {
+                nom: `${enrollment.student.prenom} ${enrollment.student.nom}`,
+                matricule: enrollment.student.matricule,
+                classe: `${enrollment.class.nom} (${enrollment.academicYear.libelle})`,
+              }
+            : null
+        }
+        reason={payment.invoiceLine?.libelle ?? "—"}
+        method={MODE_KEY[payment.modePaiement] ? t(MODE_KEY[payment.modePaiement]) : payment.modePaiement}
+        reference={payment.referenceExterne}
+        cashier={payment.recuParUser ? `${payment.recuParUser.prenom} ${payment.recuParUser.nom}` : t("fin.receipt.online")}
+        montant={payment.montant}
+        // Le cachet de l'établissement, et la signature du caissier qui a encaissé (jamais celle de la personne qui imprime).
+        cachetSrc={cachetSrc}
+        signatureSrc={signatureSrc}
+        verifyQr={qrDataUrl}
+        footer={t("fin.receipt.footer")}
+      />
     </div>
   );
 }

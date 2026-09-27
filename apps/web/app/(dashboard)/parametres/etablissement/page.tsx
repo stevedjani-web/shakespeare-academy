@@ -15,6 +15,7 @@ import {
   SuccessMessage,
 } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { SealUpload } from "@/components/receipt/seal-upload";
 import { Building2, FileSignature, ImageUp, KeyRound, Phone, Smartphone } from "lucide-react";
 import { useI18n } from "@/lib/i18n/use-i18n";
 
@@ -234,6 +235,12 @@ export default function SchoolSettingsPage() {
               <ErrorMessage>{logoError}</ErrorMessage>
             </div>
           )}
+        </Card>
+      )}
+
+      {canManage && (
+        <Card className="mb-4 max-w-xl">
+          <SealUpload path="/receipt-assets/cachet" title={t("adm.seal.cachetTitle")} help={t("adm.seal.cachetHelp")} />
         </Card>
       )}
 

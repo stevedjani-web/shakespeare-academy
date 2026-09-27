@@ -20,6 +20,15 @@ export class SchoolService {
   }
 
   /**
+   * Ce que voit un compte connecté : la fiche de l'établissement sans le nom du fichier du cachet (une pièce privée,
+   * lue seulement par `/receipt-assets/cachet`), remplacé par un simple indicateur.
+   */
+  async getForClient() {
+    const { cachetFichier, ...school } = await this.getDefault();
+    return { ...school, cachetEnregistre: !!cachetFichier };
+  }
+
+  /**
    * Identité publique de l'établissement (nom, adresse, téléphone, logo), pour les pages sans compte
    * (préinscription) et la marque de l'application. Rien d'autre : jamais un réglage ni un chiffre.
    */

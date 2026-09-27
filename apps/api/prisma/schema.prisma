@@ -91,6 +91,8 @@ model School {
   directeurTitre String  @default("Le Directeur")
   ville          String?
   signatureUrl   String?
+  // Reçus : cachet de l'établissement posé automatiquement (fichier privé, jamais servi publiquement).
+  cachetFichier  String?
 
   academicYears     AcademicYear[]
   sections          Section[]
@@ -307,6 +309,8 @@ model User {
   doitChangerMotDePasse     Boolean    @default(false)
   // Langue choisie par l'utilisateur (« fr » ou « en ») ; vide = pas encore choisie, la langue de l'appareil s'applique.
   langue                    String?
+  // Signature du caissier posée automatiquement sur les reçus qu'il a encaissés (fichier privé).
+  signatureFichier          String?
   createdAt                 DateTime   @default(now())
   updatedAt                 DateTime   @updatedAt
 

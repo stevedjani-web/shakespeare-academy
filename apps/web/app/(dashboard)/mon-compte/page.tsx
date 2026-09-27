@@ -5,11 +5,12 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { Card, PageTitle, SuccessMessage } from "@/components/ui";
 import { ChangePasswordForm } from "@/components/change-password-form";
+import { SealUpload } from "@/components/receipt/seal-upload";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/use-i18n";
 
 export default function MonComptePage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { t } = useI18n();
   const [done, setDone] = useState(false);
   const [langSaved, setLangSaved] = useState(false);
@@ -60,6 +61,12 @@ export default function MonComptePage() {
           </Card>
         </div>
 
+        <div className="space-y-4">
+        {hasPermission("PAYMENT_CREATE") && (
+          <Card>
+            <SealUpload path="/receipt-assets/signature/me" title={t("adm.seal.signatureTitle")} help={t("adm.seal.signatureHelp")} />
+          </Card>
+        )}
         <Card>
           <h2 className="font-display text-lg font-semibold text-ink">{t("account.changePassword")}</h2>
           <p className="mb-4 mt-1 text-sm text-ink-muted">{t("account.changePasswordHelp")}</p>
@@ -70,6 +77,7 @@ export default function MonComptePage() {
           )}
           <ChangePasswordForm onSuccess={() => setDone(true)} />
         </Card>
+        </div>
       </div>
     </div>
   );

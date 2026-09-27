@@ -427,6 +427,17 @@ Demande du propriétaire : un parent doit pouvoir préinscrire plusieurs enfants
 
 ---
 
+## 32. Reçu sur une seule page, cachet et signature automatiques (27 septembre 2026)
+
+Demande du propriétaire : reçu sur une seule feuille, cachet de l'établissement et signature de la caissière posés automatiquement, logo en filigrane, invitation « Suivez la vie scolaire de votre enfant en temps réel » avec l'adresse sur une seule ligne, design soigné.
+
+- **D163 (TRANCHÉ, sur demande) : cachet de l'établissement automatique.** Un seul cachet, enregistré par l'Administrateur ou la Direction (`SETTINGS_MANAGE`, Établissement), posé sur tout reçu officiel non annulé. Fichier privé, jamais servi publiquement, réduit à 600 px.
+- **D164 (PROVISOIRE, recommandation à valider) : signature automatique par caissier.** Chaque caissier enregistre **la sienne** (Mon compte) ; un reçu porte la signature **de celui qui a encaissé**, jamais celle de la personne qui l'imprime, et personne ne peut enregistrer la signature d'un autre. Recommandation donnée au propriétaire : signer automatiquement est acceptable **parce que** la vraie garantie d'authenticité est le QR code de vérification (jeton aléatoire, contrôle en ligne), pas l'image ; le cachet et la signature sont de l'habillage, copiables par n'importe qui qui photographie un reçu.
+- **D165 (PROVISOIRE) : ni cachet ni signature automatiques sur un reçu annulé ni sur un reçu provisoire (établi sans Internet).** Un reçu annulé ne doit pas paraître valable ; un reçu provisoire n'a pas de code de vérification, il reste à signer et à tamponner à la main. À revoir si l'école veut le contraire.
+- **D166 (TRANCHÉ) : le détail du paiement n'est plus replié.** Tout est visible à l'écran et à l'impression (le « + » n'existe plus sur le reçu).
+
+---
+
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
 
 Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe explicitement — ils sont listés ici uniquement pour éviter qu'une future relecture les remette en question par erreur :
@@ -441,4 +452,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 27 septembre 2026 : D160 à D162 (formulaire, rôle, reçus) ; D152 à D159 (préinscription à plusieurs enfants) ; 25 septembre 2026 : D151 (tarifs d'entrée et type d'inscription) ; D131 à D136 (messagerie : alerte dans l'application et priorités) ; D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 27 septembre 2026 : D163 à D166 (reçu sur une page, cachet et signature) ; D160 à D162 (formulaire, rôle, reçus) ; D152 à D159 (préinscription à plusieurs enfants) ; 25 septembre 2026 : D151 (tarifs d'entrée et type d'inscription) ; D131 à D136 (messagerie : alerte dans l'application et priorités) ; D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
