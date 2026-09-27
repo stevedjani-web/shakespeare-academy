@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PreRegistrationsService } from './pre-registrations.service';
 import { PreRegistrationsController } from './pre-registrations.controller';
+import { SubmissionRateLimiter } from './submission-rate-limiter';
 import { AuditModule } from '../audit/audit.module';
 import { SchoolModule } from '../school/school.module';
 import { NumberSequenceModule } from '../common/number-sequence.module';
@@ -19,7 +20,7 @@ import { ClassesModule } from '../classes/classes.module';
     ClassesModule,
   ],
   controllers: [PreRegistrationsController],
-  providers: [PreRegistrationsService],
+  providers: [PreRegistrationsService, SubmissionRateLimiter],
   exports: [PreRegistrationsService],
 })
 export class PreRegistrationsModule {}

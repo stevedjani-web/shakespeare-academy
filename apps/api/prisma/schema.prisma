@@ -201,10 +201,11 @@ model Level {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classes          Class[]
-  feeSchedules     FeeSchedule[]
-  subjectLevels    SubjectLevel[]
-  preRegistrations PreRegistration[]
+  classes                         Class[]
+  feeSchedules                    FeeSchedule[]
+  subjectLevels                   SubjectLevel[]
+  preRegistrationChildren         PreRegistrationChild[] @relation("ChildRequestedLevel")
+  preRegistrationChildrenPrevious PreRegistrationChild[] @relation("ChildPreviousLevel")
 
   @@unique([cycleId, code])
   @@map("levels")
@@ -696,41 +697,81 @@ enum PreRegistrationStatus {
 }
 
 /**
- * Demande déposée par une famille avant qu'aucun élève n'existe (formulaire public, sans compte). Le secrétariat
- * l'examine puis, en l'acceptant, choisit la classe réelle et déclenche la création de l'élève et de son inscription
- * (mêmes garde-fous que la saisie manuelle : doublon D33, numéro de matricule, facture). Aucun frais de dossier ici
- * (D04 non tranchée) : ce n'est qu'une demande, jamais un engagement financier.
+ * Nouvel élève ou élève déjà à l'école (choix obligatoire du parent pour chaque enfant d'une demande).
+ */
+enum PreRegistrationStudentKind {
+  NOUVEAU
+  ANCIEN
+}
+
+/**
+ * Demande déposée par une famille avant qu'aucun élève n'existe (formulaire public, sans compte). Une demande porte
+ * UN parent ou tuteur (saisi une seule fois) et un ou plusieurs enfants (`PreRegistrationChild`), chacun avec sa
+ * classe demandée, son statut et ses documents. Le secrétariat examine chaque enfant à part : en l'acceptant, il choisit
+ * la classe réelle et déclenche la création de l'élève et de son inscription (mêmes garde-fous que la saisie manuelle :
+ * doublon D33, numéro de matricule, facture). Aucun frais de dossier ici (D04 non tranchée) : ce n'est qu'une demande,
+ * jamais un engagement financier.
  */
 model PreRegistration {
-  id                   String                @id @default(cuid())
+  id                   String   @id @default(cuid())
   schoolId             String
-  school               School                @relation(fields: [schoolId], references: [id])
-  reference            String                @unique
-  nom                  String
-  prenom               String
-  sexe                 Sexe
-  dateNaissance        DateTime
-  lieuNaissance        String?
-  nationalite          String?
-  levelId              String
-  level                Level                 @relation(fields: [levelId], references: [id])
+  school               School   @relation(fields: [schoolId], references: [id])
+  reference            String   @unique
   responsableNom       String
   responsablePrenom    String
   responsableTelephone String
   responsableEmail     String?
   message              String?
-  statut               PreRegistrationStatus @default(EN_ATTENTE)
-  motifRejet           String?
-  studentId            String?
-  enrollmentId         String?
-  traiteParUserId      String?
-  traiteLe             DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  @@index([statut, createdAt])
+  enfants PreRegistrationChild[]
+
+  @@index([createdAt])
   @@index([responsableTelephone])
   @@map("pre_registrations")
+}
+
+/**
+ * Un enfant d'une demande de préinscription, avec son propre statut de traitement.
+ */
+model PreRegistrationChild {
+  id                      String                     @id @default(cuid())
+  preRegistrationId       String
+  preRegistration         PreRegistration            @relation(fields: [preRegistrationId], references: [id])
+  ordre                   Int                        @default(0)
+  nom                     String
+  prenom                  String
+  sexe                    Sexe
+  dateNaissance           DateTime
+  lieuNaissance           String?
+  nationalite             String?
+  // Classe demandée : le niveau (la classe réelle est choisie par le secrétariat à l'acceptation).
+  levelId                 String
+  level                   Level                      @relation("ChildRequestedLevel", fields: [levelId], references: [id])
+  typeEleve               PreRegistrationStudentKind
+  // Nouvel élève seulement, facultatif.
+  ancienEtablissement     String?
+  // Ancien élève seulement : classe fréquentée l'année scolaire précédente, pour retrouver son dossier.
+  classePrecedenteLevelId String?
+  classePrecedente        Level?                     @relation("ChildPreviousLevel", fields: [classePrecedenteLevelId], references: [id])
+  // Dernier bulletin (facultatif, nouvel élève) : fichier privé, jamais servi publiquement.
+  bulletinFichier         String?
+  bulletinNom             String?
+  bulletinType            String?
+  bulletinTaille          Int?
+  statut                  PreRegistrationStatus      @default(EN_ATTENTE)
+  motifRejet              String?
+  studentId               String?
+  enrollmentId            String?
+  traiteParUserId         String?
+  traiteLe                DateTime?
+  createdAt               DateTime                   @default(now())
+  updatedAt               DateTime                   @updatedAt
+
+  @@index([statut, createdAt])
+  @@index([preRegistrationId])
+  @@map("pre_registration_children")
 }
 
 // --- Discipline (Lot 20) --------------------------------------------------------
