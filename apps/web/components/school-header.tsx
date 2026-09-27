@@ -8,15 +8,15 @@ import { useSchoolBrand } from "@/lib/school-brand";
  * c'est ce qui dit à la famille qu'elle est bien chez l'école. Sans logo ni coordonnées, pour ne pas prendre de
  * place avant le formulaire.
  */
-export function SchoolHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function SchoolHeader({ title, subtitle, tone = "light" }: { title: string; subtitle?: string; tone?: "light" | "dark" }) {
   const { brand } = useSchoolBrand({ withLogo: false });
   const nom = brand?.nom ?? "Shakespeare Academy";
   return (
-    <div className="mb-5">
-      <h1 className="font-display text-xl font-semibold leading-snug tracking-tight text-ink sm:text-2xl">
+    <div className={tone === "dark" ? "" : "mb-5"}>
+      <h1 className={`font-display text-xl font-semibold leading-snug tracking-tight sm:text-2xl ${tone === "dark" ? "text-white" : "text-ink"}`}>
         {nom} - {title}
       </h1>
-      {subtitle && <p className="mt-1 text-sm text-ink-muted">{subtitle}</p>}
+      {subtitle && <p className={`mt-1 text-sm ${tone === "dark" ? "text-white/75" : "text-ink-muted"}`}>{subtitle}</p>}
     </div>
   );
 }

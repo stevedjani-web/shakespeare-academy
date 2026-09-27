@@ -417,6 +417,16 @@ Demande du propriétaire : un parent doit pouvoir préinscrire plusieurs enfants
 
 ---
 
+## 31. Formulaire de préinscription refondu, changement de rôle, invitation sur les reçus (27 septembre 2026)
+
+| # | Question | Impact si non tranchée | Décision |
+|---|---|---|---|
+| D160 | Comment rendre le formulaire public agréable et simple à remplir ? | Un formulaire long décourage les familles et fait perdre des demandes. | **TRANCHÉ par le propriétaire (27 septembre 2026)** : ergonomique, en couleurs, « waouh » : blocs parlants, attirants et simples, navigation fluide et élégante. **Réalisé** : trois étapes (parent ou tuteur, enfants, vérification), une couleur par enfant, tuiles et pastilles au lieu de listes déroulantes, dépôt de fichier par glisser-déposer, récapitulatif avant l'envoi, confirmation animée. Le bandeau reste compact (une ligne de titre, pas de logo) pour respecter la demande précédente de ne pas perdre de place. Mouvement réduit respecté. |
+| D161 | Peut-on changer le rôle d'un compte, et qui ? | Le rôle d'un compte était figé : pour promouvoir ou rétrograder quelqu'un, il fallait passer par la base. | **TRANCHÉ par le propriétaire (27 septembre 2026)** : oui, depuis l'écran Utilisateurs et rôles (droit `USER_MANAGE`, les droits réservés à la Direction restent protégés par la garde existante). **PROVISOIRE** : **on ne change pas son propre rôle** (un autre administrateur doit le faire) pour ne pas enfermer dehors le seul compte qui peut le rendre. |
+| D162 | Que met-on sur les reçus pour amener les parents à se connecter ? | Un Espace parents que personne n'ouvre. | **TRANCHÉ par le propriétaire (27 septembre 2026)** : un lien et un QR code vers l'Espace parents sur les reçus d'inscription et de frais de scolarité. **Réalisé** : bloc « Espace parents » avec QR, adresse de connexion et rappel de demander le code d'activation au secrétariat, sur le reçu du personnel et le reçu provisoire. **OUVERT** : un QR qui préremplirait le numéro du parent (le reçu ne porte aucun code d'activation, par sécurité). |
+
+---
+
 ## Décisions déjà tranchées par le document lui-même (rappel, non ouvertes)
 
 Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe explicitement — ils sont listés ici uniquement pour éviter qu'une future relecture les remette en question par erreur :
@@ -431,4 +441,4 @@ Ces points ne sont **pas** dans ce fichier car le cahier de cadrage les fixe exp
 
 ---
 
-*Dernière mise à jour : 27 septembre 2026 : D152 à D159 (préinscription à plusieurs enfants) ; 25 septembre 2026 : D151 (tarifs d'entrée et type d'inscription) ; D131 à D136 (messagerie : alerte dans l'application et priorités) ; D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*
+*Dernière mise à jour : 27 septembre 2026 : D160 à D162 (formulaire, rôle, reçus) ; D152 à D159 (préinscription à plusieurs enfants) ; 25 septembre 2026 : D151 (tarifs d'entrée et type d'inscription) ; D131 à D136 (messagerie : alerte dans l'application et priorités) ; D125 à D130 (préinscription en ligne, Lot 21) ; D116 à D124 (discipline, Lot 20) ; D108 à D115 (documents officiels, Lot 19) ; D104 à D107 (mise en service des parents, Lot 18) ; D102 et D103 (points ouverts de l'audit des rôles) ; D96 à D101 (paiement en ligne par les parents, Lot 17) ; D89 à D95 (cahier de textes, Lot 16) ; D79 à D88 (notes et bulletins, Lot 15, valeurs provisoires) ; D49 (mode hors ligne) ; D50 à D78 (vie scolaire 360°) validées par la Direction. Création initiale le 16 septembre 2026.*

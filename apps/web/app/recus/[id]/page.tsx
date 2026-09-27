@@ -14,6 +14,7 @@ import type { Payment, School } from "@/lib/types";
 import { Button, Spinner } from "@/components/ui";
 import { ExpandButton, useExpanded } from "@/components/expand";
 import { SchoolLogo } from "@/components/school-logo";
+import { ParentSpaceCallout } from "@/components/parent-space-callout";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
@@ -148,6 +149,8 @@ export default function ReceiptPage() {
             <p className="mt-1">{t("fin.receipt.managementStamp")}</p>
           </div>
         </div>
+
+        <ParentSpaceCallout />
 
         <div className="mt-6 flex flex-col items-center gap-1 border-t border-dashed border-border pt-4">
           {qrDataUrl && (

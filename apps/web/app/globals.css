@@ -76,3 +76,57 @@ body {
   background: var(--color-accent-soft);
   color: var(--color-ink);
 }
+
+/* Formulaire public de préinscription : entrées douces (une étape qui arrive, une fiche ajoutée, une confirmation).
+ * Coupées pour qui a demandé moins de mouvement. */
+@keyframes sa-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sa-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes sa-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.sa-step-in {
+  animation: sa-step-in 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.sa-pop {
+  animation: sa-pop 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.sa-twinkle {
+  animation: sa-twinkle 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sa-step-in,
+  .sa-pop,
+  .sa-twinkle {
+    animation: none;
+  }
+}

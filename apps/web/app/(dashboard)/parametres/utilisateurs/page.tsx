@@ -16,7 +16,48 @@ function initials(nom: string, prenom: string) {
   return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
 }
 
-function UserDetails({ user }: { user: AppUser }) {
+/** Changement de rôle d'un compte : le rôle se choisit dans la liste, un message de confirmation dit ce qui change. */
+function RoleChanger({ user, roles, isSelf, onChange }: { user: AppUser; roles: Role[]; isSelf: boolean; onChange: (roleId: string) => Promise<void> }) {
+  const { t } = useI18n();
+  const [roleId, setRoleId] = useState(user.role.id);
+  const [busy, setBusy] = useState(false);
+  // Le compte peut changer de rôle ailleurs (rechargement) : la liste suit le rôle réellement enregistré.
+  useEffect(() => setRoleId(user.role.id), [user.role.id]);
+  if (isSelf) {
+    return <p className="text-xs text-ink-muted sm:col-span-2">{t("adm.users.roleSelf")}</p>;
+  }
+  return (
+    <div className="sm:col-span-2">
+      <span className="mb-1 block text-xs text-ink-muted">{t("adm.users.changeRole")}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select className="max-w-64" value={roleId} aria-label={t("adm.users.changeRole")} onChange={(e) => setRoleId(e.target.value)}>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.nom}
+            </option>
+          ))}
+        </Select>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={busy || roleId === user.role.id}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onChange(roleId);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <ShieldCheck size={14} /> {t("adm.users.saveRole")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function UserDetails({ user, roles, isSelf, onChangeRole }: { user: AppUser; roles: Role[]; isSelf: boolean; onChangeRole: (roleId: string) => Promise<void> }) {
   const { t, locale } = useI18n();
   return (
     <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -39,6 +80,7 @@ function UserDetails({ user }: { user: AppUser }) {
           <Badge color="orange">{t("adm.users.mustChange")}</Badge>
         </p>
       )}
+      <RoleChanger user={user} roles={roles} isSelf={isSelf} onChange={onChangeRole} />
     </div>
   );
 }
@@ -92,6 +134,8 @@ function UsersTab() {
   const [form, setForm] = useState({ nom: "", prenom: "", email: "", motDePasse: "", roleId: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const { user: me } = useAuth();
   const expand = useExpanded();
 
   async function load() {
@@ -120,6 +164,21 @@ function UsersTab() {
     }
   }
 
+  async function handleChangeRole(user: AppUser, roleId: string) {
+    const next = roles.find((r) => r.id === roleId);
+    if (!next) return;
+    const name = `${user.prenom} ${user.nom}`;
+    if (!confirm(t("adm.users.confirmRole", { name, from: user.role.nom, to: next.nom }))) return;
+    setNotice(null);
+    try {
+      await api.patch(`/users/${user.id}`, { roleId });
+      await load();
+      setNotice({ kind: "ok", text: t("adm.users.roleChanged", { name, role: next.nom }) });
+    } catch (err) {
+      setNotice({ kind: "error", text: isApiError(err) ? err.message : t("common.error") });
+    }
+  }
+
   async function handleToggleStatus(user: AppUser) {
     const nextStatus = user.statut === "ACTIF" ? "INACTIF" : "ACTIF";
     if (nextStatus === "INACTIF" && !confirm(t("adm.users.confirmDeactivate", { name: `${user.prenom} ${user.nom}` }))) return;
@@ -142,6 +201,11 @@ function UsersTab() {
 
   return (
     <div>
+      {notice && (
+        <p role="status" className={`mb-3 rounded-xl px-3.5 py-2.5 text-sm ${notice.kind === "ok" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
+          {notice.text}
+        </p>
+      )}
       {users.length > 0 && (
         <div className="mb-3 flex justify-end">
           <ExportButtons
@@ -176,6 +240,7 @@ function UsersTab() {
                   <tr className="border-b border-border text-left text-ink-muted">
                     <th className="w-10 py-2 pr-2" aria-label={t("adm.users.details")}></th>
                     <th className="py-2 pr-4">{t("adm.users.colName")}</th>
+                    <th className="py-2 pr-4">{t("adm.users.role")}</th>
                     <th className="py-2 pr-4">{t("adm.users.colStatus")}</th>
                     <th className="py-2 pr-4">{t("adm.users.colActions")}</th>
                   </tr>
@@ -200,6 +265,9 @@ function UsersTab() {
                             </div>
                           </td>
                           <td className="py-2.5 pr-4">
+                            <Badge color="primary">{u.role.nom}</Badge>
+                          </td>
+                          <td className="py-2.5 pr-4">
                             <Badge color={u.statut === "ACTIF" ? "green" : "gray"}>
                               {u.statut === "ACTIF" ? t("adm.users.active") : t("adm.users.inactive")}
                             </Badge>
@@ -218,8 +286,8 @@ function UsersTab() {
                         {expanded && (
                           <tr className="border-b border-border bg-surface-muted/50">
                             <td></td>
-                            <td colSpan={3} className="py-3 pr-4">
-                              <UserDetails user={u} />
+                            <td colSpan={4} className="py-3 pr-4">
+                              <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} />
                             </td>
                           </tr>
                         )}
@@ -251,7 +319,7 @@ function UsersTab() {
                   </div>
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-border pt-3">
-                      <UserDetails user={u} />
+                      <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} />
                       <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
                           {u.statut === "ACTIF" ? t("adm.users.deactivate") : t("adm.users.reactivate")}

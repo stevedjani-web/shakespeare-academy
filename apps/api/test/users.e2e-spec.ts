@@ -129,4 +129,115 @@ describe('Utilisateurs (e2e)', () => {
       .expect(201);
     expect(login.body.user.doitChangerMotDePasse).toBe(true);
   });
+
+  describe('changement de rôle', () => {
+    async function createAs(roleId: string, email: string) {
+      const res = await auth(request(app.getHttpServer()).post('/users'))
+        .send({
+          nom: 'Test',
+          prenom: 'Compte',
+          email,
+          motDePasse: 'MotDePasse123!',
+          roleId,
+        })
+        .expect(201);
+      return res.body as { id: string; role: { code: string } };
+    }
+    const loginAs = async (email: string) =>
+      (
+        await request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ email, motDePasse: 'MotDePasse123!' })
+          .expect(201)
+      ).body.accessToken as string;
+
+    it('change le rôle d’un compte, journalise l’ancien et le nouveau, avec effet immédiat sur ses droits', async () => {
+      const user = await createAs(secretaireRoleId, 'sec@test.local');
+      const token = await loginAs('sec@test.local');
+      // Secrétaire-caissier : il encaisse mais ne saisit pas de sortie (EXPENSE_CREATE : Administrateur et Comptable).
+      await request(app.getHttpServer())
+        .post('/expenses')
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(403);
+
+      const comptable = await prisma.role.findUniqueOrThrow({
+        where: { code: 'COMPTABLE' },
+      });
+      const res = await auth(
+        request(app.getHttpServer()).patch(`/users/${user.id}`),
+      )
+        .send({ roleId: comptable.id })
+        .expect(200);
+      expect(res.body.role.code).toBe('COMPTABLE');
+      expect(res.body).not.toHaveProperty('motDePasseHash');
+
+      // Le même jeton, sans reconnexion : les droits sont relus en base à chaque requête. Comptable saisit des sorties
+      // (la requête vide est refusée pour son contenu, plus pour son droit).
+      const after = await request(app.getHttpServer())
+        .post('/expenses')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(after.status).toBe(400);
+
+      const log = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'USER_UPDATE', entiteId: user.id },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect((log.ancienneValeur as { role: { code: string } }).role.code).toBe(
+        'SECRETAIRE_CAISSIER',
+      );
+      expect((log.nouvelleValeur as { role: { code: string } }).role.code).toBe(
+        'COMPTABLE',
+      );
+      expect(JSON.stringify(log)).not.toMatch(/motDePasseHash|argon2/i);
+    });
+
+    it('refuse un rôle inconnu (404) et laisse le compte inchangé', async () => {
+      const user = await createAs(secretaireRoleId, 'sec2@test.local');
+      await auth(request(app.getHttpServer()).patch(`/users/${user.id}`))
+        .send({ roleId: 'role-inconnu' })
+        .expect(404);
+      const stored = await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+        include: { role: true },
+      });
+      expect(stored.role.code).toBe('SECRETAIRE_CAISSIER');
+    });
+
+    it('refuse de changer son propre rôle (403) mais permet de modifier son nom', async () => {
+      const me = await prisma.user.findFirstOrThrow({
+        where: { email: 'admin@shakespeareacademy.cg' },
+      });
+      await auth(request(app.getHttpServer()).patch(`/users/${me.id}`))
+        .send({ roleId: secretaireRoleId })
+        .expect(403);
+      expect(
+        (
+          await prisma.user.findUniqueOrThrow({
+            where: { id: me.id },
+            include: { role: true },
+          })
+        ).role.code,
+      ).toBe('ADMINISTRATEUR');
+      // Renvoyer son rôle actuel n'est pas un changement.
+      await auth(request(app.getHttpServer()).patch(`/users/${me.id}`))
+        .send({ roleId: me.roleId, prenom: 'Admin' })
+        .expect(200);
+    });
+
+    it('exige USER_MANAGE et ne s’applique pas sans jeton', async () => {
+      const user = await createAs(secretaireRoleId, 'sec3@test.local');
+      const token = await loginAs('sec3@test.local');
+      await request(app.getHttpServer())
+        .patch(`/users/${user.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ roleId: secretaireRoleId })
+        .expect(403);
+      await request(app.getHttpServer())
+        .patch(`/users/${user.id}`)
+        .send({ roleId: secretaireRoleId })
+        .expect(401);
+    });
+  });
 });

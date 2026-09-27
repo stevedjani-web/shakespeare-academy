@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -114,6 +115,18 @@ export class UsersService {
     // Changer de rôle : ni le rôle quitté ni le rôle visé ne doivent porter de droit réservé que l'acteur n'a pas.
     // Désactiver ou renommer un compte reste permis (aucune élévation de droits).
     if (dto.roleId && dto.roleId !== before.role.id) {
+      // Se retirer ses propres droits par mégarde enfermerait dehors le seul compte qui peut les rendre : un autre
+      // administrateur doit le faire.
+      if (id === actingUserId) {
+        throw new ForbiddenException(
+          'Vous ne pouvez pas changer votre propre rôle : demandez-le à un autre administrateur.',
+        );
+      }
+      const target = await this.prisma.role.findUnique({
+        where: { id: dto.roleId },
+        select: { id: true },
+      });
+      if (!target) throw new NotFoundException('Rôle introuvable.');
       assertCanHandleReserved(
         actor.permissions,
         [
