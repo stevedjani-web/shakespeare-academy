@@ -3,13 +3,15 @@
 // Les constructeurs sont purs (aucun accès au navigateur ni aux traductions : les libellés arrivent tout prêts), pour
 // pouvoir être contrôlés par `scripts/check-timetable-excel.mjs` ; seule l'écriture du fichier touche au navigateur.
 
+import { SWATCHES, resolveSubjectColor } from "./subject-colors.ts";
+
 export interface XlEntry {
   classId: string;
   jourSemaine: number;
   heureDebut: string;
   heureFin: string;
   class: { nom: string };
-  subject: { nom: string };
+  subject: { nom: string; code?: string; couleur?: string | null };
   teacher: { id: string; nom: string; prenom: string };
 }
 
@@ -152,10 +154,15 @@ export function buildGridSheets(input: {
         rows.push([cell(label, { fontWeight: "bold" }), ...cells]);
         continue;
       }
-      rows.push([cell(label, { fontWeight: "bold" }), ...days.map((d) => cell(at(d, slot.heureDebut)?.subject.nom ?? null, { fontWeight: "bold", textColor: "#1c1c2e" }))]);
+      // La matière et l'enseignant de chaque séance portent la teinte de la matière (fond clair), comme à l'écran.
+      const fill = (e: XlEntry | undefined) => (e ? { backgroundColor: SWATCHES[resolveSubjectColor(e.subject.couleur, e.subject.code)].bg } : {});
+      rows.push([cell(label, { fontWeight: "bold" }), ...days.map((d) => {
+        const e = at(d, slot.heureDebut);
+        return cell(e?.subject.nom ?? null, { fontWeight: "bold", textColor: "#1c1c2e", ...fill(e) });
+      })]);
       rows.push([null, ...days.map((d) => {
         const e = at(d, slot.heureDebut);
-        return cell(e ? personName(e.teacher) : null, { fontWeight: "bold", textColor: NAME_RED });
+        return cell(e ? personName(e.teacher) : null, { fontWeight: "bold", textColor: NAME_RED, ...fill(e) });
       })]);
     }
     sheets.push({ sheet: sheetName(klass.nom, used), data: rows, columns: [{ width: 16 }, ...days.map(() => ({ width: 30 }))] });

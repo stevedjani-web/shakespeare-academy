@@ -432,6 +432,7 @@ export interface Subject {
   code: string;
   nom: string;
   actif: boolean;
+  couleur: string | null;
   levels: Array<{ id: string; levelId: string; minutesParSemaine: number | null }>;
   _count: { teachers: number; assignments: number };
 }
@@ -521,7 +522,7 @@ export interface TimetableEntry {
   heureDebut: string;
   heureFin: string;
   class: { id: string; nom: string; levelId: string };
-  subject: { id: string; nom: string };
+  subject: { id: string; nom: string; code: string; couleur: string | null };
   teacher: { id: string; nom: string; prenom: string };
   room: { id: string; nom: string };
 }
@@ -538,6 +539,8 @@ export interface Occurrence {
   className: string;
   subjectId: string;
   subjectName: string;
+  subjectCode: string;
+  subjectCouleur: string | null;
   teacherId: string;
   teacherName: string;
   roomId: string;

@@ -102,6 +102,7 @@ export const frTimetable = {
   "tt.plan.confirmDelete": "Supprimer ce brouillon et toutes ses séances ?",
   "tt.plan.draftDeleted": "Brouillon supprimé.",
 
+  "tt.grid.legend": "Matières",
   "tt.grid.noSlots": "Aucun créneau horaire n'est défini pour cette vue. Saisissez d'abord la grille horaire dans « Vie scolaire ».",
   "tt.grid.timeCol": "Horaire",
   "tt.grid.changeRoom": "Changer la salle",
@@ -470,6 +471,7 @@ export const enTimetable: Record<keyof typeof frTimetable, string> = {
   "tt.plan.confirmDelete": "Delete this draft and all its sessions?",
   "tt.plan.draftDeleted": "Draft deleted.",
 
+  "tt.grid.legend": "Subjects",
   "tt.grid.noSlots": "No time slot is defined for this view. First enter the time grid in \"School life\".",
   "tt.grid.timeCol": "Time",
   "tt.grid.changeRoom": "Change the room",

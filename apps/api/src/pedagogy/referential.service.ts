@@ -267,6 +267,7 @@ export class ReferentialService {
         schoolId: await this.school.getDefaultId(),
         code,
         nom: dto.nom.trim(),
+        couleur: dto.couleur ?? null,
       },
     });
     await this.log(
@@ -291,7 +292,12 @@ export class ReferentialService {
     }
     const subject = await this.prisma.subject.update({
       where: { id },
-      data: { code, nom: dto.nom?.trim(), actif: dto.actif },
+      data: {
+        code,
+        nom: dto.nom?.trim(),
+        actif: dto.actif,
+        couleur: dto.couleur,
+      },
     });
     await this.log(userId, 'SUBJECT_UPDATE', 'Subject', id, before, subject);
     return subject;

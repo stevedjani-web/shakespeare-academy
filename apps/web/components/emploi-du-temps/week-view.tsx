@@ -9,6 +9,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { weekdayName } from "@/lib/format";
 import { describeError } from "@/components/vie-scolaire/shared";
+import { subjectSwatch } from "@/lib/subject-colors";
 import { formatIso } from "./shared";
 
 const STATUS_BADGE: Record<OccurrenceStatus, { key: MessageKey; color: "gray" | "red" | "orange" | "blue" | "green" }> = {
@@ -106,7 +107,11 @@ export function WeekView({
                   const key = `${s.entryId}-${s.date}`;
                   const status = STATUS_BADGE[s.statut];
                   return (
-                    <li key={key} className={`rounded-xl border border-border p-2.5 ${s.statut === "ANNULEE" ? "opacity-70" : ""}`}>
+                    <li
+                      key={key}
+                      className={`rounded-xl border border-border p-2.5 ${s.statut === "ANNULEE" ? "opacity-70" : ""}`}
+                      style={{ borderLeft: `4px solid ${subjectSwatch(s.subjectCouleur, s.subjectCode).border}`, backgroundColor: subjectSwatch(s.subjectCouleur, s.subjectCode).bg }}
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className={`font-medium text-ink ${s.statut === "ANNULEE" ? "line-through" : ""}`}>

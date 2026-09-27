@@ -7,6 +7,7 @@ import type { Room, TimeSlot, TimetableEntry } from "@/lib/types";
 import { Button, ErrorMessage, Select } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError } from "@/components/vie-scolaire/shared";
+import { subjectCellStyle, subjectSwatch } from "@/lib/subject-colors";
 import { CELL, TH, orderedDays, slotRows, type ViewKind } from "./shared";
 
 interface AssignmentOption {
@@ -83,6 +84,9 @@ export function VersionGrid({
 
   const activeRooms = rooms.filter((r) => r.actif);
 
+  // Légende : les matières qui figurent dans ce qui est affiché, une fois chacune, par ordre alphabétique.
+  const legend = [...new Map(entries.map((e) => [e.subject.id, e.subject])).values()].sort((a, b) => a.nom.localeCompare(b.nom));
+
   function cellEntries(slotStart: string, slotEnd: string, jour: number) {
     return entries.filter((e) => e.jourSemaine === jour && e.heureDebut === slotStart && e.heureFin === slotEnd);
   }
@@ -147,11 +151,11 @@ export function VersionGrid({
                               </div>
                             </div>
                           ) : (
-                            <div key={e.id} className="mb-1 rounded-lg bg-primary/8 p-1.5 leading-snug">
-                              <div className="font-medium text-ink">
+                            <div key={e.id} className="mb-1 rounded-lg p-1.5 leading-snug" style={subjectCellStyle(e.subject.couleur, e.subject.code)}>
+                              <div className="font-semibold">
                                 {view === "classe" ? e.subject.nom : `${e.class.nom} · ${e.subject.nom}`}
                               </div>
-                              <div className="text-xs text-ink-muted">
+                              <div className="text-xs opacity-85">
                                 {view !== "enseignant" && `${e.teacher.prenom} ${e.teacher.nom}`}
                                 {view === "classe" && " · "}
                                 {view !== "salle" && e.room.nom}
@@ -250,6 +254,17 @@ export function VersionGrid({
           </tbody>
         </table>
       </div>
+      {legend.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-muted" aria-label={t("tt.grid.legend")}>
+          <span className="font-semibold uppercase tracking-wide">{t("tt.grid.legend")}</span>
+          {legend.map((s) => (
+            <span key={s.id} className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm border" style={{ backgroundColor: subjectSwatch(s.couleur, s.code).bg, borderColor: subjectSwatch(s.couleur, s.code).border }} />
+              {s.nom}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

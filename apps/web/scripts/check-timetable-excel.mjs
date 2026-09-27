@@ -104,4 +104,23 @@ assert.deepEqual(detail.map((r) => [r[0].value, r[1].value, r[2].value, r[3].val
 const perDay = sheets[2].data.slice(2);
 assert.deepEqual(perDay[0].slice(1).map((c) => c.value), [3, "-", "-", "-", "-", 3]);
 
+// Couleurs des matières : la matière et l'enseignant d'une séance portent le fond de la matière ; une case vide reste sans fond.
+const colored = buildGridSheets({
+  entries: [
+    { ...entry("c6", "6e", 1, "08:00", "09:00", "Anglais", T1), subject: { nom: "Anglais", code: "ANGL2", couleur: "blue" } },
+    { ...entry("c6", "6e", 2, "08:00", "09:00", "Français", T1), subject: { nom: "Français", code: "FRAN2", couleur: "red" } },
+    { ...entry("c6", "6e", 3, "08:00", "09:00", "Sans choix", T1), subject: { nom: "Sans choix", code: "SVT", couleur: null } },
+  ],
+  slots, classes, days, yearLabel: "x", labels,
+})[0].data;
+const subjectRow = colored.find((r) => r[1]?.value === "Anglais");
+const teacherRow = colored[colored.indexOf(subjectRow) + 1];
+assert.equal(subjectRow[1].backgroundColor, "#dbeafe", "Anglais en bleu");
+assert.equal(subjectRow[2].backgroundColor, "#fee2e2", "Français en rouge");
+assert.match(subjectRow[3].backgroundColor, /^#[0-9a-f]{6}$/, "une matière sans choix reçoit une teinte automatique");
+assert.equal(teacherRow[1].backgroundColor, "#dbeafe", "l'enseignant a le fond de sa matière");
+assert.equal(teacherRow[2].backgroundColor, "#fee2e2");
+assert.equal(subjectRow[4].backgroundColor, undefined, "une case vide n'a pas de fond");
+assert.equal(teacherRow[4].backgroundColor, undefined);
+
 console.log("timetable-excel : tous les contrôles passent");

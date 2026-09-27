@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -15,6 +16,8 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+
+import { SUBJECT_COLORS } from '../subject-colors';
 
 const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -161,6 +164,11 @@ export class CreateSubjectDto {
   @IsString()
   @MinLength(1)
   nom!: string;
+
+  // Absent = couleur automatique.
+  @IsOptional()
+  @IsIn(SUBJECT_COLORS, { message: 'Couleur inconnue.' })
+  couleur?: string;
 }
 
 export class UpdateSubjectDto {
@@ -177,6 +185,11 @@ export class UpdateSubjectDto {
   @IsOptional()
   @IsBoolean()
   actif?: boolean;
+
+  // Une teinte de la liste, ou null pour revenir à la couleur automatique.
+  @IsOptional()
+  @IsIn(SUBJECT_COLORS, { message: 'Couleur inconnue.' })
+  couleur?: string | null;
 }
 
 export class SubjectLevelDto {

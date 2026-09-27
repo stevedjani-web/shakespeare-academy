@@ -121,6 +121,8 @@ export class OccurrencesService {
         className: e.class.nom,
         subjectId: e.subjectId,
         subjectName: e.subject.nom,
+        subjectCode: e.subject.code,
+        subjectCouleur: e.subject.couleur,
         teacherId: teacher.id,
         teacherName: `${teacher.prenom} ${teacher.nom}`,
         roomId: room.id,
@@ -376,6 +378,8 @@ export interface Occurrence {
   className: string;
   subjectId: string;
   subjectName: string;
+  subjectCode: string;
+  subjectCouleur: string | null;
   teacherId: string;
   teacherName: string;
   roomId: string;

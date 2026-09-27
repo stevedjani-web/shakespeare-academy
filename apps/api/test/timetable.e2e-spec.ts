@@ -788,6 +788,58 @@ describe('Emploi du temps (e2e, Lot 8)', () => {
     });
   });
 
+  describe('couleur des matières', () => {
+    it('renvoie la couleur (ou son absence) avec les séances d’une version et d’un jour', async () => {
+      const s = await school();
+      await patch(`/subjects/${s.math.id}`, { couleur: 'blue' }).expect(200);
+      const tt = await draft(s.year.id);
+      await entry(tt.id, {
+        classId: s.classA.id,
+        subjectId: s.math.id,
+        timeSlotId: s.h1.id,
+        jourSemaine: 1,
+        roomId: s.r1.id,
+      }).expect(201);
+      await entry(tt.id, {
+        classId: s.classB.id,
+        subjectId: s.fr.id,
+        timeSlotId: s.h1.id,
+        jourSemaine: 1,
+        roomId: s.r2.id,
+      }).expect(201);
+      await post(`/timetables/${tt.id}/publish`, {
+        dateEffet: '2026-09-07',
+      }).expect(201);
+
+      const entries = (await get(`/timetables/${tt.id}/entries`).expect(200))
+        .body;
+      const parMatiere = (id: string) =>
+        entries.find((e: { subjectId: string }) => e.subjectId === id).subject;
+      expect(parMatiere(s.math.id).couleur).toBe('blue');
+      expect(parMatiere(s.math.id).code).toBe('MATH');
+      expect(parMatiere(s.fr.id).couleur).toBeNull();
+
+      const day = (await get('/timetable/day?date=2026-09-14').expect(200))
+        .body;
+      const seance = (id: string) =>
+        day.seances.find((x: { subjectId: string }) => x.subjectId === id);
+      expect(seance(s.math.id).subjectCouleur).toBe('blue');
+      expect(seance(s.math.id).subjectCode).toBe('MATH');
+      expect(seance(s.fr.id).subjectCouleur).toBeNull();
+
+      // Changer la couleur ne crée pas de version et ne touche pas l'historique publié.
+      await patch(`/subjects/${s.math.id}`, { couleur: 'green' }).expect(200);
+      const apres = (await get('/timetable/day?date=2026-09-14').expect(200))
+        .body;
+      expect(
+        apres.seances.find(
+          (x: { subjectId: string }) => x.subjectId === s.math.id,
+        ).subjectCouleur,
+      ).toBe('green');
+      expect((await get('/timetables').expect(200)).body).toHaveLength(1);
+    });
+  });
+
   describe('vues (classe, enseignant, salle) et semaine', () => {
     it('filtre la semaine par classe, par enseignant et par salle', async () => {
       const s = await school();

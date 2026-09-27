@@ -282,6 +282,54 @@ describe('Vie scolaire, référentiel pédagogique (e2e, Lot 7)', () => {
       await post('/subjects', { code: 'Math', nom: 'Autre' }).expect(409);
     });
 
+    it('enregistre la couleur d’une matière, la change, l’efface et refuse une couleur inconnue', async () => {
+      const s = (
+        await post('/subjects', {
+          code: 'ANGL',
+          nom: 'Anglais',
+          couleur: 'blue',
+        }).expect(201)
+      ).body;
+      expect(s.couleur).toBe('blue');
+      const sans = (
+        await post('/subjects', { code: 'FR', nom: 'Français' }).expect(201)
+      ).body;
+      expect(sans.couleur).toBeNull();
+
+      const rouge = (
+        await patch(`/subjects/${sans.id}`, { couleur: 'red' }).expect(200)
+      ).body;
+      expect(rouge.couleur).toBe('red');
+      // Modifier autre chose ne touche pas à la couleur.
+      const renomme = (
+        await patch(`/subjects/${sans.id}`, { nom: 'Français bis' }).expect(200)
+      ).body;
+      expect(renomme.couleur).toBe('red');
+      // null revient à la couleur automatique.
+      const auto = (
+        await patch(`/subjects/${sans.id}`, { couleur: null }).expect(200)
+      ).body;
+      expect(auto.couleur).toBeNull();
+
+      await patch(`/subjects/${s.id}`, { couleur: '#ff0000' }).expect(400);
+      await patch(`/subjects/${s.id}`, { couleur: 'rouge vif' }).expect(400);
+      await post('/subjects', {
+        code: 'X',
+        nom: 'X',
+        couleur: 'fuchsia',
+      }).expect(400);
+      expect(
+        (await get('/subjects')).body.find((x: { id: string }) => x.id === s.id)
+          .couleur,
+      ).toBe('blue');
+      // Le changement est journalisé avec l'ancienne et la nouvelle valeur.
+      const log = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'SUBJECT_UPDATE', entiteId: sans.id },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect((log.nouvelleValeur as { couleur: string }).couleur).toBe('red');
+    });
+
     it('associe une matière à des niveaux et remplace l’ensemble', async () => {
       const { level, level2 } = await structure();
       const s = (

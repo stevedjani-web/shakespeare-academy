@@ -1149,6 +1149,8 @@ model Subject {
   code      String
   nom       String
   actif     Boolean  @default(true)
+  // Nom d'une teinte (voir SUBJECT_COLORS) pour colorer la matière dans l'emploi du temps ; vide = couleur automatique.
+  couleur   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

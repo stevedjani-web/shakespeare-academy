@@ -5,6 +5,8 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { Cycle, Level, Section, Subject } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input } from "@/components/ui";
+import { SUBJECT_COLOR_KEYS, SWATCHES, isSubjectColor, resolveSubjectColor } from "@/lib/subject-colors";
+import type { MessageKey } from "@/lib/i18n";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { BookOpen } from "lucide-react";
 import { describeError, TAB_HINT } from "./shared";
@@ -113,6 +115,17 @@ export function MatieresTab({
     }
   }
 
+  async function setColor(subject: Subject, couleur: string | null) {
+    setError(null);
+    try {
+      await api.patch(`/subjects/${subject.id}`, { couleur });
+      await load();
+      onChanged();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
   async function remove(subject: Subject) {
     if (!confirm(t("sl.subjects.confirmDelete", { name: subject.nom }))) return;
     setError(null);
@@ -168,6 +181,11 @@ export function MatieresTab({
                 <li key={subject.id} className={`rounded-xl border border-border p-3 ${subject.actif ? "" : "opacity-70"}`}>
                   <div className="flex flex-wrap items-center gap-2.5">
                     <ExpandButton open={expanded} onClick={() => expand.toggle(subject.id)} label={subject.nom} />
+                    <span
+                      className="inline-block h-3.5 w-3.5 shrink-0 rounded-sm border"
+                      style={{ backgroundColor: SWATCHES[resolveSubjectColor(subject.couleur, subject.code)].bg, borderColor: SWATCHES[resolveSubjectColor(subject.couleur, subject.code)].border }}
+                      title={t("sl.subjects.color.current", { name: t(`sl.color.${resolveSubjectColor(subject.couleur, subject.code)}` as MessageKey) })}
+                    />
                     <span className="font-medium text-ink">{subject.nom}</span>
                     <span className="font-mono text-xs text-ink-muted">{subject.code}</span>
                     <Badge color={subject.levels.length > 0 ? "green" : "orange"}>
@@ -177,6 +195,40 @@ export function MatieresTab({
                   </div>
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-border pt-3">
+                      <div>
+                        <p className="text-sm font-medium text-ink">{t("sl.subjects.color.title")}</p>
+                        <p className={`mb-2 ${TAB_HINT}`}>{t("sl.subjects.color.hint")}</p>
+                        <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t("sl.subjects.color.title")}>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={!isSubjectColor(subject.couleur)}
+                            onClick={() => void setColor(subject, null)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                              !isSubjectColor(subject.couleur) ? "border-primary bg-primary-soft text-primary" : "border-border text-ink-muted hover:border-primary"
+                            }`}
+                          >
+                            {t("sl.subjects.color.auto")}
+                          </button>
+                          {SUBJECT_COLOR_KEYS.map((key) => {
+                            const name = t(`sl.color.${key}` as MessageKey);
+                            const selected = subject.couleur === key;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                aria-label={t("sl.subjects.color.aria", { name })}
+                                title={name}
+                                onClick={() => void setColor(subject, key)}
+                                className={`h-7 w-7 rounded-full border-2 ${selected ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                                style={{ backgroundColor: SWATCHES[key].bg, borderColor: SWATCHES[key].border }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                       <p className="text-sm font-medium text-ink">{t("sl.subjects.taughtAt")}</p>
                       {levelsBySection.length === 0 && (
                         <p className={TAB_HINT}>{t("sl.subjects.noLevelExists")}</p>
