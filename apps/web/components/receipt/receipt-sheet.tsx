@@ -65,7 +65,7 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
         }
       `}</style>
 
-      {/* Filigrane : le logo de l'école, très pâle, derrière tout le contenu. Le contenu n'a volontairement aucun z-index :
+      {/* Filigrane : le logo de l'école, grand, en diagonale et très pâle, derrière tout le contenu. Le contenu n'a volontairement aucun z-index :
           il ne crée pas de contexte d'empilement, donc le cachet se fond dans le filigrane (mix-blend-multiply) au lieu
           d'y poser un carré blanc. */}
       {logo && (
@@ -74,7 +74,7 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
           src={logo}
           alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-[52%] z-0 w-[62%] max-w-[300px] -translate-x-1/2 -translate-y-1/2 select-none object-contain opacity-[0.06] print:max-w-[420px]"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 w-[104%] max-w-none -translate-x-1/2 -translate-y-1/2 -rotate-[30deg] select-none object-contain opacity-[0.09] print:w-[560px]"
         />
       )}
 
