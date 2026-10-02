@@ -7,20 +7,18 @@ import { buildSection, type ExportSection } from "@/lib/export";
 import { type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { CashClosing, CashClosingEntry, CashClosingExpense, ExpenseCategory } from "@/lib/types";
+import { categoryLabel as labelOfCategory } from "@/lib/expense-categories";
 import { Badge, Card, EmptyState, Input, PageTitle, StatCard } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { ArrowDownCircle, ArrowUpCircle, ClipboardList, Wallet } from "lucide-react";
 
-const CATEGORY_KEY: Record<ExpenseCategory, MessageKey> = {
-  VERSEMENT_BANQUE: "fin.category.VERSEMENT_BANQUE",
-  PAIEMENT_SALAIRE: "fin.category.PAIEMENT_SALAIRE",
-  PAIEMENT_FACTURE: "fin.category.PAIEMENT_FACTURE",
-  ACHAT_MATERIEL: "fin.category.ACHAT_MATERIEL",
-  AUTRE: "fin.category.AUTRE",
+const MODE_KEY: Record<string, MessageKey> = {
+  ESPECES: "fin.mode.ESPECES",
+  MOBILE_MONEY: "fin.mode.MOBILE_MONEY",
+  VIREMENT: "fin.expenses.mode.VIREMENT",
+  CHEQUE: "fin.expenses.mode.CHEQUE",
 };
-
-const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -34,7 +32,7 @@ export default function CashClosingPage() {
   const expandIn = useExpanded();
   const expandOut = useExpanded();
 
-  const categoryLabel = (c: ExpenseCategory) => (CATEGORY_KEY[c] ? t(CATEGORY_KEY[c]) : c);
+  const categoryLabel = (c: ExpenseCategory) => labelOfCategory(t, c);
   const modeLabel = (m: string) => (MODE_KEY[m] ? t(MODE_KEY[m]) : m);
 
   useEffect(() => {
@@ -79,11 +77,13 @@ export default function CashClosingPage() {
         [
           { header: t("fin.f.category"), value: (e: CashClosingExpense) => categoryLabel(e.categorie) },
           { header: t("fin.f.description"), value: (e: CashClosingExpense) => e.description },
+          { header: t("fin.expenses.beneficiaryLabel"), value: (e: CashClosingExpense) => e.beneficiaire ?? "" },
           { header: t("fin.f.madeBy"), value: (e: CashClosingExpense) => e.effectuePar },
+          { header: t("fin.expenses.mode"), value: (e: CashClosingExpense) => (e.modeDecaissement ? modeLabel(e.modeDecaissement) : "") },
           { header: t("fin.f.amount"), value: (e: CashClosingExpense) => e.montant, kind: "money" },
         ],
         closing.sorties.items,
-        [t("fin.closing.totalExpenses"), "", "", closing.sorties.total],
+        [t("fin.closing.totalExpenses"), "", "", "", "", closing.sorties.total],
       ),
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -146,10 +146,20 @@ export default function CashClosingPage() {
             />
           </div>
 
-          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.sorties.versementsBanque > 0 || closing.aDecaisser.count > 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <Badge color="green">{t("fin.closing.modeAmount", { mode: t("fin.mode.ESPECES"), amount: formatMontant(closing.entrees.parMode.ESPECES) })}</Badge>
-              <Badge color="blue">{t("fin.closing.modeAmount", { mode: t("fin.mode.MOBILE_MONEY"), amount: formatMontant(closing.entrees.parMode.MOBILE_MONEY) })}</Badge>
+              {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
+                <>
+                  <Badge color="green">{t("fin.closing.modeAmount", { mode: t("fin.mode.ESPECES"), amount: formatMontant(closing.entrees.parMode.ESPECES) })}</Badge>
+                  <Badge color="blue">{t("fin.closing.modeAmount", { mode: t("fin.mode.MOBILE_MONEY"), amount: formatMontant(closing.entrees.parMode.MOBILE_MONEY) })}</Badge>
+                </>
+              )}
+              {closing.sorties.versementsBanque > 0 && (
+                <Badge color="slate">{t("fin.closing.bankDeposits", { amount: formatMontant(closing.sorties.versementsBanque) })}</Badge>
+              )}
+              {closing.aDecaisser.count > 0 && (
+                <Badge color="orange">{t("fin.closing.toDisburse", { amount: formatMontant(closing.aDecaisser.total), n: closing.aDecaisser.count })}</Badge>
+              )}
             </div>
           )}
 
@@ -235,10 +245,25 @@ export default function CashClosingPage() {
                                 <dt className="text-xs text-ink-muted">{t("fin.f.description")}</dt>
                                 <dd className="font-medium text-ink">{item.description}</dd>
                               </div>
+                              {item.beneficiaire && (
+                                <div>
+                                  <dt className="text-xs text-ink-muted">{t("fin.expenses.beneficiaryLabel")}</dt>
+                                  <dd className="font-medium text-ink">{item.beneficiaire}</dd>
+                                </div>
+                              )}
                               <div>
                                 <dt className="text-xs text-ink-muted">{t("fin.f.madeBy")}</dt>
                                 <dd className="font-medium text-ink">{item.effectuePar}</dd>
                               </div>
+                              {item.decaissePar && (
+                                <div>
+                                  <dt className="text-xs text-ink-muted">{t("fin.expenses.disbursement")}</dt>
+                                  <dd className="font-medium text-ink">
+                                    {item.decaissePar}
+                                    {item.modeDecaissement && ` · ${modeLabel(item.modeDecaissement)}`}
+                                  </dd>
+                                </div>
+                              )}
                             </dl>
                           )}
                         </li>

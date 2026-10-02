@@ -4,6 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
 import { seedBaseFixtures, createUserWithRole } from './utils/fixtures';
+import { createExpense } from './utils/expenses';
 
 describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
   let app: INestApplication;
@@ -138,17 +139,15 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
   }
 
   describe('Clôture de journée', () => {
-    it('additionne les entrées (paiements) et sorties (dépenses approuvées) du jour', async () => {
+    it('additionne les entrées (paiements) et sorties (dépenses décaissées) du jour', async () => {
       const { invoiceLineId } = await setupInvoiceLine();
       await auth(request(app.getHttpServer()).post('/payments')).send({
         invoiceLineId,
         montant: 20000,
       });
 
-      const expense = await auth(
-        request(app.getHttpServer()).post('/expenses'),
-      ).send({
-        categorie: 'ACHAT_MATERIEL',
+      const expense = await createExpense(app, adminToken, {
+        categorie: 'FOURNITURES',
         montant: 5000,
         description: 'Fournitures',
       });
@@ -156,7 +155,14 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
         request(app.getHttpServer()).post(
           `/expenses/${expense.body.id}/approve`,
         ),
-      );
+      ).expect(201);
+      await auth(
+        request(app.getHttpServer()).post(
+          `/expenses/${expense.body.id}/disburse`,
+        ),
+      )
+        .field('payload', JSON.stringify({ modePaiement: 'ESPECES' }))
+        .expect(201);
 
       const today = new Date().toISOString().slice(0, 10);
       const closing = await auth(
@@ -169,12 +175,20 @@ describe('Rapports : clôture de journée, élèves insolvables (e2e)', () => {
       expect(closing.body.soldeCumule).toBe(15000);
     });
 
-    it('ignore une dépense encore EN_ATTENTE dans le total des sorties', async () => {
-      await auth(request(app.getHttpServer()).post('/expenses')).send({
+    it('ignore une dépense encore EN_ATTENTE ou seulement approuvée dans le total des sorties', async () => {
+      await createExpense(app, adminToken, {
         categorie: 'AUTRE',
         montant: 9999,
         description: 'Non approuvée',
-      });
+      }).expect(201);
+      const toPay = await createExpense(app, adminToken, {
+        categorie: 'ELECTRICITE',
+        montant: 4000,
+        description: 'Approuvée, pas encore payée',
+      }).expect(201);
+      await authDir(
+        request(app.getHttpServer()).post(`/expenses/${toPay.body.id}/approve`),
+      ).expect(201);
       const today = new Date().toISOString().slice(0, 10);
       const closing = await auth(
         request(app.getHttpServer()).get(`/reports/cash-closing?date=${today}`),

@@ -4,6 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
 import { seedBaseFixtures } from './utils/fixtures';
+import { createExpense } from './utils/expenses';
 
 describe('Synchronisation hors ligne : idempotence et reçus provisoires (e2e)', () => {
   let app: INestApplication;
@@ -112,60 +113,76 @@ describe('Synchronisation hors ligne : idempotence et reçus provisoires (e2e)',
   }
 
   describe('Idempotency-Key', () => {
-    it('rejouer la même requête avec la même clé ne crée qu’une seule sortie et renvoie la même réponse', async () => {
-      const body = {
-        categorie: 'ACHAT_MATERIEL',
-        montant: 5000,
-        description: 'Fournitures',
-      };
-      const first = await auth(request(app.getHttpServer()).post('/expenses'))
+    // Une création quelconque sert de support : la protection est celle de l'intercepteur, pas d'une route précise.
+    const section = (code: string) => ({ code, nom: `Section ${code}` });
+
+    it('rejouer la même requête avec la même clé ne crée qu’une seule section et renvoie la même réponse', async () => {
+      const first = await auth(request(app.getHttpServer()).post('/sections'))
         .set('Idempotency-Key', 'cle-hors-ligne-0001')
-        .send(body);
-      const second = await auth(request(app.getHttpServer()).post('/expenses'))
+        .send(section('A'));
+      const second = await auth(request(app.getHttpServer()).post('/sections'))
         .set('Idempotency-Key', 'cle-hors-ligne-0001')
-        .send(body);
+        .send(section('A'));
 
       expect(first.status).toBe(201);
       expect(second.status).toBe(201);
       expect(second.body.id).toBe(first.body.id);
-      expect(await prisma.expense.count()).toBe(1);
+      expect(await prisma.section.count()).toBe(1);
     });
 
-    it('deux clés différentes créent deux sorties', async () => {
-      const body = { categorie: 'AUTRE', montant: 1000, description: 'Un' };
-      await auth(request(app.getHttpServer()).post('/expenses'))
+    it('deux clés différentes créent deux sections', async () => {
+      await auth(request(app.getHttpServer()).post('/sections'))
         .set('Idempotency-Key', 'cle-hors-ligne-0002')
-        .send(body);
-      await auth(request(app.getHttpServer()).post('/expenses'))
+        .send(section('A'))
+        .expect(201);
+      await auth(request(app.getHttpServer()).post('/sections'))
         .set('Idempotency-Key', 'cle-hors-ligne-0003')
-        .send(body);
-      expect(await prisma.expense.count()).toBe(2);
+        .send(section('B'))
+        .expect(201);
+      expect(await prisma.section.count()).toBe(2);
     });
 
-    it('sans clé, le comportement reste inchangé (deux requêtes, deux sorties)', async () => {
-      const body = { categorie: 'AUTRE', montant: 1000, description: 'Un' };
-      await auth(request(app.getHttpServer()).post('/expenses'))
-        .send(body)
+    it('sans clé, le comportement reste inchangé (deux requêtes, deux sections)', async () => {
+      await auth(request(app.getHttpServer()).post('/sections'))
+        .send(section('A'))
         .expect(201);
-      await auth(request(app.getHttpServer()).post('/expenses'))
-        .send(body)
+      await auth(request(app.getHttpServer()).post('/sections'))
+        .send(section('B'))
         .expect(201);
-      expect(await prisma.expense.count()).toBe(2);
+      expect(await prisma.section.count()).toBe(2);
     });
 
     it('refuse une clé déjà utilisée pour une autre route (409) et une clé mal formée (400)', async () => {
-      await auth(request(app.getHttpServer()).post('/expenses'))
-        .set('Idempotency-Key', 'cle-hors-ligne-0004')
-        .send({ categorie: 'AUTRE', montant: 1000, description: 'Un' })
-        .expect(201);
       await auth(request(app.getHttpServer()).post('/sections'))
+        .set('Idempotency-Key', 'cle-hors-ligne-0004')
+        .send(section('A'))
+        .expect(201);
+      await auth(request(app.getHttpServer()).post('/fee-types'))
         .set('Idempotency-Key', 'cle-hors-ligne-0004')
         .send({ code: 'X', nom: 'X' })
         .expect(409);
-      await auth(request(app.getHttpServer()).post('/expenses'))
+      await auth(request(app.getHttpServer()).post('/sections'))
         .set('Idempotency-Key', 'court')
-        .send({ categorie: 'AUTRE', montant: 1000, description: 'Un' })
+        .send(section('B'))
         .expect(400);
+    });
+
+    it('rejouer l’envoi d’une demande de sortie avec ses pièces ne crée qu’une seule sortie', async () => {
+      const body = {
+        categorie: 'FOURNITURES',
+        montant: 5000,
+        description: 'Fournitures',
+      };
+      const first = await createExpense(app, token, body, {
+        idempotencyKey: 'cle-hors-ligne-0005',
+      });
+      const second = await createExpense(app, token, body, {
+        idempotencyKey: 'cle-hors-ligne-0005',
+      });
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      expect(second.body.id).toBe(first.body.id);
+      expect(await prisma.expense.count()).toBe(1);
     });
   });
 

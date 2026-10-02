@@ -300,20 +300,45 @@ export interface FinancialStatus {
 
 // --- Lot 5 : sorties financières, clôture de journée, insolvables ----------
 
-export type ExpenseCategory = "VERSEMENT_BANQUE" | "PAIEMENT_SALAIRE" | "PAIEMENT_FACTURE" | "ACHAT_MATERIEL" | "AUTRE";
-export type ExpenseStatus = "EN_ATTENTE" | "APPROUVEE" | "REJETEE";
+export type ExpenseCategory = string;
+export type ExpenseStatus = "EN_ATTENTE" | "APPROUVEE" | "REJETEE" | "DECAISSEE" | "ANNULEE";
+export type ExpensePaymentMode = "ESPECES" | "VIREMENT" | "CHEQUE" | "MOBILE_MONEY";
+
+export interface ExpensePerson {
+  id: string;
+  nom: string;
+  prenom: string;
+}
+
+export interface ExpenseAttachment {
+  id: string;
+  kind: "JUSTIFICATIF" | "PREUVE_DECAISSEMENT";
+  nomAffiche: string;
+  mimeType: string;
+  taille: number;
+  createdAt: string;
+}
 
 export interface Expense {
   id: string;
   categorie: ExpenseCategory;
   montant: number;
   description: string;
+  beneficiaire: string | null;
   dateDepense: string;
   statut: ExpenseStatus;
   motifRejet: string | null;
   dateDecision: string | null;
-  effectuePar: { id: string; nom: string; prenom: string };
-  approbateur: { id: string; nom: string; prenom: string } | null;
+  effectuePar: ExpensePerson;
+  approbateur: ExpensePerson | null;
+  decaissePar: ExpensePerson | null;
+  dateDecaissement: string | null;
+  modeDecaissement: ExpensePaymentMode | null;
+  referenceDecaissement: string | null;
+  annulePar: ExpensePerson | null;
+  dateAnnulation: string | null;
+  motifAnnulation: string | null;
+  attachments: ExpenseAttachment[];
 }
 
 export interface CashClosingEntry {
@@ -332,8 +357,12 @@ export interface CashClosingExpense {
   categorie: ExpenseCategory;
   montant: number;
   description: string;
+  beneficiaire: string | null;
   dateDepense: string;
+  dateDecaissement: string | null;
+  modeDecaissement: ExpensePaymentMode | null;
   effectuePar: string;
+  decaissePar: string | null;
 }
 
 export interface CashClosing {
@@ -347,9 +376,12 @@ export interface CashClosing {
   sorties: {
     total: number;
     count: number;
+    versementsBanque: number;
+    charges: number;
     parCategorie: Record<string, number>;
     items: CashClosingExpense[];
   };
+  aDecaisser: { count: number; total: number };
   soldeJour: number;
   soldeCumule: number;
 }
@@ -387,7 +419,14 @@ export interface DashboardStats {
   };
   paiements: { parMode: { ESPECES: number; MOBILE_MONEY: number } };
   remises: { enAttente: number; approuvees: number; rejetees: number };
-  depenses: { totalApprouve: number; enAttenteCount: number; enAttenteMontant: number };
+  depenses: {
+    totalDecaisse: number;
+    versementsBanque: number;
+    enAttenteCount: number;
+    enAttenteMontant: number;
+    aDecaisserCount: number;
+    aDecaisserMontant: number;
+  };
   insolvables: { count: number };
 }
 

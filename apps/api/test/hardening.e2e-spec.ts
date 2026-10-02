@@ -4,6 +4,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
 import { seedBaseFixtures, createUserWithRole } from './utils/fixtures';
+import { createExpense } from './utils/expenses';
 import { addDays, weekdayOf } from '../src/timetable/timetable.util';
 
 /**
@@ -659,8 +660,8 @@ describe('Durcissement des rôles (e2e)', () => {
         ['EXPENSE_CREATE', 'EXPENSE_APPROVE', 'CASH_CLOSE'],
         'cumul@test.local',
       );
-      const created = await post('/expenses', both.token, {
-        categorie: 'ACHAT_MATERIEL',
+      const created = await createExpense(app, both.token, {
+        categorie: 'FOURNITURES',
         montant: 50000,
         description: 'Achat de craie',
       }).expect(201);

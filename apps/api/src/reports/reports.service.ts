@@ -27,6 +27,7 @@ function formatProchaineEcheance(value: unknown): string {
   const date = new Date(e.dateLimite).toISOString().slice(0, 10);
   return `${e.libelle} (${date})`;
 }
+import { isTreasuryCategory } from '../expenses/expense-categories';
 
 @Injectable()
 export class ReportsService {
@@ -37,17 +38,19 @@ export class ReportsService {
   ) {}
 
   /**
-   * Clôture de journée : entrées (paiements VALIDE), sorties (dépenses APPROUVEE), solde du jour et
-   * solde cumulé (toutes entrées - toutes sorties, jamais une session de caisse formelle avec fonds
-   * initial — D20-D23 restent OUVERT, non implémentées). Une dépense EN_ATTENTE/REJETEE n'est jamais
-   * comptée : seule une sortie réellement validée par Direction représente un vrai décaissement.
+   * Clôture de journée : entrées (paiements VALIDE), sorties (dépenses DECAISSEE à leur date de décaissement, posée par
+   * le serveur), solde du jour et solde cumulé (toutes entrées - toutes sorties, jamais une session de caisse formelle
+   * avec fonds initial — D20-D23 restent OUVERT, non implémentées). Une dépense EN_ATTENTE, APPROUVEE (pas encore
+   * payée), REJETEE ou ANNULEE n'est jamais comptée : seule une sortie dont l'argent est réellement sorti compte.
+   * `aDecaisser` (approuvé, pas encore payé) est un engagement à venir, jamais retranché du solde. Un versement en
+   * banque réduit le solde de caisse mais n'est pas une charge : il est isolé dans `versementsBanque`.
    */
   async getCashClosing(date: string) {
     const schoolId = await this.schoolService.getDefaultId();
     const dayStart = startOfDay(date);
     const dayEnd = nextDay(dayStart);
 
-    const [payments, expenses, allPaymentsAgg, allExpensesAgg] =
+    const [payments, expenses, allPaymentsAgg, allExpensesAgg, toDisburseAgg] =
       await Promise.all([
         this.prisma.payment.findMany({
           where: {
@@ -70,24 +73,39 @@ export class ReportsService {
         this.prisma.expense.findMany({
           where: {
             schoolId,
-            statut: 'APPROUVEE',
-            dateDepense: { gte: dayStart, lt: dayEnd },
+            statut: 'DECAISSEE',
+            dateDecaissement: { gte: dayStart, lt: dayEnd },
           },
-          include: { effectuePar: { select: { nom: true, prenom: true } } },
-          orderBy: { dateDepense: 'asc' },
+          include: {
+            effectuePar: { select: { nom: true, prenom: true } },
+            decaissePar: { select: { nom: true, prenom: true } },
+          },
+          orderBy: { dateDecaissement: 'asc' },
         }),
         this.prisma.payment.aggregate({
           where: { schoolId, statut: 'VALIDE', datePaiement: { lt: dayEnd } },
           _sum: { montant: true },
         }),
         this.prisma.expense.aggregate({
-          where: { schoolId, statut: 'APPROUVEE', dateDepense: { lt: dayEnd } },
+          where: {
+            schoolId,
+            statut: 'DECAISSEE',
+            dateDecaissement: { lt: dayEnd },
+          },
           _sum: { montant: true },
+        }),
+        this.prisma.expense.aggregate({
+          where: { schoolId, statut: 'APPROUVEE' },
+          _sum: { montant: true },
+          _count: true,
         }),
       ]);
 
     const totalEntrees = payments.reduce((sum, p) => sum + p.montant, 0);
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
+    const totalVersementsBanque = expenses
+      .filter((e) => isTreasuryCategory(e.categorie))
+      .reduce((sum, e) => sum + e.montant, 0);
     const parMode = { ESPECES: 0, MOBILE_MONEY: 0 };
     for (const p of payments) parMode[p.modePaiement] += p.montant;
     const parCategorie: Record<string, number> = {};
@@ -118,15 +136,27 @@ export class ReportsService {
       sorties: {
         total: totalSorties,
         count: expenses.length,
+        versementsBanque: totalVersementsBanque,
+        charges: totalSorties - totalVersementsBanque,
         parCategorie,
         items: expenses.map((e) => ({
           id: e.id,
           categorie: e.categorie,
           montant: e.montant,
           description: e.description,
+          beneficiaire: e.beneficiaire,
           dateDepense: e.dateDepense,
+          dateDecaissement: e.dateDecaissement,
+          modeDecaissement: e.modeDecaissement,
           effectuePar: `${e.effectuePar.prenom} ${e.effectuePar.nom}`,
+          decaissePar: e.decaissePar
+            ? `${e.decaissePar.prenom} ${e.decaissePar.nom}`
+            : null,
         })),
+      },
+      aDecaisser: {
+        count: toDisburseAgg._count,
+        total: toDisburseAgg._sum.montant ?? 0,
       },
       soldeJour: totalEntrees - totalSorties,
       soldeCumule:
@@ -224,8 +254,9 @@ export class ReportsService {
     const [
       academicYears,
       students,
-      expensesApprouveesAgg,
-      expensesEnAttente,
+      expensesDecaisseesByCategory,
+      expensesAApprouver,
+      expensesADecaisser,
       discountCounts,
       cashClosing,
       insolvents,
@@ -235,12 +266,18 @@ export class ReportsService {
         where: { schoolId },
         select: { sexe: true, statut: true },
       }),
-      this.prisma.expense.aggregate({
-        where: { schoolId, statut: 'APPROUVEE' },
+      this.prisma.expense.groupBy({
+        by: ['categorie'],
+        where: { schoolId, statut: 'DECAISSEE' },
         _sum: { montant: true },
       }),
       this.prisma.expense.aggregate({
         where: { schoolId, statut: 'EN_ATTENTE' },
+        _sum: { montant: true },
+        _count: true,
+      }),
+      this.prisma.expense.aggregate({
+        where: { schoolId, statut: 'APPROUVEE' },
         _sum: { montant: true },
         _count: true,
       }),
@@ -389,9 +426,17 @@ export class ReportsService {
       paiements: { parMode: parModePaiement },
       remises,
       depenses: {
-        totalApprouve: expensesApprouveesAgg._sum.montant ?? 0,
-        enAttenteCount: expensesEnAttente._count,
-        enAttenteMontant: expensesEnAttente._sum.montant ?? 0,
+        // Charges réellement payées ; un versement en banque n'en fait pas partie (il est présenté à part).
+        totalDecaisse: expensesDecaisseesByCategory
+          .filter((g) => !isTreasuryCategory(g.categorie))
+          .reduce((sum, g) => sum + (g._sum.montant ?? 0), 0),
+        versementsBanque: expensesDecaisseesByCategory
+          .filter((g) => isTreasuryCategory(g.categorie))
+          .reduce((sum, g) => sum + (g._sum.montant ?? 0), 0),
+        enAttenteCount: expensesAApprouver._count,
+        enAttenteMontant: expensesAApprouver._sum.montant ?? 0,
+        aDecaisserCount: expensesADecaisser._count,
+        aDecaisserMontant: expensesADecaisser._sum.montant ?? 0,
       },
       insolvables: { count: insolvents.length },
     };

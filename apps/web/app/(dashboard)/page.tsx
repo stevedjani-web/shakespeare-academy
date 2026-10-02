@@ -87,7 +87,7 @@ export default function DashboardHomePage() {
       [t("dash.mobilePayments"), formatMontant(stats.paiements.parMode.MOBILE_MONEY)],
       [t("dash.pendingDiscounts"), String(stats.remises.enAttente)],
       [t("dash.pendingExpenses"), String(stats.depenses.enAttenteCount)],
-      [t("dash.approvedExpenses"), formatMontant(stats.depenses.totalApprouve)],
+      [t("dash.approvedExpenses"), formatMontant(stats.depenses.totalDecaisse)],
       [t("dash.insolvent"), String(stats.insolvables.count)],
     ];
     return [
@@ -348,10 +348,14 @@ export default function DashboardHomePage() {
                 />
                 <StatCard
                   label={t("dash.approvedExpenses")}
-                  value={formatMontant(stats.depenses.totalApprouve)}
-                  tone={stats.depenses.totalApprouve > 0 ? "danger" : "info"}
+                  value={formatMontant(stats.depenses.totalDecaisse)}
+                  tone={stats.depenses.totalDecaisse > 0 ? "danger" : "info"}
                   icon={<ArrowUpCircle size={18} />}
-                  hint={t("dash.moneyOut")}
+                  hint={
+                    stats.depenses.versementsBanque > 0
+                      ? t("dash.moneyOutDeposits", { amount: formatMontant(stats.depenses.versementsBanque) })
+                      : t("dash.moneyOut")
+                  }
                 />
                 <Link href="/insolvables" className="block">
                   <StatCard

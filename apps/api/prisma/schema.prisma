@@ -327,6 +327,9 @@ model User {
   disciplineConvocations DisciplineConvocation[]    @relation("ConvocationCreePar")
   expensesEffectuees     Expense[]                  @relation("ExpenseEffectuePar")
   expensesApprouvees     Expense[]                  @relation("ExpenseApprobateur")
+  expensesDecaissees     Expense[]                  @relation("ExpenseDecaissePar")
+  expensesAnnulees       Expense[]                  @relation("ExpenseAnnulePar")
+  expenseAttachments     ExpenseAttachment[]        @relation("ExpenseAttachmentAjoutePar")
   timetablesPublished    Timetable[]                @relation("TimetablePublishedBy")
   timetableExceptions    TimetableException[]       @relation("ExceptionCreatedBy")
   attendanceCalls        AttendanceCall[]           @relation("CallTakenBy")
@@ -1113,10 +1116,27 @@ model AuditLog {
 // si l'école demande une catégorie de plus. D25 : toute sortie exige une validation Direction
 // (seuil = 0, provisoire) avant d'être comptée comme une vraie sortie de caisse.
 
+// Cycle de vie d'une sortie : EN_ATTENTE (demande avec justificatif) puis APPROUVEE ou REJETEE (Promoteur / Direction),
+// puis DECAISSEE (confirmation de la sortie réelle). ANNULEE : demande retirée, ou sortie approuvée jamais payée.
+// Seule une sortie DECAISSEE est comptée dans la clôture de journée.
 enum ExpenseStatus {
   EN_ATTENTE
   APPROUVEE
   REJETEE
+  DECAISSEE
+  ANNULEE
+}
+
+enum ExpensePaymentMode {
+  ESPECES
+  VIREMENT
+  CHEQUE
+  MOBILE_MONEY
+}
+
+enum ExpenseAttachmentKind {
+  JUSTIFICATIF
+  PREUVE_DECAISSEMENT
 }
 
 model Expense {
@@ -1126,6 +1146,10 @@ model Expense {
   categorie     String
   montant       Int
   description   String
+  // Fournisseur ou bénéficiaire du paiement (facultatif).
+  beneficiaire  String?
+  // Date de la dépense (facture, besoin) saisie par le demandeur : ne sert plus à la clôture de journée, qui suit la
+  // date de décaissement posée par le serveur.
   dateDepense   DateTime      @default(now())
   statut        ExpenseStatus @default(EN_ATTENTE)
   effectueParId String
@@ -1134,10 +1158,45 @@ model Expense {
   approbateur   User?         @relation("ExpenseApprobateur", fields: [approbateurId], references: [id])
   motifRejet    String?
   dateDecision  DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
 
+  // Confirmation de la sortie réelle : qui, quand (heure du serveur, jamais saisie), comment.
+  decaisseParId         String?
+  decaissePar           User?               @relation("ExpenseDecaissePar", fields: [decaisseParId], references: [id])
+  dateDecaissement      DateTime?
+  modeDecaissement      ExpensePaymentMode?
+  referenceDecaissement String?
+
+  annuleParId     String?
+  annulePar       User?     @relation("ExpenseAnnulePar", fields: [annuleParId], references: [id])
+  dateAnnulation  DateTime?
+  motifAnnulation String?
+
+  attachments ExpenseAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, statut, dateDecaissement])
   @@map("expenses")
+}
+
+// Pièce d'une sortie : justificatif joint à la demande, ou preuve du décaissement. Fichier privé (private-uploads/expenses),
+// jamais servi publiquement, lu par `GET /expenses/:id/attachments/:attachmentId`.
+model ExpenseAttachment {
+  id          String                @id @default(cuid())
+  expenseId   String
+  expense     Expense               @relation(fields: [expenseId], references: [id])
+  kind        ExpenseAttachmentKind
+  fichier     String
+  nomAffiche  String
+  mimeType    String
+  taille      Int
+  ajouteParId String
+  ajoutePar   User                  @relation("ExpenseAttachmentAjoutePar", fields: [ajouteParId], references: [id])
+  createdAt   DateTime              @default(now())
+
+  @@index([expenseId])
+  @@map("expense_attachments")
 }
 
 // --- Lot 7 : référentiel pédagogique et personnel (addendum v1.1, décisions D52 à D56) -----------

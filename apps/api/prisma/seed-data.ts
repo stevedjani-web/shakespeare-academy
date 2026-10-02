@@ -104,6 +104,11 @@ export const LOT5_PERMISSIONS = [
     description: 'Approuver ou rejeter une sortie financière.',
   },
   {
+    code: 'EXPENSE_DISBURSE',
+    description:
+      "Confirmer la sortie réelle (décaissement) d'une dépense approuvée.",
+  },
+  {
     code: 'CASH_CLOSE',
     description:
       "Consulter l'état de clôture de journée (entrées, sorties, solde).",
@@ -248,7 +253,7 @@ export const HARDENING_PERMISSIONS = [
   {
     code: 'FINANCE_READ',
     description:
-      "Consulter les paiements, factures, remises, la situation financière des élèves, les insolvables, le tableau de bord financier et leurs exports.",
+      'Consulter les paiements, factures, remises, la situation financière des élèves, les insolvables, le tableau de bord financier et leurs exports.',
   },
 ] as const;
 
@@ -269,7 +274,7 @@ export const AUDIT_ROLES_PERMISSIONS = [
   {
     code: 'SETTINGS_READ',
     description:
-      "Voir les pages Établissement, Années scolaires et Structure académique (lecture seule).",
+      'Voir les pages Établissement, Années scolaires et Structure académique (lecture seule).',
   },
 ] as const;
 
@@ -283,7 +288,7 @@ export const LOT15_PERMISSIONS = [
   {
     code: 'GRADE_ENTER',
     description:
-      "Créer des évaluations et saisir les notes de ses classes et matières (un enseignant : uniquement ses affectations).",
+      'Créer des évaluations et saisir les notes de ses classes et matières (un enseignant : uniquement ses affectations).',
   },
   {
     code: 'GRADE_READ',
@@ -292,7 +297,8 @@ export const LOT15_PERMISSIONS = [
   },
   {
     code: 'GRADE_CORRECT',
-    description: 'Corriger une note après le verrouillage du trimestre, avec un motif.',
+    description:
+      'Corriger une note après le verrouillage du trimestre, avec un motif.',
   },
   {
     code: 'BULLETIN_VALIDATE',
@@ -315,7 +321,8 @@ export const LOT16_PERMISSIONS = [
   },
   {
     code: 'TEXTBOOK_READ',
-    description: "Consulter le cahier de textes et les devoirs de toute l'école.",
+    description:
+      "Consulter le cahier de textes et les devoirs de toute l'école.",
   },
 ] as const;
 
@@ -327,11 +334,13 @@ export const LOT16_PERMISSIONS = [
 export const LOT19_PERMISSIONS = [
   {
     code: 'DOCUMENT_ISSUE',
-    description: "Émettre et réimprimer les attestations de scolarité et les cartes d'élève.",
+    description:
+      "Émettre et réimprimer les attestations de scolarité et les cartes d'élève.",
   },
   {
     code: 'DOCUMENT_CANCEL',
-    description: 'Annuler un document officiel émis (attestation, carte), avec un motif.',
+    description:
+      'Annuler un document officiel émis (attestation, carte), avec un motif.',
   },
 ] as const;
 
@@ -345,11 +354,13 @@ export const LOT19_PERMISSIONS = [
 export const LOT20_PERMISSIONS = [
   {
     code: 'DISCIPLINE_REPORT',
-    description: "Signaler un incident ou une valorisation (un enseignant : uniquement les élèves de ses classes).",
+    description:
+      'Signaler un incident ou une valorisation (un enseignant : uniquement les élèves de ses classes).',
   },
   {
     code: 'DISCIPLINE_READ',
-    description: "Lire les signalements, sanctions et convocations de toute l'école.",
+    description:
+      "Lire les signalements, sanctions et convocations de toute l'école.",
   },
   {
     code: 'DISCIPLINE_CONVOKE',
@@ -357,7 +368,8 @@ export const LOT20_PERMISSIONS = [
   },
   {
     code: 'DISCIPLINE_DECIDE',
-    description: 'Décider, publier et annuler une sanction, corriger ou annuler un signalement.',
+    description:
+      'Décider, publier et annuler une sanction, corriger ou annuler un signalement.',
   },
 ] as const;
 
@@ -387,6 +399,7 @@ export const ROLES: Array<{
       'PAYMENT_CREATE',
       'CASH_CLOSE',
       'EXPENSE_CREATE',
+      'EXPENSE_DISBURSE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
       'ATTENDANCE_TAKE',
@@ -476,6 +489,7 @@ export const ROLES: Array<{
       'STUDENT_READ',
       'FINANCE_READ',
       'EXPENSE_CREATE',
+      'EXPENSE_DISBURSE',
       'CASH_CLOSE',
       'GUARDIAN_DETAIL_READ',
     ],
