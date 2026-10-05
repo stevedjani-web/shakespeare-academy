@@ -288,6 +288,7 @@ export const frFinance = {
   "fin.closing.noExpenses": "Aucune sortie décaissée ce jour.",
   "fin.closing.bankDeposits": "dont versements en banque : {amount}",
   "fin.closing.toDisburse": "À décaisser (approuvé, pas encore payé) : {amount} ({n})",
+  "fin.closing.reprise": "Encaissements d'avant l'application, hors caisse : {amount} ({n})",
 
   // ---------------------------------------------------------------------------------------------- Élèves insolvables
   "fin.overdue.title": "Élèves insolvables",
@@ -646,6 +647,7 @@ export const enFinance: Record<keyof typeof frFinance, string> = {
   "fin.closing.noExpenses": "No expense paid out on this day.",
   "fin.closing.bankDeposits": "of which bank deposits: {amount}",
   "fin.closing.toDisburse": "To pay out (approved, not yet paid): {amount} ({n})",
+  "fin.closing.reprise": "Collected before the application, outside the cash desk: {amount} ({n})",
 
   // ---------------------------------------------------------------------------------------------- Élèves insolvables
   "fin.overdue.title": "Students with unpaid fees",

@@ -489,6 +489,7 @@ export class OnlinePaymentsService {
       modePaiement: payment.modePaiement,
       referenceExterne: payment.referenceExterne,
       date: payment.datePaiement,
+      reprise: payment.origine === 'REPRISE',
       libelle: payment.invoiceLine.libelle,
       eleve: {
         nom: e.student.nom,

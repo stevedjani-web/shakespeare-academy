@@ -16,6 +16,7 @@ interface VerifiedReceipt {
   montant: number;
   statut: "VALIDE" | "ANNULE";
   datePaiement: string;
+  reprise?: boolean;
   motif: string;
   eleve: { nom: string; prenom: string };
   etablissement: string | null;
@@ -100,6 +101,7 @@ export default function VerifyReceiptPage() {
               <Row label={t("cnt.vr.reason")} value={receipt.motif} />
               <Row label={t("cnt.vr.date")} value={formatDate(receipt.datePaiement)} />
             </dl>
+            {receipt.reprise && <p className="text-xs text-ink-muted">{t("receipt.reprise")}</p>}
             <p className="text-xs text-ink-muted">
               {t("cnt.vr.info")}
             </p>

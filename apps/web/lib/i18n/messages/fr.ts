@@ -397,6 +397,8 @@ export const fr = {
   "receipt.print": "Imprimer",
   "receipt.title": "Reçu de paiement",
   "receipt.cancelled": "Reçu annulé",
+  "receipt.reprise": "Encaissé avant la mise en service de l'application, enregistré après coup à la date d'origine.",
+  "receipt.repriseBadge": "Reprise",
   "receipt.student": "Élève",
   "receipt.studentId": "Matricule",
   "receipt.class": "Classe",

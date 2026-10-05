@@ -89,6 +89,7 @@ export class PaymentsService {
       montant: payment.montant,
       statut: payment.statut,
       datePaiement: payment.datePaiement,
+      reprise: payment.origine === 'REPRISE',
       motif: payment.invoiceLine.feeType.nom,
       eleve: {
         nom: payment.invoiceLine.invoice.enrollment.student.nom,
@@ -126,6 +127,44 @@ export class PaymentsService {
     const remise = computeApprovedDiscountAmount(line, line.discounts);
     const paye = line.payments.reduce((sum, p) => sum + p.montant, 0);
     return Math.max(0, line.montant - remise - paye);
+  }
+
+  /**
+   * La ligne sur laquelle on encaisse : elle existe, sa facture n'est pas annulée, elle n'est pas soldée et le montant ne
+   * dépasse pas son solde restant (RG08 : jamais de trop-perçu). Commun à l'encaissement normal et à la reprise.
+   */
+  private async loadCollectableLine(
+    schoolId: string,
+    invoiceLineId: string,
+    montant: number,
+  ) {
+    const line = await this.prisma.invoiceLine.findFirst({
+      where: { id: invoiceLineId, invoice: { schoolId } },
+      include: {
+        invoice: true,
+        discounts: true,
+        payments: { where: { statut: 'VALIDE' } },
+      },
+    });
+    if (!line) {
+      throw new NotFoundException('Ligne de facture introuvable.');
+    }
+    if (line.invoice.statut === 'ANNULEE') {
+      throw new ConflictException(
+        'Cette facture est annulée, aucun paiement ne peut y être encaissé.',
+      );
+    }
+
+    const soldeRestant = this.computeSoldeRestant(line);
+    if (soldeRestant <= 0) {
+      throw new ConflictException('Cette ligne est déjà entièrement soldée.');
+    }
+    if (montant > soldeRestant) {
+      throw new BadRequestException(
+        `Le montant dépasse le solde restant de cette ligne (${soldeRestant} XAF).`,
+      );
+    }
+    return line;
   }
 
   /**
@@ -173,32 +212,7 @@ export class PaymentsService {
       }
     }
 
-    const line = await this.prisma.invoiceLine.findFirst({
-      where: { id: dto.invoiceLineId, invoice: { schoolId } },
-      include: {
-        invoice: true,
-        discounts: true,
-        payments: { where: { statut: 'VALIDE' } },
-      },
-    });
-    if (!line) {
-      throw new NotFoundException('Ligne de facture introuvable.');
-    }
-    if (line.invoice.statut === 'ANNULEE') {
-      throw new ConflictException(
-        'Cette facture est annulée, aucun paiement ne peut y être encaissé.',
-      );
-    }
-
-    const soldeRestant = this.computeSoldeRestant(line);
-    if (soldeRestant <= 0) {
-      throw new ConflictException('Cette ligne est déjà entièrement soldée.');
-    }
-    if (dto.montant > soldeRestant) {
-      throw new BadRequestException(
-        `Le montant dépasse le solde restant de cette ligne (${soldeRestant} XAF).`,
-      );
-    }
+    await this.loadCollectableLine(schoolId, dto.invoiceLineId, dto.montant);
 
     const sequenceNumber = await this.numberSequenceService.next(
       schoolId,
@@ -218,6 +232,70 @@ export class PaymentsService {
         numeroProvisoire: dto.numeroProvisoire,
         saisieHorsLigneAt,
         ...(saisieHorsLigneAt ? { datePaiement: saisieHorsLigneAt } : {}),
+      },
+      include: PAYMENT_INCLUDE,
+    });
+
+    await this.auditService.log({
+      schoolId,
+      userId: actingUserId,
+      action: 'PAYMENT_CREATE',
+      entite: 'Payment',
+      entiteId: payment.id,
+      nouvelleValeur: payment,
+    });
+
+    return payment;
+  }
+
+  /**
+   * Reprise d'un encaissement fait AVANT la mise en service de l'application (élèves déjà inscrits et payés sur papier).
+   * Pas de route publique : réservé aux scripts d'administration lancés par le propriétaire. Le paiement porte la date
+   * d'origine et l'origine REPRISE : il compte pour la situation de l'élève et l'encaissé, jamais pour la caisse du
+   * jour (voir `Payment.origine`). Même contrôle du solde, même numéro de reçu séquentiel (RG10), même journal (RG15)
+   * qu'un encaissement normal.
+   */
+  async recordHistorical(
+    input: {
+      invoiceLineId: string;
+      montant: number;
+      datePaiement: Date;
+      modePaiement?: 'ESPECES' | 'MOBILE_MONEY';
+    },
+    actingUserId: string,
+  ) {
+    if (!Number.isInteger(input.montant) || input.montant <= 0) {
+      throw new BadRequestException('Le montant doit être un entier positif.');
+    }
+    if (
+      Number.isNaN(input.datePaiement.getTime()) ||
+      input.datePaiement.getTime() > Date.now()
+    ) {
+      throw new BadRequestException(
+        "La date d'un encaissement repris ne peut pas être dans le futur.",
+      );
+    }
+    const schoolId = await this.schoolService.getDefaultId();
+    await this.loadCollectableLine(
+      schoolId,
+      input.invoiceLineId,
+      input.montant,
+    );
+
+    const sequenceNumber = await this.numberSequenceService.next(
+      schoolId,
+      'RECEIPT',
+    );
+    const payment = await this.prisma.payment.create({
+      data: {
+        schoolId,
+        invoiceLineId: input.invoiceLineId,
+        montant: input.montant,
+        modePaiement: input.modePaiement ?? 'ESPECES',
+        numeroRecu: `REC-${String(sequenceNumber).padStart(RECEIPT_NUMERO_DIGITS, '0')}`,
+        recuParUserId: actingUserId,
+        datePaiement: input.datePaiement,
+        origine: 'REPRISE',
       },
       include: PAYMENT_INCLUDE,
     });

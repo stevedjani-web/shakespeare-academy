@@ -247,6 +247,7 @@ export interface Payment {
   modePaiement: PaymentMode;
   referenceExterne: string | null;
   datePaiement: string;
+  origine?: "APPLICATION" | "REPRISE";
   statut: PaymentStatus;
   motifAnnulation: string | null;
   recuParUser: { id: string; nom: string; prenom: string } | null;
@@ -370,6 +371,7 @@ export interface CashClosing {
   entrees: {
     total: number;
     count: number;
+    reprise: { count: number; total: number };
     parMode: Record<PaymentMode, number>;
     items: CashClosingEntry[];
   };

@@ -21,6 +21,7 @@ interface Receipt {
   modePaiement: string;
   referenceExterne: string | null;
   date: string;
+  reprise?: boolean;
   libelle: string;
   eleve: { nom: string; prenom: string; matricule: string };
   classe: string;
@@ -107,6 +108,7 @@ export default function ParentReceiptPage() {
                 <Badge color="red">{t("receipt.cancelled")}</Badge>
               </p>
             )}
+            {receipt.reprise && <p className="mt-2 text-xs text-ink-muted">{t("receipt.reprise")}</p>}
           </div>
 
           <dl className="mt-4 space-y-2 border-t border-dashed border-border pt-4 text-sm">

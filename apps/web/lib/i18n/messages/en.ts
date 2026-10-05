@@ -397,6 +397,8 @@ export const en: Record<MessageKey, string> = {
   "receipt.print": "Print",
   "receipt.title": "Payment receipt",
   "receipt.cancelled": "Cancelled receipt",
+  "receipt.reprise": "Collected before the application was introduced, recorded afterwards under the original date.",
+  "receipt.repriseBadge": "Carried over",
   "receipt.student": "Student",
   "receipt.studentId": "Student ID",
   "receipt.class": "Class",

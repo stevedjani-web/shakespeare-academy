@@ -22,6 +22,8 @@ export interface ReceiptSheetProps {
   dateLabel: string;
   /** Reçu établi sans Internet : jamais de cachet ni de signature automatiques, pas de code de vérification. */
   provisional?: boolean;
+  /** Encaissé avant l'application et repris après coup : jamais de cachet ni de signature automatiques. */
+  reprise?: boolean;
   replacesNumber?: string | null;
   cancelled?: { motif: string | null } | null;
   student?: { nom: string; matricule: string; classe: string } | null;
@@ -46,9 +48,9 @@ export interface ReceiptSheetProps {
  */
 export function ReceiptSheet(props: ReceiptSheetProps) {
   const { t } = useI18n();
-  const { school, cancelled, provisional } = props;
+  const { school, cancelled, provisional, reprise } = props;
   const logo = useTrimmedLogo(school?.logoUrl);
-  const seals = !cancelled && !provisional;
+  const seals = !cancelled && !provisional && !reprise;
 
   return (
     <article
@@ -123,6 +125,11 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
             <p className="text-sm font-bold uppercase tracking-wide text-warning">{t("fin.prov.banner")}</p>
             <p className="text-[11px] text-ink-muted">{t("fin.prov.notOfficial")}</p>
           </div>
+        )}
+        {reprise && (
+          <p className="mb-3 rounded-xl border border-dashed border-primary/40 bg-primary-soft/50 px-3 py-2 text-center text-xs text-ink-muted">
+            {t("receipt.reprise")}
+          </p>
         )}
         {cancelled?.motif && <p className="mb-3 rounded-xl bg-danger-soft px-3 py-2 text-center text-xs text-danger">{cancelled.motif}</p>}
 

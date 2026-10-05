@@ -397,6 +397,11 @@ export function FinancialStatusCard({
               <div>
                 <p className="font-medium text-ink">
                   {p.numeroRecu} — {formatMontant(p.montant)}
+                  {p.origine === "REPRISE" && (
+                    <span className="ml-2 align-middle">
+                      <Badge color="primary">{t("receipt.repriseBadge")}</Badge>
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-ink-muted">
                   {formatDate(p.datePaiement)} · {MODE_KEY[p.modePaiement] ? t(MODE_KEY[p.modePaiement]) : p.modePaiement} ·{" "}

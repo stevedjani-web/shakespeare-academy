@@ -1002,6 +1002,11 @@ model IssuedDocument {
   @@map("issued_documents")
 }
 
+enum PaymentOrigin {
+  APPLICATION
+  REPRISE
+}
+
 model Payment {
   id                String         @id @default(cuid())
   schoolId          String
@@ -1024,6 +1029,10 @@ model Payment {
   // d'intégration API automatisée, un simple enregistrement manuel (cahier §11, déjà tranché).
   referenceExterne  String?
   datePaiement      DateTime       @default(now())
+  // REPRISE : encaissé avant la mise en service de l'application, enregistré après coup avec la date d'origine. Il compte
+  // pour la situation de l'élève et l'encaissé, mais jamais dans la caisse (clôture de journée, solde de caisse) : l'argent
+  // n'est pas entré dans le tiroir ce jour-là.
+  origine           PaymentOrigin  @default(APPLICATION)
   // Vide pour un paiement en ligne confirmé par le fournisseur (aucun encaisseur du personnel).
   recuParUserId     String?
   recuParUser       User?          @relation(fields: [recuParUserId], references: [id])

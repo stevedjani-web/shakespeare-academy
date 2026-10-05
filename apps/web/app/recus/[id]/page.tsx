@@ -95,6 +95,7 @@ export default function ReceiptPage() {
         school={school}
         numero={payment.numeroRecu}
         replacesNumber={payment.numeroProvisoire}
+        reprise={payment.origine === "REPRISE"}
         dateLabel={formatDate(payment.datePaiement)}
         cancelled={payment.statut === "ANNULE" ? { motif: payment.motifAnnulation ?? null } : null}
         student={

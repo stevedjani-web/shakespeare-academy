@@ -38,7 +38,7 @@ export class ReportsService {
   ) {}
 
   /**
-   * Clôture de journée : entrées (paiements VALIDE), sorties (dépenses DECAISSEE à leur date de décaissement, posée par
+   * Clôture de journée : entrées (paiements VALIDE, hors reprise d'avant l'application), sorties (dépenses DECAISSEE à leur date de décaissement, posée par
    * le serveur), solde du jour et solde cumulé (toutes entrées - toutes sorties, jamais une session de caisse formelle
    * avec fonds initial — D20-D23 restent OUVERT, non implémentées). Une dépense EN_ATTENTE, APPROUVEE (pas encore
    * payée), REJETEE ou ANNULEE n'est jamais comptée : seule une sortie dont l'argent est réellement sorti compte.
@@ -50,56 +50,78 @@ export class ReportsService {
     const dayStart = startOfDay(date);
     const dayEnd = nextDay(dayStart);
 
-    const [payments, expenses, allPaymentsAgg, allExpensesAgg, toDisburseAgg] =
-      await Promise.all([
-        this.prisma.payment.findMany({
-          where: {
-            schoolId,
-            statut: 'VALIDE',
-            datePaiement: { gte: dayStart, lt: dayEnd },
-          },
-          include: {
-            invoiceLine: {
-              include: {
-                invoice: {
-                  include: { enrollment: { include: { student: true } } },
-                },
+    const [
+      payments,
+      expenses,
+      allPaymentsAgg,
+      allExpensesAgg,
+      toDisburseAgg,
+      repriseAgg,
+    ] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          schoolId,
+          statut: 'VALIDE',
+          origine: 'APPLICATION',
+          datePaiement: { gte: dayStart, lt: dayEnd },
+        },
+        include: {
+          invoiceLine: {
+            include: {
+              invoice: {
+                include: { enrollment: { include: { student: true } } },
               },
             },
-            recuParUser: { select: { nom: true, prenom: true } },
           },
-          orderBy: { datePaiement: 'asc' },
-        }),
-        this.prisma.expense.findMany({
-          where: {
-            schoolId,
-            statut: 'DECAISSEE',
-            dateDecaissement: { gte: dayStart, lt: dayEnd },
-          },
-          include: {
-            effectuePar: { select: { nom: true, prenom: true } },
-            decaissePar: { select: { nom: true, prenom: true } },
-          },
-          orderBy: { dateDecaissement: 'asc' },
-        }),
-        this.prisma.payment.aggregate({
-          where: { schoolId, statut: 'VALIDE', datePaiement: { lt: dayEnd } },
-          _sum: { montant: true },
-        }),
-        this.prisma.expense.aggregate({
-          where: {
-            schoolId,
-            statut: 'DECAISSEE',
-            dateDecaissement: { lt: dayEnd },
-          },
-          _sum: { montant: true },
-        }),
-        this.prisma.expense.aggregate({
-          where: { schoolId, statut: 'APPROUVEE' },
-          _sum: { montant: true },
-          _count: true,
-        }),
-      ]);
+          recuParUser: { select: { nom: true, prenom: true } },
+        },
+        orderBy: { datePaiement: 'asc' },
+      }),
+      this.prisma.expense.findMany({
+        where: {
+          schoolId,
+          statut: 'DECAISSEE',
+          dateDecaissement: { gte: dayStart, lt: dayEnd },
+        },
+        include: {
+          effectuePar: { select: { nom: true, prenom: true } },
+          decaissePar: { select: { nom: true, prenom: true } },
+        },
+        orderBy: { dateDecaissement: 'asc' },
+      }),
+      this.prisma.payment.aggregate({
+        where: {
+          schoolId,
+          statut: 'VALIDE',
+          origine: 'APPLICATION',
+          datePaiement: { lt: dayEnd },
+        },
+        _sum: { montant: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: {
+          schoolId,
+          statut: 'DECAISSEE',
+          dateDecaissement: { lt: dayEnd },
+        },
+        _sum: { montant: true },
+      }),
+      this.prisma.expense.aggregate({
+        where: { schoolId, statut: 'APPROUVEE' },
+        _sum: { montant: true },
+        _count: true,
+      }),
+      this.prisma.payment.aggregate({
+        where: {
+          schoolId,
+          statut: 'VALIDE',
+          origine: 'REPRISE',
+          datePaiement: { gte: dayStart, lt: dayEnd },
+        },
+        _sum: { montant: true },
+        _count: true,
+      }),
+    ]);
 
     const totalEntrees = payments.reduce((sum, p) => sum + p.montant, 0);
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
@@ -117,6 +139,11 @@ export class ReportsService {
       entrees: {
         total: totalEntrees,
         count: payments.length,
+        // Encaissé avant l'application et repris à cette date : compté dans la situation des élèves, jamais dans la caisse.
+        reprise: {
+          count: repriseAgg._count,
+          total: repriseAgg._sum.montant ?? 0,
+        },
         parMode,
         items: payments.map((p) => ({
           id: p.id,
