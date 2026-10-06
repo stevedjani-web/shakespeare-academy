@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/lib/i18n/use-i18n";
-import { INTL_LOCALE } from "@/lib/i18n/locales";
+import { formatNumber } from "@/lib/format";
 import type { FinancialStatus, StudentAttendanceHistory } from "@/lib/types";
 import type { StudentBulletinRow } from "@/lib/grades";
 import { STATUS_META } from "@/components/financial-status-card";
@@ -22,7 +22,7 @@ import { StatCard } from "@/components/ui";
  */
 export function StudentSummaryStrip({ studentId }: { studentId: string }) {
   const { hasPermission } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [finance, setFinance] = useState<FinancialStatus | null>(null);
   const [attendance, setAttendance] = useState<StudentAttendanceHistory | null>(null);
   const [bulletins, setBulletins] = useState<StudentBulletinRow[] | null>(null);
@@ -85,7 +85,7 @@ export function StudentSummaryStrip({ studentId }: { studentId: string }) {
           value={STATUS_META[finance.statut].label}
           hint={
             finance.montantRestant > 0
-              ? t("stu.strip.remaining", { amount: finance.montantRestant.toLocaleString(INTL_LOCALE[locale]) })
+              ? t("stu.strip.remaining", { amount: formatNumber(finance.montantRestant) })
               : t("stu.strip.upToDate")
           }
           tone={

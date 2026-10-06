@@ -179,6 +179,13 @@ const STAT_TONES: Record<StatTone, { card: string; icon: string; value: string; 
   info: { card: "border-l-info bg-info-soft/70", icon: "bg-info text-white", value: "text-info", bar: "bg-info" },
 };
 
+/** « 88 110 000 FCFA » : le nombre en grand, la devise en petit (sinon elle passe seule à la ligne). */
+function splitCurrency(value: ReactNode): { amount: string; devise: string } | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^(.*\S)[\s\u00a0\u202f](FCFA|XAF)$/);
+  return match ? { amount: match[1], devise: match[2] } : null;
+}
+
 export function StatCard({
   label,
   value,
@@ -196,6 +203,7 @@ export function StatCard({
   progress?: number | null;
 }) {
   const t = STAT_TONES[tone];
+  const currency = splitCurrency(value);
   return (
     <div
       className={`sa-interactive h-full rounded-2xl border border-l-4 border-border p-4 shadow-[var(--shadow-soft)] sm:p-5 ${t.card}`}
@@ -203,7 +211,16 @@ export function StatCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-ink-muted">{label}</p>
-          <p className={`mt-1 font-display text-2xl font-semibold sm:text-3xl ${t.value}`}>{value}</p>
+          <p className={`mt-1 font-display text-xl font-semibold leading-tight sm:text-2xl ${t.value}`}>
+            {currency ? (
+              <>
+                <span className="whitespace-nowrap">{currency.amount}</span>{" "}
+                <span className="text-sm font-medium opacity-75">{currency.devise}</span>
+              </>
+            ) : (
+              value
+            )}
+          </p>
           {hint && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
         </div>
         {icon && (

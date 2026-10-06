@@ -375,6 +375,8 @@ export class ReportsService {
       totalFacture: 0,
       totalRemises: 0,
       totalEncaisse: 0,
+      // Part du total encaissé qui date d'avant l'application (reprise) : comptée ici, jamais dans le solde de caisse.
+      totalEncaisseReprise: 0,
       totalRestantDu: 0,
       tauxRecouvrement: null as number | null,
       soldeCaisseCumule: cashClosing.soldeCumule,
@@ -439,6 +441,9 @@ export class ReportsService {
             );
             for (const p of line.payments) {
               financier.totalEncaisse += p.montant;
+              if (p.origine === 'REPRISE') {
+                financier.totalEncaisseReprise += p.montant;
+              }
               parModePaiement[p.modePaiement] += p.montant;
             }
           }

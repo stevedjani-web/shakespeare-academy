@@ -225,6 +225,7 @@ describe('Reprise des encaissements d’avant l’application (e2e)', () => {
       200,
     );
     expect(dash.body.financier.totalEncaisse).toBe(45000);
+    expect(dash.body.financier.totalEncaisseReprise).toBe(45000);
     expect(dash.body.financier.soldeCaisseCumule).toBe(0);
   });
 

@@ -448,6 +448,7 @@ export interface DashboardStats {
     totalFacture: number;
     totalRemises: number;
     totalEncaisse: number;
+    totalEncaisseReprise: number;
     totalRestantDu: number;
     tauxRecouvrement: number | null;
     soldeCaisseCumule: number;
