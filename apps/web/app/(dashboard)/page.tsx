@@ -19,6 +19,7 @@ import {
   Smartphone,
   Banknote,
   Hourglass,
+  Landmark,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -331,7 +332,7 @@ export default function DashboardHomePage() {
           </SectionTitle>
           {expand.isOpen("attente") && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <StatCard
                   label={t("dash.pendingDiscounts")}
                   value={stats.remises.enAttente}
@@ -351,12 +352,22 @@ export default function DashboardHomePage() {
                   value={formatMontant(stats.depenses.totalDecaisse)}
                   tone={stats.depenses.totalDecaisse > 0 ? "danger" : "info"}
                   icon={<ArrowUpCircle size={18} />}
-                  hint={
-                    stats.depenses.versementsBanque > 0
-                      ? t("dash.moneyOutDeposits", { amount: formatMontant(stats.depenses.versementsBanque) })
-                      : t("dash.moneyOut")
-                  }
+                  hint={t("dash.moneyOut")}
                 />
+                <Link href="/versements" className="block">
+                  <StatCard
+                    label={t("dash.depositsToVerify")}
+                    value={stats.versements.aVerifierCount}
+                    tone={stats.versements.aVerifierCount > 0 ? "warning" : "success"}
+                    icon={<Landmark size={18} />}
+                    hint={
+                      <>
+                        {stats.versements.aVerifierCount > 0 ? `${formatMontant(stats.versements.aVerifierTotal)} · ` : `${t("dash.nothingToVerify")} · `}
+                        {t("dash.cashOnHand", { amount: formatMontant(stats.versements.especesEnCaisse) })}
+                      </>
+                    }
+                  />
+                </Link>
                 <Link href="/insolvables" className="block">
                   <StatCard
                     label={t("dash.insolvent")}

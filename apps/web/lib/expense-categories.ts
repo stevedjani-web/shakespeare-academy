@@ -9,12 +9,11 @@ export const EXPENSE_CATEGORY_GROUPS: ReadonlyArray<{ group: string; codes: read
   { group: "ACHATS_REVENTE", codes: ["ACHAT_TENUES_LIVRES", "CANTINE_APPROVISIONNEMENT"] },
   { group: "ADMINISTRATION", codes: ["IMPOTS_TAXES", "FRAIS_BANCAIRES", "HONORAIRES", "COMMUNICATION_PUBLICITE"] },
   { group: "INVESTISSEMENT", codes: ["TRAVAUX_CONSTRUCTION", "GROS_EQUIPEMENT"] },
-  { group: "TRESORERIE", codes: ["VERSEMENT_BANQUE"] },
   { group: "AUTRE", codes: ["AUTRE"] },
 ];
 
 /** Catégories d'avant le 28 septembre 2026 : lisibles sur les sorties déjà saisies, plus proposées. */
-const LEGACY_CATEGORIES = ["PAIEMENT_SALAIRE", "PAIEMENT_FACTURE", "ACHAT_MATERIEL"] as const;
+const LEGACY_CATEGORIES = ["PAIEMENT_SALAIRE", "PAIEMENT_FACTURE", "ACHAT_MATERIEL", "VERSEMENT_BANQUE"] as const;
 
 const KNOWN = new Set<string>([...EXPENSE_CATEGORY_GROUPS.flatMap((g) => g.codes), ...LEGACY_CATEGORIES]);
 
@@ -24,8 +23,4 @@ export const categoryGroupKey = (group: string) => `fin.categoryGroup.${group}` 
 /** Libellé d'une catégorie ; un code inconnu (jamais censé arriver) s'affiche tel quel plutôt que de casser l'écran. */
 export function categoryLabel(t: (key: MessageKey) => string, code: string): string {
   return KNOWN.has(code) ? t(categoryKey(code)) : code;
-}
-
-export function isTreasuryCategory(code: string): boolean {
-  return code === "VERSEMENT_BANQUE";
 }

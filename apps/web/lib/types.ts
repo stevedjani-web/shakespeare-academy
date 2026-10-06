@@ -342,6 +342,36 @@ export interface Expense {
   attachments: ExpenseAttachment[];
 }
 
+export type BankDepositStatus = "EN_ATTENTE" | "CONFIRME" | "REJETE";
+
+export interface BankDeposit {
+  id: string;
+  montant: number;
+  dateVersement: string;
+  banque: string;
+  numeroBordereau: string;
+  note: string | null;
+  statut: BankDepositStatus;
+  declarePar: ExpensePerson;
+  verifiePar: ExpensePerson | null;
+  dateVerification: string | null;
+  motifRejet: string | null;
+  nomAffiche: string;
+  mimeType: string;
+  taille: number;
+  createdAt: string;
+}
+
+export interface BankDepositSummary {
+  encaisseEspeces: number;
+  sortiesEspeces: number;
+  verse: number;
+  enCaisse: number;
+  aVerifier: { count: number; total: number };
+  confirmes: { count: number; total: number };
+  rejetes: { count: number; total: number };
+}
+
 export interface CashClosingEntry {
   id: string;
   numeroRecu: string;
@@ -378,12 +408,15 @@ export interface CashClosing {
   sorties: {
     total: number;
     count: number;
-    versementsBanque: number;
-    charges: number;
     parCategorie: Record<string, number>;
     items: CashClosingExpense[];
   };
   aDecaisser: { count: number; total: number };
+  versements: {
+    jour: { count: number; total: number };
+    aVerifier: { count: number; total: number };
+  };
+  especes: { enCaisse: number };
   soldeJour: number;
   soldeCumule: number;
 }
@@ -423,11 +456,16 @@ export interface DashboardStats {
   remises: { enAttente: number; approuvees: number; rejetees: number };
   depenses: {
     totalDecaisse: number;
-    versementsBanque: number;
     enAttenteCount: number;
     enAttenteMontant: number;
     aDecaisserCount: number;
     aDecaisserMontant: number;
+  };
+  versements: {
+    especesEnCaisse: number;
+    aVerifierCount: number;
+    aVerifierTotal: number;
+    confirmesTotal: number;
   };
   insolvables: { count: number };
 }

@@ -157,12 +157,11 @@ describe('Sorties financières : demande, approbation, décaissement (e2e)', () 
         .expect(400);
     });
 
-    it('accepte les catégories d’une école et le versement en banque, refuse l’inconnu et les anciennes', async () => {
+    it('accepte les catégories d’une école, refuse l’inconnu, les anciennes et le versement en banque', async () => {
       for (const categorie of [
         'ELECTRICITE',
         'SALAIRES_ENSEIGNANTS',
         'TRAVAUX_CONSTRUCTION',
-        'VERSEMENT_BANQUE',
         'AUTRE',
       ]) {
         await createExpense(app, adminToken, { ...base, categorie }).expect(
@@ -174,6 +173,8 @@ describe('Sorties financières : demande, approbation, décaissement (e2e)', () 
         'PAIEMENT_SALAIRE',
         'PAIEMENT_FACTURE',
         'ACHAT_MATERIEL',
+        // Le versement en banque a sa propre rubrique : ce n'est pas une dépense.
+        'VERSEMENT_BANQUE',
       ]) {
         await createExpense(app, adminToken, { ...base, categorie }).expect(
           400,
@@ -424,38 +425,6 @@ describe('Sorties financières : demande, approbation, décaissement (e2e)', () 
       ]);
       expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
       expect((await closing()).sorties.total).toBe(50000);
-    });
-
-    it('un versement en banque réduit le solde de caisse sans compter comme charge', async () => {
-      const created = await createExpense(app, adminToken, {
-        categorie: 'VERSEMENT_BANQUE',
-        montant: 100000,
-        description: 'Dépôt de la semaine',
-      }).expect(201);
-      await as(
-        directionToken,
-        http().post(`/expenses/${created.body.id}/approve`),
-      ).expect(201);
-      await disburse(adminToken, created.body.id, {
-        modePaiement: 'ESPECES',
-      }).expect(201);
-      const other = await approved();
-      await disburse(adminToken, other.id, { modePaiement: 'ESPECES' }).expect(
-        201,
-      );
-
-      const c = await closing();
-      expect(c.sorties.total).toBe(150000);
-      expect(c.sorties.versementsBanque).toBe(100000);
-      expect(c.sorties.charges).toBe(50000);
-      expect(c.soldeCumule).toBe(-150000);
-
-      const dash = await as(
-        adminToken,
-        http().get('/reports/dashboard'),
-      ).expect(200);
-      expect(dash.body.depenses.totalDecaisse).toBe(50000);
-      expect(dash.body.depenses.versementsBanque).toBe(100000);
     });
   });
 

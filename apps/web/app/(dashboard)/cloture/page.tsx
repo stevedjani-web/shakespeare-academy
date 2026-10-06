@@ -146,7 +146,7 @@ export default function CashClosingPage() {
             />
           </div>
 
-          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.sorties.versementsBanque > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0) && (
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.especes.enCaisse !== 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
                 <>
@@ -157,9 +157,13 @@ export default function CashClosingPage() {
               {closing.entrees.reprise.count > 0 && (
                 <Badge color="primary">{t("fin.closing.reprise", { amount: formatMontant(closing.entrees.reprise.total), n: closing.entrees.reprise.count })}</Badge>
               )}
-              {closing.sorties.versementsBanque > 0 && (
-                <Badge color="slate">{t("fin.closing.bankDeposits", { amount: formatMontant(closing.sorties.versementsBanque) })}</Badge>
+              {closing.versements.jour.count > 0 && (
+                <Badge color="slate">{t("fin.closing.bankDeposits", { amount: formatMontant(closing.versements.jour.total), n: closing.versements.jour.count })}</Badge>
               )}
+              {closing.versements.aVerifier.count > 0 && (
+                <Badge color="orange">{t("fin.closing.depositsPending", { amount: formatMontant(closing.versements.aVerifier.total), n: closing.versements.aVerifier.count })}</Badge>
+              )}
+              <Badge color="blue">{t("fin.closing.cashOnHand", { amount: formatMontant(closing.especes.enCaisse) })}</Badge>
               {closing.aDecaisser.count > 0 && (
                 <Badge color="orange">{t("fin.closing.toDisburse", { amount: formatMontant(closing.aDecaisser.total), n: closing.aDecaisser.count })}</Badge>
               )}

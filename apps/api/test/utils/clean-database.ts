@@ -24,6 +24,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.payment.deleteMany();
   await prisma.expenseAttachment.deleteMany();
   await prisma.expense.deleteMany();
+  await prisma.bankDeposit.deleteMany();
   await prisma.messageReport.deleteMany();
   await prisma.message.deleteMany();
   await prisma.messageThread.deleteMany();

@@ -37,9 +37,6 @@ export const EXPENSE_CATEGORY_GROUPS = {
     'COMMUNICATION_PUBLICITE',
   ],
   INVESTISSEMENT: ['TRAVAUX_CONSTRUCTION', 'GROS_EQUIPEMENT'],
-  // Mouvement de trésorerie, pas une charge : l'argent passe de la caisse à la banque. Il suit le même cycle
-  // (demande, approbation, décaissement) et réduit le solde de caisse, mais n'entre jamais dans « dépenses ».
-  TRESORERIE: ['VERSEMENT_BANQUE'],
   AUTRE: ['AUTRE'],
 } as const;
 
@@ -52,14 +49,8 @@ export const LEGACY_EXPENSE_CATEGORIES = [
   'PAIEMENT_SALAIRE',
   'PAIEMENT_FACTURE',
   'ACHAT_MATERIEL',
+  // Un versement en banque n'est pas une dépense : il a sa propre rubrique (module `bank-deposits`, 6 octobre 2026).
+  'VERSEMENT_BANQUE',
 ] as const;
 
 export type ExpenseCategory = string;
-
-const TREASURY_CATEGORIES: readonly string[] =
-  EXPENSE_CATEGORY_GROUPS.TRESORERIE;
-
-/** Un versement en banque n'est pas une dépense d'école : il est présenté à part. */
-export function isTreasuryCategory(categorie: string): boolean {
-  return TREASURY_CATEGORIES.includes(categorie);
-}

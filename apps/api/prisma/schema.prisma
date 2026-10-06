@@ -111,6 +111,7 @@ model School {
   disciplineRecords DisciplineRecord[]
   preRegistrations  PreRegistration[]
   expenses          Expense[]
+  bankDeposits      BankDeposit[]
   rooms             Room[]
   timeSlots         TimeSlot[]
   subjects          Subject[]
@@ -330,6 +331,8 @@ model User {
   expensesDecaissees     Expense[]                  @relation("ExpenseDecaissePar")
   expensesAnnulees       Expense[]                  @relation("ExpenseAnnulePar")
   expenseAttachments     ExpenseAttachment[]        @relation("ExpenseAttachmentAjoutePar")
+  bankDepositsDeclares   BankDeposit[]              @relation("BankDepositDeclarePar")
+  bankDepositsVerifies   BankDeposit[]              @relation("BankDepositVerifiePar")
   timetablesPublished    Timetable[]                @relation("TimetablePublishedBy")
   timetableExceptions    TimetableException[]       @relation("ExceptionCreatedBy")
   attendanceCalls        AttendanceCall[]           @relation("CallTakenBy")
@@ -1124,6 +1127,44 @@ model AuditLog {
 // simple chaîne validée côté DTO (`EXPENSE_CATEGORIES`) pour rester "paramétrable" sans migration
 // si l'école demande une catégorie de plus. D25 : toute sortie exige une validation Direction
 // (seuil = 0, provisoire) avant d'être comptée comme une vraie sortie de caisse.
+
+// Versement en banque des espèces encaissées (6 octobre 2026, décisions D176 à D181) : déclaré après le dépôt avec le
+// bordereau de la banque (obligatoire), puis vérifié par une deuxième personne. Ce n'est pas une dépense : l'argent passe
+// de la caisse à la banque. Il réduit les espèces en caisse, jamais le solde des fonds de l'école.
+enum BankDepositStatus {
+  EN_ATTENTE
+  CONFIRME
+  REJETE
+}
+
+model BankDeposit {
+  id               String            @id @default(cuid())
+  schoolId         String
+  school           School            @relation(fields: [schoolId], references: [id])
+  montant          Int
+  // Date inscrite sur le bordereau (le jour du dépôt), jamais dans le futur.
+  dateVersement    DateTime
+  banque           String
+  numeroBordereau  String
+  note             String?
+  statut           BankDepositStatus @default(EN_ATTENTE)
+  declareParId     String
+  declarePar       User              @relation("BankDepositDeclarePar", fields: [declareParId], references: [id])
+  verifieParId     String?
+  verifiePar       User?             @relation("BankDepositVerifiePar", fields: [verifieParId], references: [id])
+  dateVerification DateTime?
+  motifRejet       String?
+  // Bordereau de la banque : fichier privé (private-uploads/deposits), jamais servi publiquement.
+  fichier          String
+  nomAffiche       String
+  mimeType         String
+  taille           Int
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([schoolId, statut, dateVersement])
+  @@map("bank_deposits")
+}
 
 // Cycle de vie d'une sortie : EN_ATTENTE (demande avec justificatif) puis APPROUVEE ou REJETEE (Promoteur / Direction),
 // puis DECAISSEE (confirmation de la sortie réelle). ANNULEE : demande retirée, ou sortie approuvée jamais payée.

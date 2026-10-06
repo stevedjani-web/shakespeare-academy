@@ -13,6 +13,7 @@ import { Ban, CheckCircle2, Clock, FileText, Landmark, Paperclip, Wallet, X, XCi
 import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { openProtectedFile } from "@/lib/open-protected-file";
 
 type Tab = "EN_ATTENTE" | "APPROUVEE" | "DECAISSEE" | "CLOSED" | "ALL";
 
@@ -195,21 +196,8 @@ export default function ExpensesPage() {
   }
 
   async function openAttachment(expenseId: string, attachment: ExpenseAttachment) {
-    // La fenêtre s'ouvre tout de suite (clic de l'utilisateur) : sinon le navigateur bloque l'ouverture après l'attente.
-    const win = window.open("", "_blank");
-    const path = `/expenses/${expenseId}/attachments/${attachment.id}`;
-    try {
-      if (!win) {
-        await api.download(path, attachment.nomAffiche);
-        return;
-      }
-      const url = URL.createObjectURL(await api.blob(path));
-      win.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      win?.close();
-      setActionError(isOfflineError(err) ? t("fin.expenses.needsInternet") : t("fin.expenses.openError"));
-    }
+    const result = await openProtectedFile(`/expenses/${expenseId}/attachments/${attachment.id}`, attachment.nomAffiche);
+    if (result !== "ok") setActionError(result === "offline" ? t("fin.expenses.needsInternet") : t("fin.expenses.openError"));
   }
 
   const tabs: Tab[] = ["EN_ATTENTE", "APPROUVEE", "DECAISSEE", "CLOSED", "ALL"];

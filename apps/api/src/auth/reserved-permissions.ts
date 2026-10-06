@@ -23,6 +23,8 @@ export const RESERVED_PERMISSIONS = [
   'DOCUMENT_CANCEL',
   // Lot 20 : décider, publier et annuler une sanction, corriger un signalement après le jour de saisie.
   'DISCIPLINE_DECIDE',
+  // Versement en banque : confirmer ou rejeter un versement déclaré (contrôle des espèces encaissées).
+  'BANK_DEPOSIT_VERIFY',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -15,78 +14,19 @@ import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
 import { memoryStorage } from 'multer';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { RejectExpenseDto } from './dto/reject-expense.dto';
 import { CancelExpenseDto } from './dto/cancel-expense.dto';
 import { DisburseExpenseDto } from './dto/disburse-expense.dto';
 import { MAX_EXPENSE_FILE_BYTES, MAX_JUSTIFICATIFS } from './expense-files';
-import { pick } from '../common/language';
+import { onlyFields, parsePayload } from '../common/multipart-payload';
 import {
   RequireAnyPermission,
   RequirePermission,
 } from '../auth/decorators/require-permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
-
-/**
- * Un envoi avec pièces arrive en multipart : le champ `payload` porte le JSON, les pièces sont des fichiers joints. Le
- * corps multipart n'est pas un DTO : on le valide ici, avec les mêmes règles que n'importe quel corps JSON.
- */
-async function parsePayload<T extends object>(
-  type: new () => T,
-  body: Record<string, unknown>,
-): Promise<T> {
-  let raw: unknown = body;
-  if (typeof body?.payload === 'string') {
-    try {
-      raw = JSON.parse(body.payload);
-    } catch {
-      throw new BadRequestException(
-        pick({
-          fr: 'La demande est illisible.',
-          en: 'The request cannot be read.',
-        }),
-      );
-    }
-  }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new BadRequestException(
-      pick({ fr: 'La demande est vide.', en: 'The request is empty.' }),
-    );
-  }
-  const dto = plainToInstance(type, raw);
-  const errors = await validate(dto, {
-    whitelist: true,
-    forbidNonWhitelisted: true,
-  });
-  if (errors.length > 0) {
-    throw new BadRequestException(
-      errors.flatMap((e) => Object.values(e.constraints ?? {})),
-    );
-  }
-  return dto;
-}
-
-function onlyFields(
-  files: Express.Multer.File[] | undefined,
-  prefix: string,
-): Express.Multer.File[] {
-  const list = files ?? [];
-  for (const file of list) {
-    if (!file.fieldname.startsWith(prefix)) {
-      throw new BadRequestException(
-        pick({
-          fr: 'Fichier joint inattendu.',
-          en: 'Unexpected attached file.',
-        }),
-      );
-    }
-  }
-  return list;
-}
 
 // Cycle d'une sortie : demande avec justificatif (EXPENSE_CREATE), approbation par le Promoteur ou la Direction
 // (EXPENSE_APPROVE), confirmation de la sortie réelle (EXPENSE_DISBURSE). La lecture suit la clôture (CASH_CLOSE).

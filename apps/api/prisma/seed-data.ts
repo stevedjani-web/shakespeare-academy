@@ -116,6 +116,22 @@ export const LOT5_PERMISSIONS = [
 ] as const;
 
 /**
+ * Versement en banque des espèces encaissées (6 octobre 2026). `BANK_DEPOSIT_CREATE` : déclarer un versement avec son
+ * bordereau (caissier, comptable, administrateur). `BANK_DEPOSIT_VERIFY` : le confirmer ou le rejeter (Direction et
+ * Promoteur, droit réservé : voir auth/reserved-permissions.ts) ; le serveur refuse qu'on vérifie son propre versement.
+ */
+export const BANK_DEPOSIT_PERMISSIONS = [
+  {
+    code: 'BANK_DEPOSIT_CREATE',
+    description: 'Déclarer un versement en banque avec son bordereau.',
+  },
+  {
+    code: 'BANK_DEPOSIT_VERIFY',
+    description: 'Confirmer ou rejeter un versement en banque déclaré.',
+  },
+] as const;
+
+/**
  * Catalogue de permissions du Lot 7 (vie scolaire : référentiel pédagogique et personnel, addendum
  * v1.1). `PEDAGOGY_MANAGE` couvre la saisie des horaires, matières, enseignants, affectations,
  * calendrier et salles. Les permissions des lots suivants (emploi du temps, appel, pointage...) seront
@@ -400,6 +416,7 @@ export const ROLES: Array<{
       'CASH_CLOSE',
       'EXPENSE_CREATE',
       'EXPENSE_DISBURSE',
+      'BANK_DEPOSIT_CREATE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
       'ATTENDANCE_TAKE',
@@ -436,6 +453,7 @@ export const ROLES: Array<{
       'DISCOUNT_APPROVE',
       'PAYMENT_CANCEL_APPROVE',
       'EXPENSE_APPROVE',
+      'BANK_DEPOSIT_VERIFY',
       'CASH_CLOSE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
@@ -475,6 +493,7 @@ export const ROLES: Array<{
       'ENROLLMENT_MANAGE',
       'PAYMENT_CREATE',
       'CASH_CLOSE',
+      'BANK_DEPOSIT_CREATE',
       'TIMETABLE_READ',
       'PARENT_ACCOUNT_MANAGE',
       'GUARDIAN_DETAIL_READ',
@@ -490,6 +509,7 @@ export const ROLES: Array<{
       'FINANCE_READ',
       'EXPENSE_CREATE',
       'EXPENSE_DISBURSE',
+      'BANK_DEPOSIT_CREATE',
       'CASH_CLOSE',
       'GUARDIAN_DETAIL_READ',
     ],
@@ -577,6 +597,7 @@ export async function seedReferenceData(
     ...LOT3_PERMISSIONS,
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
+    ...BANK_DEPOSIT_PERMISSIONS,
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,

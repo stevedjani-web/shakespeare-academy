@@ -262,6 +262,17 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     ],
     permission: "CASH_CLOSE",
   },
+  "versements": {
+    id: "versements",
+    titleKey: "cnt.help.versements.title",
+    tipKeys: [
+      "cnt.help.versements.tip1",
+      "cnt.help.versements.tip2",
+      "cnt.help.versements.tip3",
+      "cnt.help.versements.tip4",
+    ],
+    permission: "CASH_CLOSE",
+  },
   "cloture": {
     id: "cloture",
     titleKey: "cnt.help.cloture.title",
@@ -363,6 +374,7 @@ export const HELP_ORDER = [
   "insolvables",
   "paiements-en-ligne",
   "depenses",
+  "versements",
   "cloture",
   "parametres-annees",
   "parametres-structure",

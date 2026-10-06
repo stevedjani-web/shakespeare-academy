@@ -4,6 +4,7 @@ import { SchoolService } from '../school/school.service';
 import { FinancialStatusService } from '../financial-status/financial-status.service';
 import { computeApprovedDiscountAmount } from '../discounts/discount-amount.util';
 import { toCsv } from '../common/csv.util';
+import { BankDepositsService } from '../bank-deposits/bank-deposits.service';
 
 function startOfDay(date: string): Date {
   const d = new Date(`${date}T00:00:00.000Z`);
@@ -27,7 +28,6 @@ function formatProchaineEcheance(value: unknown): string {
   const date = new Date(e.dateLimite).toISOString().slice(0, 10);
   return `${e.libelle} (${date})`;
 }
-import { isTreasuryCategory } from '../expenses/expense-categories';
 
 @Injectable()
 export class ReportsService {
@@ -35,6 +35,7 @@ export class ReportsService {
     private readonly prisma: PrismaService,
     private readonly schoolService: SchoolService,
     private readonly financialStatusService: FinancialStatusService,
+    private readonly bankDeposits: BankDepositsService,
   ) {}
 
   /**
@@ -43,7 +44,8 @@ export class ReportsService {
    * avec fonds initial — D20-D23 restent OUVERT, non implémentées). Une dépense EN_ATTENTE, APPROUVEE (pas encore
    * payée), REJETEE ou ANNULEE n'est jamais comptée : seule une sortie dont l'argent est réellement sorti compte.
    * `aDecaisser` (approuvé, pas encore payé) est un engagement à venir, jamais retranché du solde. Un versement en
-   * banque réduit le solde de caisse mais n'est pas une charge : il est isolé dans `versementsBanque`.
+   * banque n'est pas une dépense : il ne change pas le solde des fonds, il réduit seulement les espèces qui devraient
+   * se trouver dans le tiroir (`especes.enCaisse`, à la fin du jour demandé, voir `BankDepositsService`).
    */
   async getCashClosing(date: string) {
     const schoolId = await this.schoolService.getDefaultId();
@@ -57,6 +59,9 @@ export class ReportsService {
       allExpensesAgg,
       toDisburseAgg,
       repriseAgg,
+      depositsDayAgg,
+      depositsPendingAgg,
+      cashOnHand,
     ] = await Promise.all([
       this.prisma.payment.findMany({
         where: {
@@ -121,13 +126,25 @@ export class ReportsService {
         _sum: { montant: true },
         _count: true,
       }),
+      this.prisma.bankDeposit.aggregate({
+        where: {
+          schoolId,
+          statut: { in: ['EN_ATTENTE', 'CONFIRME'] },
+          dateVersement: { gte: dayStart, lt: dayEnd },
+        },
+        _sum: { montant: true },
+        _count: true,
+      }),
+      this.prisma.bankDeposit.aggregate({
+        where: { schoolId, statut: 'EN_ATTENTE' },
+        _sum: { montant: true },
+        _count: true,
+      }),
+      this.bankDeposits.getCashOnHand(schoolId, dayEnd),
     ]);
 
     const totalEntrees = payments.reduce((sum, p) => sum + p.montant, 0);
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
-    const totalVersementsBanque = expenses
-      .filter((e) => isTreasuryCategory(e.categorie))
-      .reduce((sum, e) => sum + e.montant, 0);
     const parMode = { ESPECES: 0, MOBILE_MONEY: 0 };
     for (const p of payments) parMode[p.modePaiement] += p.montant;
     const parCategorie: Record<string, number> = {};
@@ -163,8 +180,6 @@ export class ReportsService {
       sorties: {
         total: totalSorties,
         count: expenses.length,
-        versementsBanque: totalVersementsBanque,
-        charges: totalSorties - totalVersementsBanque,
         parCategorie,
         items: expenses.map((e) => ({
           id: e.id,
@@ -185,6 +200,19 @@ export class ReportsService {
         count: toDisburseAgg._count,
         total: toDisburseAgg._sum.montant ?? 0,
       },
+      // Versements en banque : ceux du jour (date du bordereau, hors rejetés) et ceux qui attendent encore d'être vérifiés.
+      versements: {
+        jour: {
+          count: depositsDayAgg._count,
+          total: depositsDayAgg._sum.montant ?? 0,
+        },
+        aVerifier: {
+          count: depositsPendingAgg._count,
+          total: depositsPendingAgg._sum.montant ?? 0,
+        },
+      },
+      // Espèces qui devraient être dans le tiroir à la fin du jour (montant théorique, jamais saisi).
+      especes: { enCaisse: cashOnHand.enCaisse },
       soldeJour: totalEntrees - totalSorties,
       soldeCumule:
         (allPaymentsAgg._sum.montant ?? 0) - (allExpensesAgg._sum.montant ?? 0),
@@ -287,6 +315,7 @@ export class ReportsService {
       discountCounts,
       cashClosing,
       insolvents,
+      bankSummary,
     ] = await Promise.all([
       this.prisma.academicYear.findMany({ where: { schoolId } }),
       this.prisma.student.findMany({
@@ -315,6 +344,7 @@ export class ReportsService {
       }),
       this.getCashClosing(new Date().toISOString().slice(0, 10)),
       this.getInsolventStudents(),
+      this.bankDeposits.summary(),
     ]);
 
     const activeYear = academicYears.find((y) => y.statut === 'ACTIVE') ?? null;
@@ -453,17 +483,21 @@ export class ReportsService {
       paiements: { parMode: parModePaiement },
       remises,
       depenses: {
-        // Charges réellement payées ; un versement en banque n'en fait pas partie (il est présenté à part).
-        totalDecaisse: expensesDecaisseesByCategory
-          .filter((g) => !isTreasuryCategory(g.categorie))
-          .reduce((sum, g) => sum + (g._sum.montant ?? 0), 0),
-        versementsBanque: expensesDecaisseesByCategory
-          .filter((g) => isTreasuryCategory(g.categorie))
-          .reduce((sum, g) => sum + (g._sum.montant ?? 0), 0),
+        // Dépenses réellement payées. Un versement en banque n'en est pas une : il a sa propre rubrique.
+        totalDecaisse: expensesDecaisseesByCategory.reduce(
+          (sum, g) => sum + (g._sum.montant ?? 0),
+          0,
+        ),
         enAttenteCount: expensesAApprouver._count,
         enAttenteMontant: expensesAApprouver._sum.montant ?? 0,
         aDecaisserCount: expensesADecaisser._count,
         aDecaisserMontant: expensesADecaisser._sum.montant ?? 0,
+      },
+      versements: {
+        especesEnCaisse: bankSummary.enCaisse,
+        aVerifierCount: bankSummary.aVerifier.count,
+        aVerifierTotal: bankSummary.aVerifier.total,
+        confirmesTotal: bankSummary.confirmes.total,
       },
       insolvables: { count: insolvents.length },
     };
