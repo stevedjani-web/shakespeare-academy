@@ -71,10 +71,11 @@ export class BankDepositsService {
   ) {}
 
   /**
-   * Espèces qui devraient se trouver dans le tiroir à la fin de `upTo` (exclu), ou aujourd'hui : encaissements en espèces
-   * saisis dans l'application (jamais le Mobile Money, qui ne passe pas par le tiroir, ni une reprise d'avant
-   * l'application), moins les sorties payées en espèces (une ancienne sortie sans mode est comptée en espèces, comme
-   * avant), moins les versements en banque non rejetés. Un montant théorique : il sert à contrôler, pas à constater.
+   * Espèces qui devraient se trouver dans le tiroir à la fin de `upTo` (exclu), ou aujourd'hui : TOUS les encaissements
+   * en espèces (reprises d'avant l'application comprises : cet argent, reçu avant l'application, est lui aussi à verser ;
+   * jamais le Mobile Money, qui ne passe pas par le tiroir), moins les sorties payées en espèces (une ancienne sortie sans
+   * mode est comptée en espèces, comme avant), moins les versements en banque non rejetés. Un montant théorique : il sert
+   * à contrôler, pas à constater.
    */
   async getCashOnHand(schoolId: string, upTo?: Date) {
     const [encaisse, depense, verse] = await Promise.all([
@@ -82,7 +83,6 @@ export class BankDepositsService {
         where: {
           schoolId,
           statut: 'VALIDE',
-          origine: 'APPLICATION',
           modePaiement: 'ESPECES',
           ...(upTo ? { datePaiement: { lt: upTo } } : {}),
         },
@@ -281,7 +281,6 @@ export class BankDepositsService {
         where: {
           schoolId,
           statut: 'VALIDE',
-          origine: 'APPLICATION',
           modePaiement: 'ESPECES',
         },
         _sum: { montant: true },

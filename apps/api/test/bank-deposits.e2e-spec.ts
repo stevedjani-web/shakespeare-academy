@@ -162,7 +162,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
     };
   }
 
-  /** 100 000 en espèces, 50 000 en Mobile Money et 50 000 repris d'avant l'application : seuls les premiers sont dans le tiroir. */
+  /** 100 000 en espèces, 50 000 en Mobile Money et 50 000 repris d'avant l'application : le tiroir doit contenir les espèces et la reprise, pas le Mobile Money. */
   async function collect() {
     await as(adminToken, http().post('/payments'))
       .send({ invoiceLineId: lines.first, montant: 100000 })
@@ -225,8 +225,8 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
   });
 
   describe('espèces en caisse', () => {
-    it('ne comptent que les encaissements en espèces de l’application, moins les sorties payées en espèces et les versements', async () => {
-      expect((await summary()).enCaisse).toBe(100000);
+    it('comptent tous les encaissements en espèces (reprises comprises, pas le Mobile Money), moins les sorties payées en espèces et les versements', async () => {
+      expect((await summary()).enCaisse).toBe(150000);
 
       // Une sortie payée en espèces diminue le tiroir, une sortie par virement non.
       const cash = await createExpense(app, adminToken, {
@@ -253,11 +253,11 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
           JSON.stringify({ modePaiement: 'VIREMENT', reference: 'VIR-1' }),
         )
         .expect(201);
-      expect((await summary()).enCaisse).toBe(80000);
+      expect((await summary()).enCaisse).toBe(130000);
 
       await declare(adminToken, { montant: 30000 }).expect(201);
       const s = await summary();
-      expect(s.enCaisse).toBe(50000);
+      expect(s.enCaisse).toBe(100000);
       expect(s.verse).toBe(30000);
       expect(s.aVerifier).toEqual({ count: 1, total: 30000 });
     });
@@ -333,9 +333,9 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
     });
 
     it('refuse un montant au-delà des espèces en caisse, y compris cumulé avec un versement déjà déclaré', async () => {
-      await declare(adminToken, { montant: 100001 }).expect(409);
+      await declare(adminToken, { montant: 150001 }).expect(409);
       await declare(adminToken, {
-        montant: 80000,
+        montant: 130000,
         numeroBordereau: 'BV-A',
       }).expect(201);
       const refused = await declare(adminToken, {
@@ -493,7 +493,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
 
     it('le rejet exige un motif, rend le montant à la caisse et libère le numéro de bordereau', async () => {
       const d = await declare(adminToken, { montant: 40000 }).expect(201);
-      expect((await summary()).enCaisse).toBe(60000);
+      expect((await summary()).enCaisse).toBe(110000);
       await as(
         directionToken,
         http().post(`/bank-deposits/${d.body.id}/reject`),
@@ -511,7 +511,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
         'Le montant ne correspond pas au relevé',
       );
       const s = await summary();
-      expect(s.enCaisse).toBe(100000);
+      expect(s.enCaisse).toBe(150000);
       expect(s.rejetes).toEqual({ count: 1, total: 40000 });
       expect(s.aVerifier).toEqual({ count: 0, total: 0 });
 
@@ -588,14 +588,14 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
   describe('clôture de journée et tableau de bord', () => {
     it('montrent les versements du jour et les espèces en caisse, sans toucher au solde des fonds', async () => {
       const before = await closing();
-      expect(before.especes.enCaisse).toBe(100000);
+      expect(before.especes.enCaisse).toBe(150000);
       const fonds = before.soldeCumule;
 
       const d = await declare(adminToken, { montant: 30000 }).expect(201);
       const c = await closing();
       expect(c.versements.jour).toEqual({ count: 1, total: 30000 });
       expect(c.versements.aVerifier).toEqual({ count: 1, total: 30000 });
-      expect(c.especes.enCaisse).toBe(70000);
+      expect(c.especes.enCaisse).toBe(120000);
       expect(c.soldeCumule).toBe(fonds);
       expect(c.sorties.total).toBe(0);
 
@@ -604,7 +604,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
         http().get('/reports/dashboard'),
       ).expect(200);
       expect(dash.body.versements).toEqual({
-        especesEnCaisse: 70000,
+        especesEnCaisse: 120000,
         aVerifierCount: 1,
         aVerifierTotal: 30000,
         confirmesTotal: 0,
@@ -619,7 +619,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
         .expect(201);
       const after = await closing();
       expect(after.versements.jour).toEqual({ count: 0, total: 0 });
-      expect(after.especes.enCaisse).toBe(100000);
+      expect(after.especes.enCaisse).toBe(150000);
     });
 
     it('un versement daté d’un autre jour n’est compté que dans la caisse de la fin de ce jour et des suivants', async () => {
@@ -634,7 +634,7 @@ describe('Versements en banque des espèces encaissées (e2e)', () => {
       expect(jourHier.versements.jour).toEqual({ count: 1, total: 25000 });
       const aujourdhui = await closing();
       expect(aujourdhui.versements.jour).toEqual({ count: 0, total: 0 });
-      expect(aujourdhui.especes.enCaisse).toBe(75000);
+      expect(aujourdhui.especes.enCaisse).toBe(125000);
     });
   });
 
