@@ -183,7 +183,6 @@ export const en: Record<MessageKey, string> = {
   "dash.cashBalance": "Cumulative cash balance",
   "dash.cashHint": "Receipts minus payments out",
   "dash.collectedHintReprise": "Money actually received, of which {amount} collected before the application",
-  "dash.cashHintReprise": "Income minus expenses, excluding the {amount} collected before the application",
   "dash.cashPayments": "Cash payments",
   "dash.mobilePayments": "Mobile Money payments",
   "dash.billingProgress": "How is invoicing going?",

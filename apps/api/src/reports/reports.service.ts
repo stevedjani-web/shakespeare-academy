@@ -39,8 +39,10 @@ export class ReportsService {
   ) {}
 
   /**
-   * Clôture de journée : entrées (paiements VALIDE, hors reprise d'avant l'application), sorties (dépenses DECAISSEE à leur date de décaissement, posée par
-   * le serveur), solde du jour et solde cumulé (toutes entrées - toutes sorties, jamais une session de caisse formelle
+   * Clôture de journée : entrées du jour (paiements VALIDE saisis dans l'application : les reprises d'avant l'application
+   * sont montrées à part, `entrees.reprise`), sorties (dépenses DECAISSEE à leur date de décaissement, posée par le
+   * serveur), solde du jour, et solde cumulé = TOUT l'argent reçu (reprises comprises) moins toutes les sorties payées
+   * (c'est le solde des fonds de l'école, jamais une session de caisse formelle
    * avec fonds initial — D20-D23 restent OUVERT, non implémentées). Une dépense EN_ATTENTE, APPROUVEE (pas encore
    * payée), REJETEE ou ANNULEE n'est jamais comptée : seule une sortie dont l'argent est réellement sorti compte.
    * `aDecaisser` (approuvé, pas encore payé) est un engagement à venir, jamais retranché du solde. Un versement en
@@ -94,13 +96,9 @@ export class ReportsService {
         },
         orderBy: { dateDecaissement: 'asc' },
       }),
+      // Solde cumulé des fonds : TOUT l'argent reçu, reprises d'avant l'application comprises (l'école l'a bien reçu).
       this.prisma.payment.aggregate({
-        where: {
-          schoolId,
-          statut: 'VALIDE',
-          origine: 'APPLICATION',
-          datePaiement: { lt: dayEnd },
-        },
+        where: { schoolId, statut: 'VALIDE', datePaiement: { lt: dayEnd } },
         _sum: { montant: true },
       }),
       this.prisma.expense.aggregate({

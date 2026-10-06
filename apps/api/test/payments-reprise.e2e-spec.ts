@@ -184,7 +184,7 @@ describe('Reprise des encaissements d’avant l’application (e2e)', () => {
     expect(repris.numeroRecu).toBe('REC-000002');
   });
 
-  it('un paiement repris n’entre jamais dans la caisse : ni entrées du jour, ni solde du jour, ni solde cumulé', async () => {
+  it('un paiement repris n’entre pas dans les entrées ni le solde du jour, mais il est dans le solde cumulé des fonds', async () => {
     const a = await enrolled('Alpha', '242060000001');
     const b = await enrolled('Bravo', '242060000002');
     await as(adminToken, http().post('/payments')).send({
@@ -201,17 +201,18 @@ describe('Reprise des encaissements d’avant l’application (e2e)', () => {
     expect(hier.entrees.total).toBe(0);
     expect(hier.entrees.count).toBe(0);
     expect(hier.soldeJour).toBe(0);
-    expect(hier.soldeCumule).toBe(0);
     expect(hier.entrees.reprise).toEqual({ count: 1, total: 45000 });
+    // Les fonds reçus à la fin d'hier : la reprise y est, pas le paiement d'aujourd'hui.
+    expect(hier.soldeCumule).toBe(45000);
 
     const auj = await closing(today());
     expect(auj.entrees.total).toBe(10000);
     expect(auj.soldeJour).toBe(10000);
-    expect(auj.soldeCumule).toBe(10000);
+    expect(auj.soldeCumule).toBe(55000);
     expect(auj.entrees.reprise).toEqual({ count: 0, total: 0 });
   });
 
-  it('en revanche il compte dans l’encaissé du tableau de bord, pas dans le solde de caisse', async () => {
+  it('le tableau de bord : solde cumulé = total encaissé moins les sorties, la reprise étant indiquée à part', async () => {
     const a = await enrolled('Alpha', '242060000001');
     await payments.recordHistorical(
       {
@@ -226,7 +227,7 @@ describe('Reprise des encaissements d’avant l’application (e2e)', () => {
     );
     expect(dash.body.financier.totalEncaisse).toBe(45000);
     expect(dash.body.financier.totalEncaisseReprise).toBe(45000);
-    expect(dash.body.financier.soldeCaisseCumule).toBe(0);
+    expect(dash.body.financier.soldeCaisseCumule).toBe(45000);
   });
 
   it('refuse un montant au-delà du solde, une ligne déjà soldée, une facture annulée, une date future, un montant non entier', async () => {

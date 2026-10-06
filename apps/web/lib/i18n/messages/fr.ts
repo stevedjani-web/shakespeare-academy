@@ -182,7 +182,6 @@ export const fr = {
   "dash.cashBalance": "Solde de caisse cumulé",
   "dash.cashHint": "Entrées moins sorties",
   "dash.collectedHintReprise": "Argent réellement reçu, dont {amount} encaissés avant l'application",
-  "dash.cashHintReprise": "Entrées moins sorties, sans les {amount} encaissés avant l'application",
   "dash.cashPayments": "Paiements en espèces",
   "dash.mobilePayments": "Paiements Mobile Money",
   "dash.billingProgress": "Où en est la facturation ?",

@@ -301,11 +301,7 @@ export default function DashboardHomePage() {
                   value={formatMontant(stats.financier.soldeCaisseCumule)}
                   tone={stats.financier.soldeCaisseCumule >= 0 ? "success" : "danger"}
                   icon={<PiggyBank size={18} />}
-                  hint={
-                    stats.financier.totalEncaisseReprise > 0
-                      ? t("dash.cashHintReprise", { amount: formatMontant(stats.financier.totalEncaisseReprise) })
-                      : t("dash.cashHint")
-                  }
+                  hint={t("dash.cashHint")}
                 />
                 <StatCard label={t("dash.cashPayments")} value={formatMontant(stats.paiements.parMode.ESPECES)} tone="success" icon={<Banknote size={18} />} />
                 <StatCard label={t("dash.mobilePayments")} value={formatMontant(stats.paiements.parMode.MOBILE_MONEY)} tone="info" icon={<Smartphone size={18} />} />
