@@ -8,6 +8,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { formatDate } from "@/lib/format";
 import { useSchoolBrand } from "@/lib/school-brand";
+import { useAuthImage } from "@/lib/use-auth-image";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Select, SuccessMessage } from "@/components/ui";
 import { describeError } from "@/components/vie-scolaire/shared";
 import {
@@ -45,6 +46,7 @@ function alertText(a: FamilyAlert): string {
 
 function changeLine(c: FamilyChange): string {
   const label = tr(`fam.adm.field.${c.champ}`);
+  if (c.champ === "photo") return label;
   if (c.cible === "COMPTE") return `${label} : ${tr("fam.adm.accountCreated")}`;
   if (c.type === "remplacement") return `${label} : ${c.avant ?? "—"} → ${c.apres ?? "—"}`;
   return `${label} : ${c.apres ?? "—"}`;
@@ -225,6 +227,8 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
   const proposed = analysis?.etudiantPropose ?? null;
   const conflict = hasConflict(analysis);
   const canValidate = pending && !!(studentId || proposed);
+  // Photo envoyée par le parent : fichier privé, lu avec le jeton du personnel (jamais une adresse publique).
+  const photoSrc = useAuthImage(pending && child.photo ? `/family-collection/children/${child.id}/photo` : null);
 
   async function loadRoster() {
     if (roster) return;
@@ -281,7 +285,12 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
   return (
     <li className="rounded-2xl border border-border bg-surface-muted/50 p-3.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="flex items-start gap-3">
+          {photoSrc && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoSrc} alt={t("fam.adm.photoBy")} title={t("fam.adm.photoBy")} className="h-16 w-12 shrink-0 rounded-lg object-cover shadow-sm ring-1 ring-border" />
+          )}
+          <div>
           <p className="font-semibold text-ink">
             {child.prenom} {child.nom}
           </p>
@@ -289,6 +298,7 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
             {t("fam.adm.bornOn", { date: formatDate(child.dateNaissance) })}
             {child.lieuNaissance && t("fam.adm.bornAt", { place: child.lieuNaissance })} · {t("fam.adm.declaredClass", { classe: child.classe.nom })}
           </p>
+          </div>
         </div>
         {child.statut === "VALIDE" && <Badge color="green">{t("fam.adm.validated")}</Badge>}
         {child.statut === "REFUSE" && <Badge color="red">{t("fam.adm.refused")}</Badge>}

@@ -1,5 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import sharp from 'sharp';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/test-app';
 import { cleanDatabase } from './utils/clean-database';
@@ -410,7 +413,13 @@ describe('Collecte des informations des familles (e2e)', () => {
       const res = await publicPost(token, payload()).expect(201);
       expect(res.body.recu).toBe(true);
       expect(res.body.enfants).toEqual([
-        { prenom: 'Alice', nom: 'Moukala', classe: 'CM2 A', ordre: 0 },
+        {
+          prenom: 'Alice',
+          nom: 'Moukala',
+          classe: 'CM2 A',
+          ordre: 0,
+          photo: false,
+        },
       ]);
       expect(await prisma.student.count()).toBe(before.students);
       expect(await prisma.guardian.count()).toBe(before.guardians);
@@ -1116,6 +1125,256 @@ describe('Collecte des informations des familles (e2e)', () => {
         (e: { prenom: string }) => e.prenom === 'Carine',
       );
       expect(carine).toMatchObject({ dateNaissance: true, responsable: true });
+    });
+  });
+
+  // ----------------------------------------------------------------- Photo d'identité
+
+  describe('photo d’identité de l’enfant (facultative)', () => {
+    let token: string;
+    let alice: { id: string };
+    const familyDir = join(process.cwd(), 'private-uploads', 'family-photos');
+    const studentDir = join(process.cwd(), 'private-uploads', 'students');
+    const count = (dir: string) =>
+      existsSync(dir) ? readdirSync(dir).length : 0;
+
+    beforeEach(async () => {
+      alice = await student('Moukala', 'Alice', env.classA.id);
+      token = await link(env.classA.id);
+    });
+
+    const jpeg = (width = 800, height = 500) =>
+      sharp({
+        create: {
+          width,
+          height,
+          channels: 3,
+          background: { r: 200, g: 60, b: 60 },
+        },
+      })
+        .jpeg()
+        .toBuffer();
+
+    const sendWithPhoto = (
+      data: object,
+      photos: Array<{ field: string; buffer: Buffer; name?: string }>,
+    ) => {
+      let req = request(app.getHttpServer())
+        .post(`/family-collection/public/${token}`)
+        .field('payload', JSON.stringify(data));
+      for (const p of photos) {
+        req = req.attach(p.field, p.buffer, p.name ?? 'photo.jpg');
+      }
+      return req;
+    };
+
+    const childOf = async () => (await pending())[0].enfants[0];
+
+    it('enregistre la photo recadrée en portrait 3:4, hors du dossier public, lisible du seul personnel', async () => {
+      const res = await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      expect(res.status).toBe(201);
+      expect(res.body.enfants[0].photo).toBe(true);
+
+      const child = await childOf();
+      const photo = await get(`/family-collection/children/${child.id}/photo`)
+        .buffer(true)
+        .parse((r, cb) => {
+          const chunks: Buffer[] = [];
+          r.on('data', (c: Buffer) => chunks.push(c));
+          r.on('end', () => cb(null, Buffer.concat(chunks)));
+        });
+      expect(photo.status).toBe(200);
+      expect(photo.headers['content-type']).toMatch(/image\/jpeg/);
+      expect(photo.headers['cache-control']).toMatch(/no-store/);
+      const meta = await sharp(photo.body as Buffer).metadata();
+      expect([meta.width, meta.height]).toEqual([450, 600]);
+
+      // Jamais servie publiquement, ni sans jeton, ni à un rôle sans le droit.
+      await request(app.getHttpServer())
+        .get(`/family-collection/children/${child.id}/photo`)
+        .expect(401);
+      const stored = await prisma.familySubmissionChild.findFirstOrThrow();
+      expect(stored.photoFichier).toMatch(/\.jpg$/);
+      await request(app.getHttpServer())
+        .get(`/uploads/${stored.photoFichier}`)
+        .expect(404);
+      const sch = await prisma.school.findFirstOrThrow();
+      const { user, motDePasse } = await createUserWithRole(
+        prisma,
+        sch.id,
+        'COMPTABLE',
+        { email: 'compta-photo@test.local' },
+      );
+      const t = await login(user.email, motDePasse);
+      await get(`/family-collection/children/${child.id}/photo`, t).expect(403);
+    });
+
+    it('un envoi sans photo reste valable, et la photo ne concerne que l’enfant visé', async () => {
+      const res = await sendWithPhoto(
+        payload({
+          enfants: [
+            { nom: 'Moukala', prenom: 'Alice', dateNaissance: '2015-04-12' },
+            { nom: 'Bakala', prenom: 'Eva', dateNaissance: '2013-08-01' },
+          ],
+        }),
+        [{ field: 'photo_1', buffer: await jpeg(300, 900) }],
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.enfants.map((e: { photo: boolean }) => e.photo)).toEqual([
+        false,
+        true,
+      ]);
+      const [first, second] = (
+        await prisma.familySubmissionChild.findMany({
+          orderBy: { ordre: 'asc' },
+        })
+      ).map((c) => c.photoFichier);
+      expect(first).toBeNull();
+      expect(second).not.toBeNull();
+    });
+
+    it('refuse un faux fichier image, sans rien enregistrer ni laisser de fichier', async () => {
+      const before = count(familyDir);
+      const res = await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: Buffer.from('ceci n’est pas une image') },
+      ]);
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/Moukala|Alice|illisible/);
+      expect(await prisma.familySubmission.count()).toBe(0);
+      expect(count(familyDir)).toBe(before);
+    });
+
+    it('refuse un format qui n’est ni JPEG, ni PNG, ni WebP (GIF)', async () => {
+      const gif = await sharp({
+        create: { width: 20, height: 20, channels: 3, background: '#0000ff' },
+      })
+        .gif()
+        .toBuffer();
+      const res = await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: gif, name: 'x.gif' },
+      ]);
+      expect(res.status).toBe(400);
+      expect(await prisma.familySubmission.count()).toBe(0);
+    });
+
+    it('refuse une photo trop lourde (413), une photo de rang inconnu et un champ inattendu', async () => {
+      const before = count(familyDir);
+      const big = Buffer.alloc(3 * 1024 * 1024 + 100, 1);
+      const tooBig = await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: big },
+      ]);
+      expect(tooBig.status).toBe(413);
+      const outOfRange = await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+        { field: 'photo_5', buffer: await jpeg() },
+      ]);
+      expect(outOfRange.status).toBe(400);
+      const other = await sendWithPhoto(payload(), [
+        { field: 'fichier_0', buffer: await jpeg() },
+      ]);
+      expect(other.status).toBe(400);
+      expect(await prisma.familySubmission.count()).toBe(0);
+      expect(count(familyDir)).toBe(before);
+    });
+
+    it('un envoi multipart invalide est refusé comme un envoi JSON (consentement)', async () => {
+      const res = await sendWithPhoto(payload({ consentement: false }), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      expect(res.status).toBe(400);
+      expect(await prisma.familySubmission.count()).toBe(0);
+    });
+
+    it('la validation pose la photo sur l’élève (dossier privé), efface celle du parent et l’annonce dans l’aperçu', async () => {
+      await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      const child = await childOf();
+      expect(
+        child.analyse!.modifications.some((m) => m.champ === 'photo'),
+      ).toBe(true);
+      const stored = (await prisma.familySubmissionChild.findFirstOrThrow())
+        .photoFichier as string;
+      await post(`/family-collection/children/${child.id}/valider`).expect(201);
+
+      const updated = await prisma.student.findUniqueOrThrow({
+        where: { id: alice.id },
+      });
+      expect(updated.photoUrl).toMatch(/\.jpg$/);
+      expect(existsSync(join(studentDir, updated.photoUrl as string))).toBe(
+        true,
+      );
+      expect(existsSync(join(familyDir, stored))).toBe(false);
+      expect(
+        (await prisma.familySubmissionChild.findFirstOrThrow()).photoFichier,
+      ).toBeNull();
+      const served = await get(`/students/${alice.id}/photo`);
+      expect(served.status).toBe(200);
+      expect(served.headers['content-type']).toMatch(/image\/jpeg/);
+    });
+
+    it('une photo déjà au dossier n’est remplacée que sur confirmation, l’ancienne est supprimée', async () => {
+      const oldName = 'ancienne-photo.jpg';
+      mkdirSync(studentDir, { recursive: true });
+      writeFileSync(join(studentDir, oldName), await jpeg(100, 133));
+      await prisma.student.update({
+        where: { id: alice.id },
+        data: { photoUrl: oldName },
+      });
+      await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      const child = await childOf();
+      expect(child.analyse!.alertes.map((a) => a.code)).toContain(
+        'PHOTO_DIFFERENTE',
+      );
+      expect(child.analyse!.simple).toBe(false);
+      await post(`/family-collection/children/${child.id}/valider`).expect(409);
+      expect(
+        (await prisma.student.findUniqueOrThrow({ where: { id: alice.id } }))
+          .photoUrl,
+      ).toBe(oldName);
+
+      await post(`/family-collection/children/${child.id}/valider`, admin, {
+        confirmer: true,
+      }).expect(201);
+      const replaced = await prisma.student.findUniqueOrThrow({
+        where: { id: alice.id },
+      });
+      expect(replaced.photoUrl).not.toBe(oldName);
+      expect(existsSync(join(studentDir, oldName))).toBe(false);
+      expect(existsSync(join(studentDir, replaced.photoUrl as string))).toBe(
+        true,
+      );
+    });
+
+    it('refuser un enfant supprime sa photo', async () => {
+      await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      const child = await childOf();
+      const stored = (await prisma.familySubmissionChild.findFirstOrThrow())
+        .photoFichier as string;
+      expect(existsSync(join(familyDir, stored))).toBe(true);
+      await post(`/family-collection/children/${child.id}/refuser`, admin, {
+        motif: 'Pas notre élève',
+      }).expect(201);
+      expect(existsSync(join(familyDir, stored))).toBe(false);
+      await get(`/family-collection/children/${child.id}/photo`).expect(404);
+    });
+
+    it('le journal ne contient jamais le nom du fichier de la photo', async () => {
+      await sendWithPhoto(payload(), [
+        { field: 'photo_0', buffer: await jpeg() },
+      ]);
+      const stored = (await prisma.familySubmissionChild.findFirstOrThrow())
+        .photoFichier as string;
+      const child = await childOf();
+      await post(`/family-collection/children/${child.id}/valider`).expect(201);
+      const logs = JSON.stringify(await prisma.auditLog.findMany());
+      expect(logs).not.toContain(stored);
     });
   });
 });

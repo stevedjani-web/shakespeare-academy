@@ -25,6 +25,12 @@ export interface FamilyChildForm {
   dateNaissance: string;
   lieuNaissance: string;
   classId: string;
+  /** Photo d'identité facultative, déjà recadrée en portrait 3:4 (jamais gardée dans le brouillon). */
+  photo: Blob | null;
+  /** Photo d'origine (avant recadrage), gardée pour pouvoir recadrer de nouveau sans la reprendre. */
+  photoSource: Blob | null;
+  /** Adresse locale de l'aperçu de la photo (à libérer avec URL.revokeObjectURL). */
+  photoUrl: string | null;
 }
 
 export type FamilyParentField = "nom" | "prenom" | "telephone" | "email" | "lien";
@@ -65,6 +71,19 @@ export function passwordIssue(password: string, confirmation: string): PasswordI
   if (password.length < 8) return "short";
   if (confirmation !== password) return "mismatch";
   return null;
+}
+
+/**
+ * Envoi multipart : le même JSON dans « payload » et, pour chaque enfant qui a une photo, un fichier « photo_<rang> ».
+ * Le rang est celui de l'enfant dans l'envoi (il change si une fiche est retirée), donc calculé ici, au dernier moment.
+ */
+export function buildFormData(payload: object, children: Array<{ photo: Blob | null }>): FormData {
+  const body = new FormData();
+  body.append("payload", JSON.stringify(payload));
+  children.forEach((c, i) => {
+    if (c.photo) body.append(`photo_${i}`, c.photo, `photo_${i}.jpg`);
+  });
+  return body;
 }
 
 /** Corps envoyé à l'API : une valeur facultative vide est omise (jamais une chaîne vide). */
@@ -206,6 +225,8 @@ export interface FamilyChildView {
   statut: "EN_ATTENTE" | "VALIDE" | "REFUSE";
   motifRefus: string | null;
   traiteLe: string | null;
+  /** Le parent a joint une photo d'identité (lue avec le jeton du personnel). */
+  photo: boolean;
   eleve: { id: string; nom: string; prenom: string; matricule: string } | null;
   analyse: FamilyAnalysis | null;
 }

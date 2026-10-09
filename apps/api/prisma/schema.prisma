@@ -857,6 +857,8 @@ model FamilySubmissionChild {
   prenom          String
   dateNaissance   DateTime
   lieuNaissance   String?
+  // Photo d'identité facultative envoyée par le parent (portrait 3:4, JPEG), fichier privé jamais servi publiquement.
+  photoFichier    String?
   statut          FamilyChildStatus @default(EN_ATTENTE)
   motifRefus      String?
   // Renseigné à la validation (simple identifiant, sans relation : un dossier élève n'est jamais bloqué par cette table).

@@ -8,12 +8,20 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
+import { access, copyFile, unlink } from 'fs/promises';
+import { basename, extname, join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { pick } from '../common/language';
 import { CONSENT_VERSION } from '../parent-portal/parent-auth.util';
+import { STUDENT_PHOTO_DIR } from '../students/student-photo.storage';
+import {
+  familyPhotoPath,
+  removeFamilyPhoto,
+  storeFamilyPhoto,
+} from './family-photo';
 import {
   matchNames,
   nameTokens,
@@ -212,7 +220,11 @@ export class FamilyCollectionService {
     return date;
   }
 
-  async submit(token: string, dto: SubmitFamilyDto) {
+  async submit(
+    token: string,
+    dto: SubmitFamilyDto,
+    photos: Array<{ index: number; buffer: Buffer }> = [],
+  ) {
     const link = await this.activeLink(token);
     if (!dto.consentement) {
       throw new BadRequestException(
@@ -307,8 +319,61 @@ export class FamilyCollectionService {
     const motDePasseHash = await argon2.hash(dto.motDePasse, {
       type: argon2.argon2id,
     });
+    // Photos facultatives : une par enfant au plus, rattachée au rang de la fiche. Traitées après toutes les
+    // validations (rien n'est écrit si la demande est refusée plus haut) ; retirées si l'enregistrement échoue.
+    const stored = new Map<number, string>();
+    const dropPhotos = () =>
+      Promise.all([...stored.values()].map((f) => removeFamilyPhoto(f)));
+    for (const p of photos) {
+      if (p.index < 0 || p.index >= dto.enfants.length || stored.has(p.index)) {
+        await dropPhotos();
+        throw new BadRequestException(
+          pick({
+            fr: 'Photo jointe inattendue.',
+            en: 'Unexpected attached photo.',
+          }),
+        );
+      }
+      try {
+        stored.set(p.index, await storeFamilyPhoto(p.buffer));
+      } catch (e) {
+        await dropPhotos();
+        if (e instanceof BadRequestException) {
+          throw new BadRequestException(
+            `${label(p.index)} : ${(e.getResponse() as { message: string }).message}`,
+          );
+        }
+        throw e;
+      }
+    }
+
+    let submission: { id: string };
+    try {
+      submission = await this.createSubmission(
+        schoolId,
+        link,
+        dto,
+        births,
+        motDePasseHash,
+        stored,
+      );
+    } catch (e) {
+      await dropPhotos();
+      throw e;
+    }
+    return this.finishSubmit(submission, link, dto, className, stored);
+  }
+
+  private createSubmission(
+    schoolId: string,
+    link: { id: string; classId: string },
+    dto: SubmitFamilyDto,
+    births: Date[],
+    motDePasseHash: string,
+    stored: Map<number, string>,
+  ) {
     const r = dto.responsable;
-    const submission = await this.prisma.familySubmission.create({
+    return this.prisma.familySubmission.create({
       data: {
         schoolId,
         linkId: link.id,
@@ -329,10 +394,20 @@ export class FamilyCollectionService {
             prenom: e.prenom.trim(),
             dateNaissance: births[i],
             lieuNaissance: norm(e.lieuNaissance),
+            photoFichier: stored.get(i) ?? null,
           })),
         },
       },
     });
+  }
+
+  private async finishSubmit(
+    submission: { id: string },
+    link: { classId: string },
+    dto: SubmitFamilyDto,
+    className: Map<string, string>,
+    stored: Map<number, string>,
+  ) {
     // Ni le mot de passe ni les coordonnées dans le journal : le lien, la classe et le nombre d'enfants suffisent.
     await this.log(
       null,
@@ -349,6 +424,7 @@ export class FamilyCollectionService {
         nom: e.nom.trim(),
         classe: className.get(e.classId || link.classId) as string,
         ordre: i,
+        photo: stored.has(i),
       })),
     };
   }
@@ -671,6 +747,28 @@ export class FamilyCollectionService {
       }
     }
 
+    // Photo d'identité : ajoutée si l'élève n'en a pas ; une photo déjà au dossier n'est remplacée que sur confirmation.
+    if (child.photoFichier) {
+      if (!student.photoUrl) {
+        modifications.push({
+          cible: 'ELEVE',
+          champ: 'photo',
+          avant: null,
+          apres: 'photo',
+          type: 'ajout',
+        });
+      } else {
+        alertes.push({ code: 'PHOTO_DIFFERENTE', severite: 'conflit' });
+        modifications.push({
+          cible: 'ELEVE',
+          champ: 'photo',
+          avant: 'photo',
+          apres: 'photo',
+          type: 'remplacement',
+        });
+      }
+    }
+
     const existing = guardians.find((g) =>
       samePhoneNumber(g.telephone, sub.telephone),
     );
@@ -871,6 +969,7 @@ export class FamilyCollectionService {
         statut: c.statut,
         motifRefus: c.motifRefus,
         traiteLe: c.traiteLe,
+        photo: !!c.photoFichier,
         eleve: c.studentId ? (byId.get(c.studentId) ?? null) : null,
         analyse:
           withAnalysis && c.statut === 'EN_ATTENTE'
@@ -936,6 +1035,32 @@ export class FamilyCollectionService {
     return this.childAnalysis(child, sub, roster, guardians, chosen);
   }
 
+  /** Fichier de la photo envoyée par le parent, pour l'afficher au secrétariat pendant la validation. */
+  async childPhoto(
+    childId: string,
+  ): Promise<{ path: string; contentType: string }> {
+    const child = await this.prisma.familySubmissionChild.findUnique({
+      where: { id: childId },
+      select: { photoFichier: true },
+    });
+    if (!child?.photoFichier) {
+      throw new NotFoundException('Aucune photo pour cet enfant.');
+    }
+    const path = familyPhotoPath(child.photoFichier);
+    try {
+      await access(path);
+    } catch {
+      throw new NotFoundException('Aucune photo pour cet enfant.');
+    }
+    return {
+      path,
+      contentType:
+        extname(path).toLowerCase() === '.jpg'
+          ? 'image/jpeg'
+          : 'application/octet-stream',
+    };
+  }
+
   // ----------------------------------------------------------------- Décisions
 
   async validate(childId: string, dto: ValidateFamilyChildDto, userId: string) {
@@ -972,6 +1097,22 @@ export class FamilyCollectionService {
     const confirmer = dto.confirmer === true;
     const target = student;
 
+    // Photo : copiée dans le dossier privé des élèves avant la transaction (retirée si elle échoue). Elle ne remplace
+    // une photo existante que sur confirmation ; sinon elle est simplement écartée.
+    let newPhoto: string | null = null;
+    if (child.photoFichier && (!target.photoUrl || confirmer)) {
+      const name = `${randomUUID()}.jpg`;
+      try {
+        await copyFile(
+          familyPhotoPath(child.photoFichier),
+          join(STUDENT_PHOTO_DIR, name),
+        );
+        newPhoto = name;
+      } catch {
+        newPhoto = null; // fichier absent : la validation se fait sans photo
+      }
+    }
+
     const result = await this.prisma
       .$transaction(async (tx) => {
         const claimed = await tx.familySubmissionChild.updateMany({
@@ -981,6 +1122,7 @@ export class FamilyCollectionService {
             studentId: target.id,
             traiteParUserId: userId,
             traiteLe: new Date(),
+            photoFichier: null,
           },
         });
         if (claimed.count !== 1) {
@@ -995,6 +1137,7 @@ export class FamilyCollectionService {
         if (child.lieuNaissance && (!target.lieuNaissance || confirmer)) {
           studentData.lieuNaissance = child.lieuNaissance;
         }
+        if (newPhoto) studentData.photoUrl = newPhoto;
         if (Object.keys(studentData).length > 0) {
           await tx.student.update({
             where: { id: target.id },
@@ -1098,7 +1241,12 @@ export class FamilyCollectionService {
           accountCreated,
         };
       })
-      .catch((e: unknown) => {
+      .catch(async (e: unknown) => {
+        if (newPhoto) {
+          await unlink(join(STUDENT_PHOTO_DIR, newPhoto)).catch(
+            () => undefined,
+          );
+        }
         if (
           e instanceof Prisma.PrismaClientKnownRequestError &&
           e.code === 'P2002'
@@ -1110,6 +1258,13 @@ export class FamilyCollectionService {
         throw e;
       });
 
+    // Validé : le fichier du parent a servi (ou été écarté), l'ancienne photo de l'élève est remplacée.
+    await removeFamilyPhoto(child.photoFichier);
+    if (newPhoto && target.photoUrl) {
+      await unlink(join(STUDENT_PHOTO_DIR, basename(target.photoUrl))).catch(
+        () => undefined,
+      );
+    }
     await this.log(
       userId,
       'FAMILY_COLLECTION_VALIDATE',
@@ -1144,11 +1299,13 @@ export class FamilyCollectionService {
         motifRefus: motif.trim(),
         traiteParUserId: userId,
         traiteLe: new Date(),
+        photoFichier: null,
       },
     });
     if (claimed.count !== 1) {
       throw new ConflictException('Cet enfant a déjà été traité.');
     }
+    await removeFamilyPhoto(child.photoFichier);
     // Plus aucun enfant à traiter et aucun compte créé : le mot de passe choisi n'a plus de raison d'être conservé.
     const remaining = await this.prisma.familySubmissionChild.count({
       where: { submissionId: sub.id, statut: 'EN_ATTENTE' },
