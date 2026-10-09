@@ -7,7 +7,7 @@
 // - Les appels à l'API (autre adresse) ne passent JAMAIS par ici : leur copie est gérée par
 //   l'application (lib/api.ts), par utilisateur, et effacée à la déconnexion.
 
-const STATIC_CACHE = "sa-static-v2";
+const STATIC_CACHE = "sa-static-v3";
 const PAGES_CACHE = "sa-pages-v1";
 const OFFLINE_URL = "/offline.html";
 const SLOW_NETWORK_MS = 3500;
