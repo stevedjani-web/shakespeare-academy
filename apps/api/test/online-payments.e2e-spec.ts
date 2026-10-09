@@ -707,7 +707,7 @@ describe('Paiement en ligne par les parents (e2e, Lot 17)', () => {
   });
 
   describe('retour perdu', () => {
-    it('une tentative en attente depuis plus de 2 minutes est revérifiée à la lecture par le parent', async () => {
+    it('une tentative en attente depuis plus de 10 secondes est revérifiée à la lecture par le parent', async () => {
       const f = await ready();
       const { depositId, id } = await startPayment(f, 15000);
       // Récente : pas de revérification.
@@ -727,6 +727,38 @@ describe('Paiement en ligne par les parents (e2e, Lot 17)', () => {
         paiement: { numeroRecu: 'REC-000001' },
       });
       expect(await prisma.payment.count()).toBe(1);
+    });
+
+    it('une tentative de 15 secondes dont le retour signé ne vient pas est confirmée par la revérification', async () => {
+      const f = await ready();
+      const { depositId, id } = await startPayment(f, 15000);
+      await prisma.onlinePayment.update({
+        where: { id },
+        data: { createdAt: new Date(Date.now() - 15 * 1000) },
+      });
+      provider.statuses.set(depositId, { statut: 'COMPLETED' });
+      const res = await get(`/portal/payments/${id}`, f.moukalaToken).expect(
+        200,
+      );
+      expect(res.body.statut).toBe('CONFIRME');
+      expect(provider.statusCalls).toEqual([depositId]);
+    });
+
+    it('les sondages rapprochés du parent ne font qu’une demande au fournisseur toutes les 10 secondes', async () => {
+      const f = await ready();
+      const { depositId, id } = await startPayment(f, 15000);
+      await prisma.onlinePayment.update({
+        where: { id },
+        data: { createdAt: new Date(Date.now() - 15 * 1000) },
+      });
+      // Le fournisseur répond encore « en cours » : trois sondages d'affilée (5 secondes d'écart réel dans l'écran).
+      for (let i = 0; i < 3; i++) {
+        const res = await get(`/portal/payments/${id}`, f.moukalaToken).expect(
+          200,
+        );
+        expect(res.body.statut).toBe('EN_ATTENTE');
+      }
+      expect(provider.statusCalls).toEqual([depositId]);
     });
 
     it('une revérification qui échoue ne casse rien : la tentative reste en attente', async () => {

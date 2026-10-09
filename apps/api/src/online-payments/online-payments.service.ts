@@ -35,8 +35,11 @@ import {
 
 const RECEIPT_NUMERO_DIGITS = 6;
 // Une tentative en attente depuis plus longtemps que cela est revérifiée auprès du fournisseur : le retour
-// signé a pu se perdre et l'application n'a pas de planificateur pour aller le chercher.
-const STALE_AFTER_MS = 2 * 60 * 1000;
+// signé a pu se perdre (ou ne jamais être envoyé) et l'application n'a pas de planificateur pour aller le
+// chercher. La revérification part de l'écran du parent, qui sonde toutes les 5 secondes : elle est donc
+// limitée à une demande au fournisseur toutes les 10 secondes et par dépôt, sans quoi chaque sondage en ferait une.
+const STALE_AFTER_MS = 10 * 1000;
+const RECHECK_EVERY_MS = 10 * 1000;
 const LIST_LIMIT = 200;
 
 export type ProviderResult =
@@ -394,7 +397,16 @@ export class OnlinePaymentsService {
     for (const attempt of stale) await this.recheck(attempt.depositId);
   }
 
+  private readonly lastRecheck = new Map<string, number>();
+
   private async recheck(depositId: string): Promise<void> {
+    const now = Date.now();
+    const previous = this.lastRecheck.get(depositId);
+    if (previous !== undefined && now - previous < RECHECK_EVERY_MS) return;
+    this.lastRecheck.set(depositId, now);
+    // Ne garde que les dépôts récemment vérifiés : la table ne grossit jamais indéfiniment.
+    for (const [id, at] of this.lastRecheck)
+      if (now - at > 60 * 60 * 1000) this.lastRecheck.delete(id);
     try {
       const status = await this.provider.getStatus(depositId);
       if (status.statut === 'COMPLETED')
