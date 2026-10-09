@@ -34,10 +34,16 @@ export class PawaPayWebhookController {
     @Res() res: Response,
   ): Promise<void> {
     if (!(await this.verifySignature(req))) {
+      this.logRejected(req, 'deposit');
       res.status(403).send('Signature invalide.');
       return;
     }
     const payload = req.body as DepositCallback;
+    // Trace de chaque retour authentique : sans elle, impossible de savoir si une confirmation est venue
+    // du retour signé ou de la revérification faite à la lecture (jamais le corps, seulement l'identifiant et l'état).
+    this.logger.log(
+      `Retour PawaPay « deposit » reçu : dépôt ${payload?.depositId ?? 'sans identifiant'}, état ${payload?.status ?? 'inconnu'}.`,
+    );
     if (!payload?.depositId) {
       res.status(200).send('OK');
       return;
@@ -91,6 +97,7 @@ export class PawaPayWebhookController {
     kind: string,
   ): Promise<void> {
     if (!(await this.verifySignature(req))) {
+      this.logRejected(req, kind);
       res.status(403).send('Signature invalide.');
       return;
     }
@@ -98,6 +105,15 @@ export class PawaPayWebhookController {
       `Retour PawaPay « ${kind} » reçu (non traité : aucun flux ne le déclenche).`,
     );
     res.status(200).send('OK');
+  }
+
+  // Un retour refusé doit laisser une trace, sinon une mauvaise configuration (« Signed Callbacks » désactivé,
+  // mauvaise adresse signée) reste invisible. Aucune valeur d'en-tête ni corps n'est journalisée.
+  private logRejected(req: RawBodyRequest<Request>, kind: string): void {
+    const has = (name: string) => (req.headers[name] ? 'oui' : 'non');
+    this.logger.warn(
+      `Retour PawaPay « ${kind} » REFUSÉ (signature invalide) : en-tête Signature ${has('signature')}, Signature-Input ${has('signature-input')}, Content-Digest ${has('content-digest')}, corps brut ${req.rawBody ? 'oui' : 'non'}.`,
+    );
   }
 
   private async verifySignature(
