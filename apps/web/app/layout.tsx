@@ -24,10 +24,23 @@ const fraunces = Fraunces({
   style: ["normal", "italic"],
 });
 
+// Adresse publique du site : sert à écrire en entier l'adresse de l'image d'aperçu des liens partagés (WhatsApp, Facebook,
+// Telegram… exigent une adresse complète). L'image elle-même est `app/opengraph-image.png` (logo de l'école, 1200 x 630).
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ecole-shakespeare.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Shakespeare Academy",
   description: "Logiciel de gestion scolaire — Shakespeare Academy",
   applicationName: "Shakespeare Academy",
+  openGraph: {
+    type: "website",
+    siteName: "Shakespeare Academy",
+    title: "Shakespeare Academy",
+    description: "Logiciel de gestion scolaire — Shakespeare Academy",
+    locale: "fr_FR",
+  },
+  twitter: { card: "summary_large_image", title: "Shakespeare Academy", description: "Logiciel de gestion scolaire — Shakespeare Academy" },
   appleWebApp: { capable: true, title: "Shakespeare", statusBarStyle: "default" },
   icons: { icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }], apple: "/icons/apple-touch-icon.png" },
 };
