@@ -101,6 +101,7 @@ model School {
   numberSequences   NumberSequence[]
   students          Student[]
   guardians         Guardian[]
+  familySubmissions FamilySubmission[]
   enrollments       Enrollment[]
   feeTypes          FeeType[]
   feeSchedules      FeeSchedule[]
@@ -232,6 +233,8 @@ model Class {
   updatedAt      DateTime     @updatedAt
 
   enrollments       Enrollment[]
+  collectLink       ClassCollectLink?
+  familyChildren    FamilySubmissionChild[]
   assignments       TeachingAssignment[]
   timetableEntries  TimetableEntry[]
   attendanceCalls   AttendanceCall[]
@@ -782,6 +785,89 @@ model PreRegistrationChild {
   @@index([statut, createdAt])
   @@index([preRegistrationId])
   @@map("pre_registration_children")
+}
+
+// --- Collecte des informations des familles par lien de classe (D184 à D190) -------------------------------------
+
+enum FamilyChildStatus {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+/**
+ * Lien public d'une classe, à poster dans le groupe WhatsApp des parents. Le jeton est aléatoire ; il est relisible par le
+ * secrétariat (qui doit pouvoir recopier le message), jamais renvoyé par une route publique autre que celle qu'il ouvre.
+ * Fermable, prolongeable, régénérable (l'ancien lien cesse alors de fonctionner).
+ */
+model ClassCollectLink {
+  id          String   @id @default(cuid())
+  classId     String   @unique
+  class       Class    @relation(fields: [classId], references: [id])
+  token       String   @unique
+  actif       Boolean  @default(true)
+  expiresAt   DateTime
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions FamilySubmission[]
+
+  @@map("class_collect_links")
+}
+
+/**
+ * Une soumission d'un parent : ses informations, un mot de passe choisi (empreinte Argon2id, effacée dès que le compte
+ * existe) et un ou plusieurs enfants. Rien n'atteint les dossiers avant la validation du secrétariat.
+ */
+model FamilySubmission {
+  id                  String           @id @default(cuid())
+  schoolId            String
+  school              School           @relation(fields: [schoolId], references: [id])
+  linkId              String
+  link                ClassCollectLink @relation(fields: [linkId], references: [id])
+  nom                 String
+  prenom              String
+  telephone           String
+  email               String?
+  profession          String?
+  adresse             String?
+  lien                String?
+  motDePasseHash      String?
+  consentementVersion String
+  createdAt           DateTime         @default(now())
+
+  enfants FamilySubmissionChild[]
+
+  @@index([createdAt])
+  @@index([telephone])
+  @@map("family_submissions")
+}
+
+model FamilySubmissionChild {
+  id              String            @id @default(cuid())
+  submissionId    String
+  submission      FamilySubmission  @relation(fields: [submissionId], references: [id])
+  ordre           Int               @default(0)
+  // Classe déclarée : celle du lien pour le premier enfant, au choix du parent pour les suivants.
+  classId         String
+  class           Class             @relation(fields: [classId], references: [id])
+  // Ce que le parent a tapé : jamais affiché à d'autres, rapproché d'un élève par le serveur puis par le secrétariat.
+  nom             String
+  prenom          String
+  dateNaissance   DateTime
+  lieuNaissance   String?
+  statut          FamilyChildStatus @default(EN_ATTENTE)
+  motifRefus      String?
+  // Renseigné à la validation (simple identifiant, sans relation : un dossier élève n'est jamais bloqué par cette table).
+  studentId       String?
+  traiteParUserId String?
+  traiteLe        DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@index([statut, classId])
+  @@index([submissionId])
+  @@map("family_submission_children")
 }
 
 // --- Discipline (Lot 20) --------------------------------------------------------

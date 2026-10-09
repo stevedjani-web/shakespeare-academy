@@ -206,6 +206,7 @@ export class ParentAuthService {
       : [];
     const account = accounts[0];
     if (!account) {
+      await this.throwIfPendingSubmission(telephone, motDePasse);
       throw new UnauthorizedException(genericLoginError());
     }
     if (account.verrouilleJusqua && account.verrouilleJusqua > new Date()) {
@@ -251,6 +252,43 @@ export class ParentAuthService {
       account.id,
       guardians.find((g) => g.id === account.guardianId)!,
     );
+  }
+
+  /**
+   * Un parent qui a envoyé ses informations par le lien de sa classe (D184) et dont la demande n'est pas encore validée
+   * essaie de se connecter : on lui dit que l'école vérifie, mais SEULEMENT s'il donne le bon mot de passe, pour ne rien
+   * révéler à quelqu'un qui ne connaît que le numéro.
+   */
+  private async throwIfPendingSubmission(
+    telephone: string,
+    motDePasse: string,
+  ) {
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const pending = await this.prisma.familySubmission.findMany({
+      where: {
+        motDePasseHash: { not: null },
+        createdAt: { gte: since },
+        enfants: { some: { statut: 'EN_ATTENTE' } },
+      },
+      select: { telephone: true, motDePasseHash: true },
+      take: 200,
+    });
+    const mine = pending
+      .filter((p) => samePhone(p.telephone, telephone))
+      .slice(0, 3);
+    for (const p of mine) {
+      if (
+        p.motDePasseHash &&
+        (await argon2.verify(p.motDePasseHash, motDePasse))
+      ) {
+        throw new ForbiddenException(
+          pick({
+            fr: "Votre demande est en cours de vérification par l'école. Vous pourrez vous connecter dès qu'elle sera validée.",
+            en: 'Your request is being checked by the school. You will be able to sign in as soon as it is approved.',
+          }),
+        );
+      }
+    }
   }
 
   async refresh(rawRefreshToken: string) {

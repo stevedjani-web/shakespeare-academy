@@ -117,6 +117,12 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     ],
     permission: "ENROLLMENT_MANAGE",
   },
+  "collecte": {
+    id: "collecte",
+    titleKey: "fam.help.title",
+    tipKeys: ["fam.help.tip1", "fam.help.tip2", "fam.help.tip3", "fam.help.tip4"],
+    permission: "ENROLLMENT_MANAGE",
+  },
   "emploi-du-temps": {
     id: "emploi-du-temps",
     titleKey: "cnt.help.emploi-du-temps.title",

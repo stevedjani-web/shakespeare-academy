@@ -58,6 +58,7 @@ const LINKS: NavLink[] = [
   { href: "/eleves", labelKey: "nav.students", icon: GraduationCap, requiredPermission: "STUDENT_READ" },
   { href: "/eleves-par-classe", labelKey: "nav.studentsByClass", icon: School, requiredPermission: "STUDENT_READ" },
   { href: "/preinscriptions", labelKey: "nav.preregistrations", icon: UserPlus, requiredPermission: "ENROLLMENT_MANAGE" },
+  { href: "/collecte", labelKey: "fam.nav", icon: ClipboardList, requiredPermission: "ENROLLMENT_MANAGE" },
   { href: "/vie-scolaire", labelKey: "nav.schoolLife", icon: CalendarClock, requiredPermission: "PEDAGOGY_MANAGE" },
   { href: "/emploi-du-temps", labelKey: "nav.timetable", icon: CalendarRange, requiredPermission: "TIMETABLE_READ" },
   { href: "/appel", labelKey: "nav.attendance", icon: ClipboardCheck, anyPermission: ["ATTENDANCE_READ", "ATTENDANCE_TAKE"] },

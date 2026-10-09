@@ -6,6 +6,7 @@ import { enSchoollife } from "./domains/schoollife.ts";
 import { enTimetable } from "./domains/timetable.ts";
 import { enAcademics } from "./domains/academics.ts";
 import { enContent } from "./domains/content.ts";
+import { enFamily } from "./domains/family.ts";
 
 // English dictionary (British spelling: enrolment, programme…). Same keys as fr.ts: the compiler checks it.
 export const en: Record<MessageKey, string> = {
@@ -517,4 +518,5 @@ export const en: Record<MessageKey, string> = {
   ...enTimetable,
   ...enAcademics,
   ...enContent,
+  ...enFamily,
 };

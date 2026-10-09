@@ -38,6 +38,7 @@ import { OnlinePaymentsModule } from './online-payments/online-payments.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DisciplineModule } from './discipline/discipline.module';
 import { PreRegistrationsModule } from './pre-registrations/pre-registrations.module';
+import { FamilyCollectionModule } from './family-collection/family-collection.module';
 import { ReceiptAssetsModule } from './receipt-assets/receipt-assets.module';
 import { AssistantModule } from './assistant/assistant.module';
 
@@ -78,6 +79,7 @@ import { AssistantModule } from './assistant/assistant.module';
     DocumentsModule,
     DisciplineModule,
     PreRegistrationsModule,
+    FamilyCollectionModule,
     ReceiptAssetsModule,
     AssistantModule,
   ],

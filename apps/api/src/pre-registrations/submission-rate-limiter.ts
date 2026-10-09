@@ -12,7 +12,7 @@ export class SubmissionRateLimiter {
   private readonly hits = new Map<string, number[]>();
   private static readonly WINDOW_MS = 60 * 60 * 1000;
 
-  private limit(): number {
+  protected limit(): number {
     const n = Number(process.env.PREINSCRIPTION_LIMITE_PAR_HEURE);
     return Number.isInteger(n) && n > 0 ? n : 10;
   }
