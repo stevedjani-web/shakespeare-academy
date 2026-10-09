@@ -36,7 +36,7 @@ const tr = (key: string, params?: Record<string, string | number>) => translate(
 function alertText(a: FamilyAlert): string {
   const d = (a.detail ?? {}) as Record<string, unknown>;
   const s = (v: unknown) => (typeof v === "string" ? v : v == null ? "—" : String(v));
-  const params: Record<string, string> = { avant: s(d.avant), apres: s(d.apres) };
+  const params: Record<string, string> = { avant: s(d.avant), apres: s(d.apres), declaree: s(d.declaree), reelle: s(d.reelle) };
   if (typeof d.champ === "string") params.champ = tr(`fam.adm.field.${d.champ}`);
   if (Array.isArray(d.responsables)) {
     params.liste = (d.responsables as Array<{ nom: string; telephone: string | null }>).map((r) => (r.telephone ? `${r.nom} (${r.telephone})` : r.nom)).join(", ");
@@ -215,7 +215,7 @@ function ClassCard({ row, ecole, onChanged, onNotice }: { row: ClassProgress; ec
 
 // ------------------------------------------------------------------------------------------ File de validation
 
-function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () => void }) {
+function ChildRow({ child, classes, onChanged }: { child: FamilyChildView; classes: ClassProgress[]; onChanged: () => void }) {
   const { t } = useI18n();
   const [roster, setRoster] = useState<ClassRosterStudent[] | null>(null);
   const [studentId, setStudentId] = useState("");
@@ -236,6 +236,24 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
       setRoster((await api.get<ClassDetail>(`/family-collection/classes/${child.classe.id}`)).eleves);
     } catch (e) {
       setError(describeError(e));
+    }
+  }
+
+  // Le parent s'est trompé de classe : on corrige la classe déclarée, et la recherche se refait dans la bonne classe.
+  async function changeClass(classId: string) {
+    if (classId === child.classe.id) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.patch(`/family-collection/children/${child.id}/classe`, { classId });
+      setRoster(null);
+      setStudentId("");
+      setOverride(null);
+      onChanged();
+    } catch (e) {
+      setError(describeError(e));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -313,12 +331,24 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
       {pending && analysis && (
         <div className="mt-3 space-y-3">
           <div>
+            <label className="mb-1 block text-xs font-medium text-ink-muted">{t("fam.adm.declaredClassLabel")}</label>
+            <Select value={child.classe.id} disabled={busy} onChange={(e) => void changeClass(e.target.value)}>
+              {classes.map((c) => (
+                <option key={c.classId} value={c.classId}>
+                  {c.classe} · {c.section}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-ink-muted">{t("fam.adm.changeClassHelp")}</p>
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-medium text-ink-muted">{t("fam.adm.chooseStudentLabel")}</label>
             <Select value={studentId || proposed?.id || ""} onFocus={() => void loadRoster()} onChange={(e) => void choose(e.target.value)}>
               <option value="">{t("fam.adm.chooseStudent")}</option>
               {proposed && !roster && (
                 <option value={proposed.id}>
                   {proposed.prenom} {proposed.nom} · {proposed.matricule}
+                  {proposed.classe ? ` · ${proposed.classe}` : ""}
                 </option>
               )}
               {(roster ?? []).map((s) => (
@@ -369,7 +399,7 @@ function ChildRow({ child, onChanged }: { child: FamilyChildView; onChanged: () 
   );
 }
 
-function SubmissionCard({ sub, onChanged }: { sub: FamilySubmissionView; onChanged: () => void }) {
+function SubmissionCard({ sub, classes, onChanged }: { sub: FamilySubmissionView; classes: ClassProgress[]; onChanged: () => void }) {
   const { t } = useI18n();
   const r = sub.responsable;
   return (
@@ -388,7 +418,7 @@ function SubmissionCard({ sub, onChanged }: { sub: FamilySubmissionView; onChang
       <p className="mt-0.5 text-xs text-ink-muted">{t("fam.adm.received", { date: formatDate(sub.creeLe) })}</p>
       <ul className="mt-3 space-y-2.5">
         {sub.enfants.map((c) => (
-          <ChildRow key={c.id} child={c} onChanged={onChanged} />
+          <ChildRow key={c.id} child={c} classes={classes} onChanged={onChanged} />
         ))}
       </ul>
     </Card>
@@ -549,7 +579,7 @@ export default function CollectePage() {
           ) : (
             <div className="space-y-4">
               {(subs ?? []).map((s) => (
-                <SubmissionCard key={s.id} sub={s} onChanged={refresh} />
+                <SubmissionCard key={s.id} sub={s} classes={classes ?? []} onChanged={refresh} />
               ))}
             </div>
           )}

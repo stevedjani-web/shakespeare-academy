@@ -25,6 +25,7 @@ import { FamilyCollectionService } from './family-collection.service';
 import { FamilySubmissionLimiter } from './family-submission-limiter';
 import {
   AnalyseFamilyChildQueryDto,
+  ChangeFamilyChildClassDto,
   CreateCollectLinkDto,
   ListFamilySubmissionsQueryDto,
   MAX_FAMILY_CHILDREN,
@@ -227,6 +228,17 @@ export class FamilyCollectionController {
     @Query() query: AnalyseFamilyChildQueryDto,
   ) {
     return this.collection.analyseChild(childId, query.studentId);
+  }
+
+  // Corrige la classe déclarée par le parent (il s'est trompé de classe) : le rapprochement se refait dans la bonne classe.
+  @Patch('children/:childId/classe')
+  @RequirePermission('ENROLLMENT_MANAGE')
+  changeClass(
+    @Param('childId') childId: string,
+    @Body() dto: ChangeFamilyChildClassDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.collection.changeChildClass(childId, dto.classId, user.id);
   }
 
   @Post('children/:childId/valider')

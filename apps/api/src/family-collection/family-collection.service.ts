@@ -36,7 +36,7 @@ import type {
   ValidateFamilyChildDto,
 } from './dto/family-collection.dto';
 
-/** Élève de l'année active dans une classe, avec ses responsables et l'état de leur compte. */
+/** Élève de l'année active dans une classe, avec ses responsables, l'état de leur compte et sa classe. */
 const STUDENT_WITH_GUARDIANS = {
   studentGuardians: {
     include: {
@@ -44,6 +44,14 @@ const STUDENT_WITH_GUARDIANS = {
         include: { parentAccount: { select: { statut: true } } },
       },
     },
+  },
+  enrollments: {
+    where: {
+      statut: 'ACTIVE' as const,
+      academicYear: { statut: 'ACTIVE' as const },
+    },
+    select: { class: { select: { id: true, nom: true } } },
+    take: 1,
   },
 } satisfies Prisma.StudentInclude;
 type StudentCtx = Prisma.StudentGetPayload<{
@@ -86,6 +94,8 @@ interface Proposal {
   match: NameMatch | 'PLUSIEURS';
   student: StudentCtx | null;
   candidats: StudentCtx[];
+  /** Trouvé dans une autre classe que celle déclarée par le parent (le parent s'est trompé de classe, ou l'élève a changé). */
+  horsClasse: boolean;
 }
 
 const day = (d: Date | null | undefined) =>
@@ -662,6 +672,17 @@ export class FamilyCollectionService {
     });
   }
 
+  /** Tous les élèves inscrits dans l'année active : sert à chercher hors de la classe déclarée quand elle ne donne rien. */
+  private async yearRoster(): Promise<StudentCtx[]> {
+    return this.prisma.student.findMany({
+      where: {
+        statut: 'ACTIF',
+        enrollments: { some: CURRENT_ENROLLMENT },
+      },
+      include: STUDENT_WITH_GUARDIANS,
+    });
+  }
+
   private async allGuardians(): Promise<GuardianCtx[]> {
     return this.prisma.guardian.findMany({
       where: { telephone: { not: null } },
@@ -672,20 +693,42 @@ export class FamilyCollectionService {
   private propose(
     child: { nom: string; prenom: string },
     roster: StudentCtx[],
+    year: StudentCtx[] = [],
   ): Proposal {
-    const scored = roster
-      .map((s) => ({ s, m: matchNames(child, s) }))
-      .filter((x) => x.m !== 'AUCUN');
-    for (const level of ['EXACT', 'PROBABLE'] as const) {
-      const hits = scored.filter((x) => x.m === level).map((x) => x.s);
-      if (hits.length === 1) {
-        return { match: level, student: hits[0], candidats: hits };
+    const search = (list: StudentCtx[], horsClasse: boolean): Proposal => {
+      const scored = list
+        .map((s) => ({ s, m: matchNames(child, s) }))
+        .filter((x) => x.m !== 'AUCUN');
+      for (const level of ['EXACT', 'PROBABLE'] as const) {
+        const hits = scored.filter((x) => x.m === level).map((x) => x.s);
+        if (hits.length === 1) {
+          return {
+            match: level,
+            student: hits[0],
+            candidats: hits,
+            horsClasse,
+          };
+        }
+        if (hits.length > 1) {
+          return {
+            match: 'PLUSIEURS',
+            student: null,
+            candidats: hits,
+            horsClasse,
+          };
+        }
       }
-      if (hits.length > 1) {
-        return { match: 'PLUSIEURS', student: null, candidats: hits };
-      }
-    }
-    return { match: 'AUCUN', student: null, candidats: [] };
+      return { match: 'AUCUN', student: null, candidats: [], horsClasse };
+    };
+    // La classe déclarée d'abord. Si elle ne donne rien (le parent s'est trompé de classe), on cherche dans toute
+    // l'année : la proposition est alors signalée « autre classe » et n'est jamais validable en un clic.
+    const inClass = search(roster, false);
+    if (inClass.match !== 'AUCUN' || year.length === 0) return inClass;
+    const ids = new Set(roster.map((r) => r.id));
+    return search(
+      year.filter((y) => !ids.has(y.id)),
+      true,
+    );
   }
 
   /** Ce qui changerait dans les dossiers si on validait cet enfant pour cet élève, et ce qui mérite un regard. */
@@ -888,6 +931,12 @@ export class FamilyCollectionService {
       nom: student.nom,
       prenom: student.prenom,
       matricule: student.matricule,
+      classe:
+        (
+          student as {
+            enrollments?: Array<{ class: { nom: string } }>;
+          }
+        ).enrollments?.[0]?.class.nom ?? null,
     };
   }
 
@@ -897,8 +946,9 @@ export class FamilyCollectionService {
     roster: StudentCtx[],
     guardians: GuardianCtx[],
     chosen?: StudentCtx,
+    year: StudentCtx[] = [],
   ) {
-    const proposal = this.propose(child, roster);
+    const proposal = this.propose(child, roster, year);
     const student = chosen ?? proposal.student;
     const detail = student
       ? this.analyse(student, child, sub, guardians)
@@ -907,6 +957,17 @@ export class FamilyCollectionService {
           modifications: [] as Change[],
           conflit: false,
         };
+    // Élève trouvé dans une autre classe que celle déclarée : le secrétariat le voit, et ce n'est jamais un cas « simple ».
+    if (!chosen && proposal.student && proposal.horsClasse) {
+      detail.alertes.unshift({
+        code: 'AUTRE_CLASSE',
+        severite: 'info',
+        detail: {
+          declaree: child.class.nom,
+          reelle: this.describe(proposal.student).classe,
+        },
+      });
+    }
     return {
       match: chosen ? ('CHOISI' as const) : proposal.match,
       etudiantPropose: student ? this.describe(student) : null,
@@ -914,7 +975,11 @@ export class FamilyCollectionService {
       alertes: detail.alertes,
       modifications: detail.modifications,
       // Validable en un clic : l'élève est sûr et rien d'existant n'est modifié ni doublé.
-      simple: proposal.match === 'EXACT' && !chosen && !detail.conflit,
+      simple:
+        proposal.match === 'EXACT' &&
+        !proposal.horsClasse &&
+        !chosen &&
+        !detail.conflit,
     };
   }
 
@@ -933,6 +998,7 @@ export class FamilyCollectionService {
       for (const id of classIds) rosters.set(id, await this.roster(id));
     }
     const guardians = withAnalysis ? await this.allGuardians() : [];
+    const year = withAnalysis ? await this.yearRoster() : [];
     const studentIds = [
       ...new Set(
         subs.flatMap((s) =>
@@ -973,7 +1039,14 @@ export class FamilyCollectionService {
         eleve: c.studentId ? (byId.get(c.studentId) ?? null) : null,
         analyse:
           withAnalysis && c.statut === 'EN_ATTENTE'
-            ? this.childAnalysis(c, s, rosters.get(c.classId) ?? [], guardians)
+            ? this.childAnalysis(
+                c,
+                s,
+                rosters.get(c.classId) ?? [],
+                guardians,
+                undefined,
+                year,
+              )
             : null,
       })),
     }));
@@ -1032,7 +1105,44 @@ export class FamilyCollectionService {
         })) ?? undefined;
       if (!chosen) throw new NotFoundException('Élève introuvable.');
     }
-    return this.childAnalysis(child, sub, roster, guardians, chosen);
+    return this.childAnalysis(
+      child,
+      sub,
+      roster,
+      guardians,
+      chosen,
+      chosen ? [] : await this.yearRoster(),
+    );
+  }
+
+  /**
+   * Le parent a choisi une autre classe que celle de l'élève (ou s'est trompé) : le secrétariat corrige la classe déclarée,
+   * et le rapprochement se refait dans la bonne classe. Seulement tant que l'enfant n'est pas traité ; journalisé.
+   */
+  async changeChildClass(childId: string, classId: string, userId: string) {
+    const { child, sub } = await this.loadChild(childId);
+    if (child.statut !== 'EN_ATTENTE') {
+      throw new ConflictException('Cet enfant a déjà été traité.');
+    }
+    await this.activeYearClass(classId);
+    if (child.classId !== classId) {
+      const claimed = await this.prisma.familySubmissionChild.updateMany({
+        where: { id: child.id, statut: 'EN_ATTENTE' },
+        data: { classId },
+      });
+      if (claimed.count !== 1) {
+        throw new ConflictException('Cet enfant a déjà été traité.');
+      }
+      await this.log(
+        userId,
+        'FAMILY_COLLECTION_CLASS_CHANGE',
+        'FamilySubmissionChild',
+        child.id,
+        { classId: child.classId },
+        { classId },
+      );
+    }
+    return (await this.views([await this.reload(sub.id)], true))[0];
   }
 
   /** Fichier de la photo envoyée par le parent, pour l'afficher au secrétariat pendant la validation. */
@@ -1078,7 +1188,7 @@ export class FamilyCollectionService {
       });
       if (!student) throw new NotFoundException('Élève introuvable.');
     } else {
-      student = this.propose(child, roster).student;
+      student = this.propose(child, roster, await this.yearRoster()).student;
     }
     if (!student) {
       throw new UnprocessableEntityException(
@@ -1341,13 +1451,21 @@ export class FamilyCollectionService {
     });
     const roster = await this.roster(classId);
     const guardians = await this.allGuardians();
+    const year = await this.yearRoster();
     let valides = 0;
     let aExaminer = 0;
     for (const sub of rows) {
       for (const child of sub.enfants) {
         if (child.statut !== 'EN_ATTENTE' || child.classId !== classId)
           continue;
-        const analysis = this.childAnalysis(child, sub, roster, guardians);
+        const analysis = this.childAnalysis(
+          child,
+          sub,
+          roster,
+          guardians,
+          undefined,
+          year,
+        );
         if (!analysis.simple) {
           aExaminer++;
           continue;

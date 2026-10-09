@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Briefcase,
@@ -665,6 +666,11 @@ export default function FamilyCollectionPage() {
                           </option>
                         ))}
                       </Select>
+                      {c.classId && c.classId !== info.classe.id && (
+                        <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-warning-soft px-3 py-2 text-xs font-medium text-warning" role="note">
+                          <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden /> {t("fam.pub.classDiffers", { classe: info.classe.nom })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </section>

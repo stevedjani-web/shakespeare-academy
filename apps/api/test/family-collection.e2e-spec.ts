@@ -1377,4 +1377,189 @@ describe('Collecte des informations des familles (e2e)', () => {
       expect(logs).not.toContain(stored);
     });
   });
+
+  // ------------------------------------------------- Le parent s'est trompé de classe
+
+  describe('classe déclarée de travers', () => {
+    let token: string;
+    let lebeng: { id: string };
+
+    beforeEach(async () => {
+      token = await link(env.classA.id);
+      // L'élève est dans la classe A ; le parent déclarera la classe B.
+      lebeng = await student('Lebeng', 'Saint Patrick', env.classA.id);
+    });
+
+    const sendInB = (nom: string, prenom: string, tel = PHONE) =>
+      publicPost(
+        token,
+        payload({
+          responsable: { nom: 'Lebeng', prenom: 'Patrick', telephone: tel },
+          enfants: [
+            {
+              nom,
+              prenom,
+              dateNaissance: '2021-11-12',
+              classId: env.classB.id,
+            },
+          ],
+        }),
+      ).expect(201);
+
+    it('cherche dans toute l’année quand la classe déclarée ne donne rien, et le dit au secrétariat', async () => {
+      await sendInB('Lebeng Fadil', 'Saint Patrick');
+      const child = (await pending())[0].enfants[0];
+      const a = child.analyse!;
+      expect(a.match).toBe('PROBABLE');
+      expect(a.etudiantPropose!.id).toBe(lebeng.id);
+      expect(a.alertes.map((x) => x.code)).toContain('AUTRE_CLASSE');
+      expect(a.simple).toBe(false);
+
+      // Le secrétariat peut valider sans rien choisir : l'élève proposé est le bon.
+      await post(`/family-collection/children/${child.id}/valider`).expect(201);
+      const updated = await prisma.student.findUniqueOrThrow({
+        where: { id: lebeng.id },
+      });
+      expect(updated.dateNaissance!.toISOString().slice(0, 10)).toBe(
+        '2021-11-12',
+      );
+    });
+
+    it('un élève exact trouvé dans une autre classe n’est jamais validé en un clic', async () => {
+      await sendInB('Lebeng', 'Saint Patrick');
+      const a = (await pending())[0].enfants[0].analyse!;
+      expect(a.match).toBe('EXACT');
+      expect(a.alertes.map((x) => x.code)).toContain('AUTRE_CLASSE');
+      expect(a.simple).toBe(false);
+      const res = await post(
+        `/family-collection/classes/${env.classB.id}/valider-simples`,
+      ).expect(201);
+      expect(res.body).toEqual({ valides: 0, aExaminer: 1 });
+      expect(await prisma.parentAccount.count()).toBe(0);
+    });
+
+    it('préfère la classe déclarée : un homonyme de la bonne classe l’emporte, sans alerte', async () => {
+      const inB = await student('Lebeng', 'Saint Patrick', env.classB.id);
+      await sendInB('Lebeng', 'Saint Patrick');
+      const a = (await pending())[0].enfants[0].analyse!;
+      expect(a.etudiantPropose!.id).toBe(inB.id);
+      expect(a.alertes.map((x) => x.code)).not.toContain('AUTRE_CLASSE');
+      expect(a.simple).toBe(true);
+    });
+
+    it('plusieurs élèves possibles dans d’autres classes : aucun n’est choisi', async () => {
+      await student('Lebeng', 'Saint Patrick', env.classA.id);
+      await sendInB('Lebeng', 'Saint Patrick');
+      const child = (await pending())[0].enfants[0];
+      expect(child.analyse!.match).toBe('PLUSIEURS');
+      expect(child.analyse!.etudiantPropose).toBeNull();
+      await post(`/family-collection/children/${child.id}/valider`).expect(422);
+    });
+
+    it('rien ne correspond nulle part : toujours « aucun élève trouvé »', async () => {
+      await sendInB('Zola', 'Carine');
+      const a = (await pending())[0].enfants[0].analyse!;
+      expect(a.match).toBe('AUCUN');
+      expect(a.alertes.map((x) => x.code)).not.toContain('AUTRE_CLASSE');
+    });
+
+    it('le secrétariat corrige la classe déclarée : le rapprochement se refait dans la bonne classe', async () => {
+      await sendInB('Lebeng', 'Saint Patrick');
+      const child = (await pending())[0].enfants[0];
+      expect(child.analyse!.simple).toBe(false);
+
+      const res = await patch(
+        `/family-collection/children/${child.id}/classe`,
+        admin,
+        { classId: env.classA.id },
+      ).expect(200);
+      const changed = res.body.enfants[0];
+      expect(changed.classe.id).toBe(env.classA.id);
+      expect(changed.analyse.match).toBe('EXACT');
+      expect(changed.analyse.simple).toBe(true);
+      expect(
+        changed.analyse.alertes.map((x: { code: string }) => x.code),
+      ).not.toContain('AUTRE_CLASSE');
+
+      // La demande apparaît maintenant sous la bonne classe, et se valide en un clic.
+      const listed = (
+        await get(
+          `/family-collection/submissions?statut=EN_ATTENTE&classId=${env.classA.id}`,
+        ).expect(200)
+      ).body;
+      expect(listed).toHaveLength(1);
+      const done = await post(
+        `/family-collection/classes/${env.classA.id}/valider-simples`,
+      ).expect(201);
+      expect(done.body).toEqual({ valides: 1, aExaminer: 0 });
+
+      const logs = await prisma.auditLog.findMany({
+        where: { action: 'FAMILY_COLLECTION_CLASS_CHANGE' },
+      });
+      expect(logs).toHaveLength(1);
+      expect(JSON.stringify(logs[0])).toContain(env.classB.id);
+      expect(JSON.stringify(logs[0])).toContain(env.classA.id);
+    });
+
+    it('refuse une classe hors année active, un enfant déjà traité et un rôle sans le droit', async () => {
+      await sendInB('Lebeng', 'Saint Patrick');
+      const child = (await pending())[0].enfants[0];
+      const draft = (
+        await post('/academic-years', admin, {
+          libelle: '2027-2028',
+          dateDebut: addDays(today, 201),
+          dateFin: addDays(today, 500),
+        })
+      ).body;
+      const classC = (
+        await post('/classes', admin, {
+          levelId: env.level.id,
+          academicYearId: draft.id,
+          nom: 'CM2 C',
+        })
+      ).body;
+      await patch(`/family-collection/children/${child.id}/classe`, admin, {
+        classId: classC.id,
+      }).expect(404);
+      await patch(`/family-collection/children/${child.id}/classe`, admin, {
+        classId: 'inconnue',
+      }).expect(404);
+
+      const sch = await prisma.school.findFirstOrThrow();
+      const { user, motDePasse } = await createUserWithRole(
+        prisma,
+        sch.id,
+        'COMPTABLE',
+        { email: 'compta-classe@test.local' },
+      );
+      const t = await login(user.email, motDePasse);
+      await patch(`/family-collection/children/${child.id}/classe`, t, {
+        classId: env.classA.id,
+      }).expect(403);
+      await request(app.getHttpServer())
+        .patch(`/family-collection/children/${child.id}/classe`)
+        .send({ classId: env.classA.id })
+        .expect(401);
+
+      await post(`/family-collection/children/${child.id}/refuser`, admin, {
+        motif: 'Doublon',
+      }).expect(201);
+      await patch(`/family-collection/children/${child.id}/classe`, admin, {
+        classId: env.classA.id,
+      }).expect(409);
+    });
+
+    it('redonner la même classe ne change rien et n’écrit rien dans le journal', async () => {
+      await sendInB('Lebeng', 'Saint Patrick');
+      const child = (await pending())[0].enfants[0];
+      await patch(`/family-collection/children/${child.id}/classe`, admin, {
+        classId: env.classB.id,
+      }).expect(200);
+      expect(
+        await prisma.auditLog.count({
+          where: { action: 'FAMILY_COLLECTION_CLASS_CHANGE' },
+        }),
+      ).toBe(0);
+    });
+  });
 });

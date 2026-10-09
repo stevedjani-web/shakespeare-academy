@@ -208,8 +208,8 @@ export type FamilyMatch = "EXACT" | "PROBABLE" | "PLUSIEURS" | "AUCUN" | "CHOISI
 
 export interface FamilyAnalysis {
   match: FamilyMatch;
-  etudiantPropose: { id: string; nom: string; prenom: string; matricule: string } | null;
-  candidats: Array<{ id: string; nom: string; prenom: string; matricule: string }>;
+  etudiantPropose: { id: string; nom: string; prenom: string; matricule: string; classe: string | null } | null;
+  candidats: Array<{ id: string; nom: string; prenom: string; matricule: string; classe: string | null }>;
   alertes: FamilyAlert[];
   modifications: FamilyChange[];
   simple: boolean;

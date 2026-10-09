@@ -215,3 +215,10 @@ export class AnalyseFamilyChildQueryDto {
   @IsString()
   studentId?: string;
 }
+
+export class ChangeFamilyChildClassDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  classId!: string;
+}
