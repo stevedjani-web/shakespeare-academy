@@ -34,6 +34,8 @@ export interface School {
   fuseauHoraire: string;
   // Paiement des frais par les parents (Mobile Money), activé par l'Administrateur.
   paiementEnLigneActif: boolean;
+  // Frais de service ajoutés au paiement en ligne d'un parent, en centièmes de pour cent (200 = 2 %, 0 = aucun).
+  fraisServiceBp: number;
   // Durée de validité d'un code d'activation de compte parent, en jours.
   parentCodeValiditeJours: number;
   // Documents officiels : signataire, ville et image de signature des attestations.
@@ -244,6 +246,8 @@ export interface Payment {
   verificationToken: string;
   numeroProvisoire?: string | null;
   montant: number;
+  // Frais de service payés en plus (paiement en ligne) ; 0 pour un encaissement au guichet.
+  fraisService?: number;
   modePaiement: PaymentMode;
   referenceExterne: string | null;
   datePaiement: string;
@@ -376,6 +380,7 @@ export interface CashClosingEntry {
   id: string;
   numeroRecu: string;
   montant: number;
+  fraisService: number;
   modePaiement: PaymentMode;
   datePaiement: string;
   libelle: string;
@@ -402,6 +407,8 @@ export interface CashClosing {
     total: number;
     count: number;
     reprise: { count: number; total: number };
+    // Frais de service des paiements en ligne : reçus EN PLUS de la scolarité, jamais comptés dans `total`.
+    fraisService: { count: number; total: number };
     parMode: Record<PaymentMode, number>;
     items: CashClosingEntry[];
   };

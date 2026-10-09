@@ -132,6 +132,19 @@ export const BANK_DEPOSIT_PERMISSIONS = [
 ] as const;
 
 /**
+ * Frais de service du paiement en ligne (10 octobre 2026) : `ONLINE_FEE_MANAGE` fixe le taux ajouté au paiement d'un parent
+ * (droit réservé : voir auth/reserved-permissions.ts). Aucun rôle du seed ne le porte : la migration le donne au rôle
+ * Promoteur (code PRO) de l'école, qui n'existe pas dans le seed.
+ */
+export const ONLINE_FEE_PERMISSIONS = [
+  {
+    code: 'ONLINE_FEE_MANAGE',
+    description:
+      'Fixer le taux des frais de service ajoutés aux paiements en ligne des parents.',
+  },
+] as const;
+
+/**
  * Catalogue de permissions du Lot 7 (vie scolaire : référentiel pédagogique et personnel, addendum
  * v1.1). `PEDAGOGY_MANAGE` couvre la saisie des horaires, matières, enseignants, affectations,
  * calendrier et salles. Les permissions des lots suivants (emploi du temps, appel, pointage...) seront
@@ -598,6 +611,7 @@ export async function seedReferenceData(
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
     ...BANK_DEPOSIT_PERMISSIONS,
+    ...ONLINE_FEE_PERMISSIONS,
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,

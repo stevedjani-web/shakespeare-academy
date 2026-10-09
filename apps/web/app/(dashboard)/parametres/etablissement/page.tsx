@@ -16,13 +16,17 @@ import {
 } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { SealUpload } from "@/components/receipt/seal-upload";
-import { Building2, FileSignature, ImageUp, KeyRound, Phone, Smartphone } from "lucide-react";
+import { Building2, FileSignature, ImageUp, KeyRound, Percent, Phone, Smartphone } from "lucide-react";
 import { useI18n } from "@/lib/i18n/use-i18n";
+import { formatMontant } from "@/lib/format";
+import { bpToInput, computeServiceFee, parseRatePercent } from "@/lib/service-fee";
 
 export default function SchoolSettingsPage() {
   const { hasPermission } = useAuth();
   const { t } = useI18n();
   const canManage = hasPermission("SETTINGS_MANAGE");
+  // Facturer des frais aux parents est réservé au Promoteur : les autres voient le taux sans pouvoir le modifier.
+  const canSetFee = hasPermission("ONLINE_FEE_MANAGE");
   const [school, setSchool] = useState<School | null>(null);
   const [form, setForm] = useState({
     nom: "",
@@ -43,6 +47,10 @@ export default function SchoolSettingsPage() {
   const [signerError, setSignerError] = useState<string | null>(null);
   const [uploadingSignature, setUploadingSignature] = useState(false);
   const [validite, setValidite] = useState("");
+  const [feeInput, setFeeInput] = useState("");
+  const [feeMsg, setFeeMsg] = useState<string | null>(null);
+  const [feeError, setFeeError] = useState<string | null>(null);
+  const [feeBusy, setFeeBusy] = useState(false);
   const [validiteMsg, setValiditeMsg] = useState<string | null>(null);
   const [validiteError, setValiditeError] = useState<string | null>(null);
   const expand = useExpanded();
@@ -51,6 +59,7 @@ export default function SchoolSettingsPage() {
     void (async () => {
       const data = await api.get<School>("/school");
       setSchool(data);
+      setFeeInput(bpToInput(data.fraisServiceBp ?? 0));
       setForm({
         nom: data.nom,
         adresse: data.adresse ?? "",
@@ -142,6 +151,29 @@ export default function SchoolSettingsPage() {
       setPayError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setPayBusy(false);
+    }
+  }
+
+  async function saveFee(e: React.FormEvent) {
+    e.preventDefault();
+    if (!school) return;
+    setFeeMsg(null);
+    setFeeError(null);
+    const bp = parseRatePercent(feeInput);
+    if (bp === null) {
+      setFeeError(t("adm.school.feeInvalid"));
+      return;
+    }
+    setFeeBusy(true);
+    try {
+      const updated = await api.patch<School>("/school", { fraisServicePourcent: bp / 100 });
+      setSchool(updated);
+      setFeeInput(bpToInput(updated.fraisServiceBp));
+      setFeeMsg(t("adm.school.feeSaved"));
+    } catch (err) {
+      setFeeError(isApiError(err) ? err.message : t("common.error"));
+    } finally {
+      setFeeBusy(false);
     }
   }
 
@@ -303,6 +335,53 @@ export default function SchoolSettingsPage() {
           <Button className="mt-3" variant={school.paiementEnLigneActif ? "secondary" : "primary"} disabled={payBusy} onClick={() => void togglePayments()}>
             {payBusy ? t("adm.school.saving") : school.paiementEnLigneActif ? t("adm.school.payDisable") : t("adm.school.payEnable")}
           </Button>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card className="mb-4 max-w-xl">
+          <div className="flex items-center gap-2.5">
+            <Percent size={16} className="text-primary" />
+            <h2 className="text-sm font-semibold text-ink">{t("adm.school.feeTitle")}</h2>
+            <span className="ml-auto text-xs text-ink-muted">{`${bpToInput(school.fraisServiceBp ?? 0)} %`}</span>
+          </div>
+          <p className="mt-3 text-xs text-ink-muted">{t("adm.school.feeHelp")}</p>
+          <form onSubmit={(e) => void saveFee(e)} className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="w-32">
+              <Field label={t("adm.school.feeLabel")}>
+                <Input
+                  inputMode="decimal"
+                  value={feeInput}
+                  onChange={(e) => setFeeInput(e.target.value)}
+                  disabled={!canSetFee || feeBusy}
+                  aria-describedby="fee-example"
+                />
+              </Field>
+            </div>
+            {canSetFee && (
+              <Button type="submit" disabled={feeBusy}>
+                {feeBusy ? t("adm.school.saving") : t("adm.school.feeSave")}
+              </Button>
+            )}
+          </form>
+          {(() => {
+            const bp = parseRatePercent(feeInput) ?? 0;
+            const example = 100000;
+            const fee = computeServiceFee(example, bp);
+            return (
+              <p id="fee-example" className="mt-3 rounded-xl bg-surface-muted px-3.5 py-2.5 text-xs text-ink">
+                {t("adm.school.feeExample", {
+                  montant: formatMontant(example, school.devise),
+                  frais: formatMontant(fee, school.devise),
+                  total: formatMontant(example + fee, school.devise),
+                })}
+              </p>
+            );
+          })()}
+          <p className="mt-2 text-xs text-ink-muted">{t("adm.school.feeCover")}</p>
+          {!canSetFee && <p className="mt-2 text-xs text-ink-muted">{t("adm.school.feeRestricted")}</p>}
+          <ErrorMessage>{feeError}</ErrorMessage>
+          {feeMsg && <SuccessMessage>{feeMsg}</SuccessMessage>}
         </Card>
       )}
 

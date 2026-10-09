@@ -112,6 +112,7 @@ export default function ReceiptPage() {
         reference={payment.referenceExterne}
         cashier={payment.recuParUser ? `${payment.recuParUser.prenom} ${payment.recuParUser.nom}` : t("fin.receipt.online")}
         montant={payment.montant}
+        fraisService={payment.fraisService ?? 0}
         // Le cachet de l'établissement, et la signature du caissier qui a encaissé (jamais celle de la personne qui imprime).
         cachetSrc={cachetSrc}
         signatureSrc={signatureSrc}

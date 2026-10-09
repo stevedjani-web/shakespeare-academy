@@ -87,6 +87,8 @@ export class PaymentsService {
     return {
       numeroRecu: payment.numeroRecu,
       montant: payment.montant,
+      // Frais de service payés en plus de la scolarité (paiement en ligne) : 0 pour un encaissement au guichet.
+      fraisService: payment.fraisService,
       statut: payment.statut,
       datePaiement: payment.datePaiement,
       reprise: payment.origine === 'REPRISE',

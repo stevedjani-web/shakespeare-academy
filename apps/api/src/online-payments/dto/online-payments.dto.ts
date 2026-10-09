@@ -34,6 +34,12 @@ export class InitiateOnlinePaymentDto {
   })
   montant!: number;
 
+  // Total (montant + frais de service) que le parent a vu à l'écran. Si le taux a changé depuis, le serveur refuse (409)
+  // et montre le nouveau total : jamais un débit supérieur à ce que le parent a accepté.
+  @IsOptional()
+  @IsInt({ message: msg('Total invalide.', 'Invalid total.') })
+  totalAttendu?: number;
+
   // Numéro débité (format local ou international). Le format exact est contrôlé et normalisé par le service, qui
   // renvoie la phrase claire : ici on ne refuse que le vide et l'énorme.
   @IsString({ message: NUMERO_INVALIDE })

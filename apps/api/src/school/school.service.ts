@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateSchoolDto } from './dto/update-school.dto';
 import { AuditService } from '../audit/audit.service';
+import { percentToBp } from '../online-payments/service-fee.util';
 
 /**
  * MVP mono-établissement : une seule ligne `School` existe. Le schéma prévoit `schoolId` partout
@@ -43,12 +48,46 @@ export class SchoolService {
     return school!.id;
   }
 
-  async update(dto: UpdateSchoolDto, userId: string) {
+  async update(
+    dto: UpdateSchoolDto,
+    userId: string,
+    permissions: readonly string[] = [],
+  ) {
     const school = await this.getDefault();
+    const { fraisServicePourcent, ...rest } = dto;
+    const data: Record<string, unknown> = { ...rest };
+    let feeChange: { avant: number; apres: number } | null = null;
+    if (fraisServicePourcent !== undefined) {
+      const bp = percentToBp(fraisServicePourcent);
+      if (bp === null)
+        throw new BadRequestException(
+          'Le taux doit avoir au plus deux décimales.',
+        );
+      // Facturer des frais aux parents est une décision de la Direction du projet : un simple droit de réglage ne suffit pas.
+      if (bp !== school.fraisServiceBp) {
+        if (!permissions.includes('ONLINE_FEE_MANAGE'))
+          throw new ForbiddenException(
+            'Seul le Promoteur peut modifier le taux des frais de service.',
+          );
+        data.fraisServiceBp = bp;
+        feeChange = { avant: school.fraisServiceBp, apres: bp };
+      }
+    }
     const updated = await this.prisma.school.update({
       where: { id: school.id },
-      data: dto,
+      data,
     });
+    if (feeChange) {
+      await this.auditService.log({
+        schoolId: school.id,
+        userId,
+        action: 'SCHOOL_SERVICE_FEE_UPDATE',
+        entite: 'School',
+        entiteId: school.id,
+        ancienneValeur: { fraisServiceBp: feeChange.avant },
+        nouvelleValeur: { fraisServiceBp: feeChange.apres },
+      });
+    }
     await this.auditService.log({
       schoolId: school.id,
       userId,

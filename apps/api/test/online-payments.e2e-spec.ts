@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { INestApplication } from '@nestjs/common';
 import { createHash, createPrivateKey, createSign } from 'crypto';
 import { httpbis } from 'http-message-signatures';
@@ -955,6 +957,310 @@ describe('Paiement en ligne par les parents (e2e, Lot 17)', () => {
         (await prisma.onlinePayment.findUniqueOrThrow({ where: { id } }))
           .statut,
       ).toBe('EN_ATTENTE');
+    });
+  });
+
+  describe('frais de service', () => {
+    /** Compte portant le droit réservé ONLINE_FEE_MANAGE (le Promoteur de production). */
+    async function promoterToken() {
+      const sch = await prisma.school.findFirstOrThrow();
+      const settings = await prisma.permission.findUniqueOrThrow({
+        where: { code: 'SETTINGS_MANAGE' },
+      });
+      const fee = await prisma.permission.findUniqueOrThrow({
+        where: { code: 'ONLINE_FEE_MANAGE' },
+      });
+      const role = await prisma.role.create({
+        data: { code: 'PRO', nom: 'Promoteur', description: 't' },
+      });
+      await prisma.rolePermission.createMany({
+        data: [
+          { roleId: role.id, permissionId: settings.id },
+          { roleId: role.id, permissionId: fee.id },
+        ],
+      });
+      const { user, motDePasse } = await createUserWithRole(
+        prisma,
+        sch.id,
+        'PRO',
+        { email: 'promoteur@test.local' },
+      );
+      return login(user.email, motDePasse);
+    }
+
+    const setRate = (pourcent: number, t?: string) =>
+      patch('/school', { fraisServicePourcent: pourcent }, t);
+
+    const pay = (
+      f: Awaited<ReturnType<typeof ready>>,
+      montant: number,
+      totalAttendu?: number,
+    ) =>
+      payTranche(f.moukalaToken, f.alice.student.id, {
+        trancheId: f.inscription.trancheId,
+        montant,
+        ...(totalAttendu === undefined ? {} : { totalAttendu }),
+        telephone: '06 000 00 01',
+      });
+
+    it('le taux vaut 0 par défaut : le parent paie exactement la scolarité, aucun frais', async () => {
+      const f = await ready();
+      const data = (
+        await get(
+          `/portal/children/${f.alice.student.id}/finance`,
+          f.moukalaToken,
+        ).expect(200)
+      ).body;
+      expect(data.fraisServicePourcent).toBe(0);
+      const res = await pay(f, 10000).expect(201);
+      expect(res.body).toMatchObject({
+        montant: 10000,
+        fraisService: 0,
+        total: 10000,
+      });
+      expect(provider.initiated[0].montant).toBe(10000);
+    });
+
+    it('seul le droit ONLINE_FEE_MANAGE fixe le taux : un administrateur est refusé, le Promoteur est accepté, avec journal', async () => {
+      await ready();
+      await setRate(2).expect(403); // Administrateur : SETTINGS_MANAGE ne suffit pas
+      expect((await prisma.school.findFirstOrThrow()).fraisServiceBp).toBe(0);
+      // Renvoyer la valeur actuelle n'est pas un changement.
+      await setRate(0).expect(200);
+
+      const promoter = await promoterToken();
+      const res = await setRate(2, promoter).expect(200);
+      expect(res.body.fraisServiceBp).toBe(200);
+      const log = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'SCHOOL_SERVICE_FEE_UPDATE' },
+      });
+      expect(log.ancienneValeur).toMatchObject({ fraisServiceBp: 0 });
+      expect(log.nouvelleValeur).toMatchObject({ fraisServiceBp: 200 });
+      await setRate(2.5, promoter).expect(200);
+      expect((await prisma.school.findFirstOrThrow()).fraisServiceBp).toBe(250);
+    });
+
+    it('un taux négatif, au-dessus de 10 % ou à plus de deux décimales est refusé', async () => {
+      await ready();
+      const promoter = await promoterToken();
+      await setRate(-1, promoter).expect(400);
+      await setRate(10.5, promoter).expect(400);
+      await setRate(2.555, promoter).expect(400);
+      await setRate(10, promoter).expect(200);
+    });
+
+    it('à 2 %, le parent paie la scolarité PLUS les frais : 10 000 + 200 = 10 200 envoyés au fournisseur', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      const res = await pay(f, 10000, 10200).expect(201);
+      expect(res.body).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+        total: 10200,
+      });
+      expect(provider.initiated[0].montant).toBe(10200);
+      const attempt = await prisma.onlinePayment.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect(attempt).toMatchObject({ fraisService: 200, tauxFraisBp: 200 });
+    });
+
+    it("les frais sont arrondis à l'XAF supérieur (RG16) : 2 % de 10 001 = 200,02 donc 201", async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      const res = await pay(f, 10001, 10202).expect(201);
+      expect(res.body).toMatchObject({ fraisService: 201, total: 10202 });
+    });
+
+    it("la confirmation n'impute que la scolarité à la tranche ; les frais vont sur le paiement, sur le reçu du parent et sur la vérification publique", async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      const res = await pay(f, 10000, 10200).expect(201);
+      const attempt = await prisma.onlinePayment.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect((await callback(attempt.depositId, 'COMPLETED')).status).toBe(200);
+
+      const payment = await prisma.payment.findFirstOrThrow();
+      expect(payment).toMatchObject({ montant: 10000, fraisService: 200 });
+      // Solde de la tranche : 45 000 - 10 000 (les frais n'y entrent jamais).
+      const finance = (
+        await get(
+          `/portal/children/${f.alice.student.id}/finance`,
+          f.moukalaToken,
+        ).expect(200)
+      ).body;
+      const tranche = finance.tranches.find(
+        (t: { trancheId: string }) => t.trancheId === f.inscription.trancheId,
+      );
+      expect(tranche.solde).toBe(35000);
+      expect(finance.situation.montantPaye).toBe(10000);
+      expect(finance.paiements[0]).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+      });
+
+      const receipt = (
+        await get(
+          `/portal/children/${f.alice.student.id}/payments/${payment.id}/receipt`,
+          f.moukalaToken,
+        ).expect(200)
+      ).body;
+      expect(receipt).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+        total: 10200,
+      });
+      const verified = (
+        await request(app.getHttpServer())
+          .get(`/payments/verify/${payment.verificationToken}`)
+          .expect(200)
+      ).body;
+      expect(verified).toMatchObject({ montant: 10000, fraisService: 200 });
+      const status = (
+        await get(`/portal/payments/${res.body.id}`, f.moukalaToken).expect(200)
+      ).body;
+      expect(status).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+        total: 10200,
+      });
+    });
+
+    it('si le taux change entre l’affichage et la validation, rien n’est débité et le nouveau total est montré (409)', async () => {
+      const f = await ready();
+      const promoter = await promoterToken();
+      await setRate(2, promoter).expect(200);
+      await setRate(5, promoter).expect(200);
+      // 10 200 : ce que le parent avait vu à 2 %.
+      const res = await pay(f, 10000, 10200).expect(409);
+      expect(res.body.message).toContain('10500');
+      expect(provider.initiated).toEqual([]);
+      expect(await prisma.onlinePayment.count()).toBe(0);
+    });
+
+    it('un envoi sans total attendu est refusé dès qu’il y a des frais (ancienne page restée ouverte)', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      await pay(f, 10000).expect(409);
+      expect(provider.initiated).toEqual([]);
+    });
+
+    it('un changement de taux après le lancement ne touche pas un paiement en cours : le taux est figé sur la tentative', async () => {
+      const f = await ready();
+      const promoter = await promoterToken();
+      await setRate(2, promoter).expect(200);
+      const res = await pay(f, 10000, 10200).expect(201);
+      await setRate(8, promoter).expect(200);
+      const attempt = await prisma.onlinePayment.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect((await callback(attempt.depositId, 'COMPLETED')).status).toBe(200);
+      expect((await prisma.payment.findFirstOrThrow()).fraisService).toBe(200);
+    });
+
+    it('les frais ne comptent pas dans le plafond du solde : on peut payer exactement le solde, frais en plus ; au-delà, refus', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      await pay(f, 45001, 45901).expect(400);
+      const ok = await pay(f, 45000, 45900).expect(201);
+      expect(ok.body).toMatchObject({ fraisService: 900, total: 45900 });
+    });
+
+    it('un paiement échoué ne laisse aucun frais : ni paiement, ni reçu, ni frais en clôture', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      const res = await pay(f, 10000, 10200).expect(201);
+      const attempt = await prisma.onlinePayment.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect((await callback(attempt.depositId, 'FAILED')).status).toBe(200);
+      expect(await prisma.payment.count()).toBe(0);
+      const closing = (
+        await get(`/reports/cash-closing?date=${today}`).expect(200)
+      ).body;
+      expect(closing.entrees.fraisService).toEqual({ count: 0, total: 0 });
+    });
+
+    it('la clôture de journée montre les frais de service à part, sans les mêler aux recettes de scolarité', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      const res = await pay(f, 10000, 10200).expect(201);
+      const attempt = await prisma.onlinePayment.findUniqueOrThrow({
+        where: { id: res.body.id },
+      });
+      expect((await callback(attempt.depositId, 'COMPLETED')).status).toBe(200);
+      const closing = (
+        await get(`/reports/cash-closing?date=${today}`).expect(200)
+      ).body;
+      expect(closing.entrees.total).toBe(10000);
+      expect(closing.entrees.fraisService).toEqual({ count: 1, total: 200 });
+      expect(closing.entrees.items[0]).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+      });
+    });
+
+    it('la liste du personnel affiche les frais et le total de chaque tentative', async () => {
+      const f = await ready();
+      await setRate(2, await promoterToken()).expect(200);
+      await pay(f, 10000, 10200).expect(201);
+      const list = (await get('/online-payments').expect(200)).body;
+      expect(list[0]).toMatchObject({
+        montant: 10000,
+        fraisService: 200,
+        total: 10200,
+      });
+    });
+
+    it("le droit est réservé : l'Administrateur ne peut pas se l'accorder, et la migration le donne au seul rôle PRO", async () => {
+      await ready();
+      const role = await prisma.role.create({
+        data: { code: 'AUTRE', nom: 'Autre', description: 't' },
+      });
+      const res = await request(app.getHttpServer())
+        .put(`/roles/${role.id}/permissions`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ permissionCodes: ['ONLINE_FEE_MANAGE'] });
+      expect(res.status).toBe(403);
+
+      // Rejeu des instructions de droit de la migration (les ALTER TABLE ne sont pas rejouables).
+      await prisma.rolePermission.deleteMany({
+        where: { permission: { code: 'ONLINE_FEE_MANAGE' } },
+      });
+      await prisma.permission.deleteMany({
+        where: { code: 'ONLINE_FEE_MANAGE' },
+      });
+      await prisma.role.create({
+        data: { code: 'PRO', nom: 'Promoteur', description: 't' },
+      });
+      const sql = readFileSync(
+        join(
+          __dirname,
+          '../prisma/migrations/20261010080000_frais_de_service_paiement_en_ligne/migration.sql',
+        ),
+        'utf8',
+      );
+      const statements = sql
+        .split(/;\s*\n/)
+        .map((x) =>
+          x
+            .split('\n')
+            .filter((l) => !l.trim().startsWith('--'))
+            .join('\n')
+            .trim(),
+        )
+        .filter((x) => x.startsWith('INSERT'));
+      expect(statements.length).toBe(2);
+      for (let i = 0; i < 2; i++)
+        for (const st of statements) await prisma.$executeRawUnsafe(st);
+      const holders = (
+        await prisma.rolePermission.findMany({
+          where: { permission: { code: 'ONLINE_FEE_MANAGE' } },
+          include: { role: true },
+        })
+      ).map((rp) => rp.role.code);
+      expect(holders).toEqual(['PRO']);
     });
   });
 

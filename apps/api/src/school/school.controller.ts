@@ -40,7 +40,7 @@ export class SchoolController {
   @Patch()
   @RequirePermission('SETTINGS_MANAGE')
   update(@Body() dto: UpdateSchoolDto, @CurrentUser() user: CurrentUserData) {
-    return this.schoolService.update(dto, user.id);
+    return this.schoolService.update(dto, user.id, user.permissions);
   }
 
   @Post('logo')

@@ -142,6 +142,12 @@ export class ReportsService {
     ]);
 
     const totalEntrees = payments.reduce((sum, p) => sum + p.montant, 0);
+    // Frais de service des paiements en ligne : reçus EN PLUS de la scolarité, montrés à part, jamais mêlés aux recettes
+    // de scolarité (ils couvrent les frais du fournisseur de paiement et ne changent aucun solde d'élève).
+    const fraisServiceJour = payments.reduce(
+      (sum, p) => sum + p.fraisService,
+      0,
+    );
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
     const parMode = { ESPECES: 0, MOBILE_MONEY: 0 };
     for (const p of payments) parMode[p.modePaiement] += p.montant;
@@ -154,6 +160,10 @@ export class ReportsService {
       entrees: {
         total: totalEntrees,
         count: payments.length,
+        fraisService: {
+          count: payments.filter((p) => p.fraisService > 0).length,
+          total: fraisServiceJour,
+        },
         // Encaissé avant l'application et repris à cette date : compté dans la situation des élèves, jamais dans la caisse.
         reprise: {
           count: repriseAgg._count,
@@ -164,6 +174,7 @@ export class ReportsService {
           id: p.id,
           numeroRecu: p.numeroRecu,
           montant: p.montant,
+          fraisService: p.fraisService,
           modePaiement: p.modePaiement,
           datePaiement: p.datePaiement,
           libelle: p.invoiceLine.libelle,

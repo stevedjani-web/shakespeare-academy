@@ -18,6 +18,8 @@ interface OnlinePaymentRow {
   id: string;
   statut: Statut;
   montant: number;
+  fraisService: number;
+  total: number;
   telephone: string;
   motifEchec: string | null;
   motifCloture: string | null;
@@ -156,7 +158,7 @@ export default function OnlinePaymentsPage() {
                     {r.eleve.prenom} {r.eleve.nom} <span className="text-xs text-ink-muted">({r.eleve.matricule})</span>
                   </p>
                   <p className="text-sm text-ink-muted">
-                    {r.tranche} · {formatMontant(r.montant)} · {when(r.createdAt)}
+                    {r.tranche} · {formatMontant(r.montant)}{r.fraisService > 0 ? ` + ${formatMontant(r.fraisService)} (${t("receipt.serviceFee")}) = ${formatMontant(r.total)}` : ""} · {when(r.createdAt)}
                   </p>
                   <p className="text-xs text-ink-muted">
                     {t("fin.online.paidBy", { name: `${r.responsable.prenom} ${r.responsable.nom}`, phone: r.telephone })}

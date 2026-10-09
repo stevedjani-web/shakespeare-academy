@@ -216,6 +216,8 @@ export class ParentPortalService {
     return {
       // Lot 17 : le parent peut payer une tranche si l'école a activé le paiement en ligne.
       paiementEnLigne: online.paiementEnLigne,
+      fraisServiceBp: online.fraisServiceBp,
+      fraisServicePourcent: online.fraisServicePourcent,
       tranches: online.tranches,
       situation: {
         statut: status.statut,
@@ -236,6 +238,7 @@ export class ParentPortalService {
         id: p.id,
         numeroRecu: p.numeroRecu,
         montant: p.montant,
+        fraisService: p.fraisService,
         modePaiement: p.modePaiement,
         statut: p.statut,
         date: p.datePaiement,

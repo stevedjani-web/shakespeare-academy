@@ -33,6 +33,8 @@ import {
   ResolveOnlinePaymentDto,
 } from './dto/online-payments.dto';
 
+import { bpToPercent, computeServiceFee } from './service-fee.util';
+
 const RECEIPT_NUMERO_DIGITS = 6;
 // Une tentative en attente depuis plus longtemps que cela est revérifiée auprès du fournisseur : le retour
 // signé a pu se perdre (ou ne jamais être envoyé) et l'application n'a pas de planificateur pour aller le
@@ -125,7 +127,14 @@ export class OnlinePaymentsService {
       }
     }
     tranches.sort((a, b) => a.dateLimite.getTime() - b.dateLimite.getTime());
-    return { paiementEnLigne: await this.isAvailable(), tranches };
+    const school = await this.schoolService.getDefault();
+    return {
+      paiementEnLigne: await this.isAvailable(),
+      // Taux des frais de service affiché au parent ; le total à payer est toujours recalculé par le serveur.
+      fraisServiceBp: school.fraisServiceBp,
+      fraisServicePourcent: bpToPercent(school.fraisServiceBp),
+      tranches,
+    };
   }
 
   /** Lance un paiement d'une tranche par le responsable `guardianId` (déjà rattaché à `studentId`). */
@@ -208,12 +217,30 @@ export class OnlinePaymentsService {
       );
     }
 
+    // Frais de service : calculés ici, jamais par le navigateur. Le parent envoie le total qu'il a vu ; si le taux a
+    // changé entre l'affichage et la validation, rien n'est débité et le nouveau total lui est montré.
+    const fraisService = computeServiceFee(dto.montant, school.fraisServiceBp);
+    const total = dto.montant + fraisService;
+    if (
+      (dto.totalAttendu !== undefined && dto.totalAttendu !== total) ||
+      (dto.totalAttendu === undefined && fraisService > 0)
+    ) {
+      throw new ConflictException(
+        pick({
+          fr: `Les frais de service ont été mis à jour : le total à payer est maintenant de ${total} ${school.devise}. Vérifiez le montant puis validez à nouveau.`,
+          en: `The service fee has been updated: the total to pay is now ${total} ${school.devise}. Check the amount and confirm again.`,
+        }),
+      );
+    }
+
     const attempt = await this.prisma.onlinePayment.create({
       data: {
         schoolId: school.id,
         invoiceLineId: line.id,
         guardianId,
         montant: dto.montant,
+        fraisService,
+        tauxFraisBp: fraisService > 0 ? school.fraisServiceBp : 0,
         telephone,
         depositId: randomUUID(),
       },
@@ -222,7 +249,8 @@ export class OnlinePaymentsService {
     try {
       await this.provider.initiate({
         depositId: attempt.depositId,
-        montant: attempt.montant,
+        // Le parent est débité de la scolarité PLUS les frais de service.
+        montant: attempt.montant + attempt.fraisService,
         devise: school.devise,
         telephone,
       });
@@ -254,10 +282,18 @@ export class OnlinePaymentsService {
       nouvelleValeur: {
         invoiceLineId: line.id,
         montant: attempt.montant,
+        fraisService: attempt.fraisService,
+        tauxFraisBp: attempt.tauxFraisBp,
         guardianId,
       },
     });
-    return { id: attempt.id, statut: attempt.statut, montant: attempt.montant };
+    return {
+      id: attempt.id,
+      statut: attempt.statut,
+      montant: attempt.montant,
+      fraisService: attempt.fraisService,
+      total: attempt.montant + attempt.fraisService,
+    };
   }
 
   /**
@@ -335,6 +371,7 @@ export class OnlinePaymentsService {
           schoolId: attempt.schoolId,
           invoiceLineId: attempt.invoiceLineId,
           montant: attempt.montant,
+          fraisService: attempt.fraisService,
           modePaiement: 'MOBILE_MONEY',
           referenceExterne: attempt.depositId,
           numeroRecu: `REC-${String(sequence.dernierNumero).padStart(RECEIPT_NUMERO_DIGITS, '0')}`,
@@ -363,6 +400,7 @@ export class OnlinePaymentsService {
           onlinePaymentId: attempt.id,
           numeroRecu: outcome.numeroRecu,
           montant: attempt.montant,
+          fraisService: attempt.fraisService,
         },
       });
     } else if (outcome.kind === 'a_traiter') {
@@ -452,6 +490,8 @@ export class OnlinePaymentsService {
       id: attempt.id,
       statut: attempt.statut,
       montant: attempt.montant,
+      fraisService: attempt.fraisService,
+      total: attempt.montant + attempt.fraisService,
       motifEchec: localizeFailure(attempt.motifEchec, currentLanguage()),
       paiement: payment,
     };
@@ -497,6 +537,8 @@ export class OnlinePaymentsService {
       numeroRecu: payment.numeroRecu,
       statut: payment.statut,
       montant: payment.montant,
+      fraisService: payment.fraisService,
+      total: payment.montant + payment.fraisService,
       devise: school.devise,
       modePaiement: payment.modePaiement,
       referenceExterne: payment.referenceExterne,
@@ -557,6 +599,8 @@ export class OnlinePaymentsService {
       id: r.id,
       statut: r.statut,
       montant: r.montant,
+      fraisService: r.fraisService,
+      total: r.montant + r.fraisService,
       telephone: r.telephone,
       motifEchec: r.motifEchec,
       motifCloture: r.motifCloture,

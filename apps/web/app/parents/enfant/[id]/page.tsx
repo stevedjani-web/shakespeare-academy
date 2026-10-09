@@ -46,6 +46,8 @@ interface Attendance {
 interface Finance {
   // Paiement en ligne activé par l'école (et fournisseur configuré) : sinon aucune tranche n'est proposée à payer.
   paiementEnLigne: boolean;
+  // Frais de service ajoutés à un paiement en ligne, en centièmes de pour cent (200 = 2 %, 0 = aucun).
+  fraisServiceBp: number;
   tranches: PayableTranche[];
   situation: {
     statut: "SOLVABLE" | "A_ECHOIR" | "EN_RETARD" | "IMPAYE_CRITIQUE" | "EXONERE";
@@ -58,7 +60,7 @@ interface Finance {
     prochaineEcheance: { libelle: string; montant: number; dateLimite: string; enRetard: boolean } | null;
     lignesEnRetard: Array<{ libelle: string; montant: number; dateLimite: string }>;
   };
-  paiements: Array<{ id: string; numeroRecu: string; montant: number; modePaiement: string; statut: "VALIDE" | "ANNULE"; date: string; libelle: string }>;
+  paiements: Array<{ id: string; numeroRecu: string; montant: number; fraisService: number; modePaiement: string; statut: "VALIDE" | "ANNULE"; date: string; libelle: string }>;
 }
 
 // Libellés pensés pour un parent : jamais « impayé critique », un seul mot clair pour un retard.
@@ -329,7 +331,7 @@ export default function ChildPage() {
               </Card>
 
               {finance.paiementEnLigne && (
-                <PayTranches studentId={id} tranches={finance.tranches} defaultPhone={parent.telephone} onChanged={reloadFinance} />
+                <PayTranches studentId={id} tranches={finance.tranches} defaultPhone={parent.telephone} fraisServiceBp={finance.fraisServiceBp ?? 0} onChanged={reloadFinance} />
               )}
 
               <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.child.finPayments")}</h2>
@@ -342,6 +344,7 @@ export default function ChildPage() {
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className={`font-medium text-ink ${p.statut === "ANNULE" ? "line-through" : ""}`}>{formatMontant(p.montant)}</p>
+                          {p.fraisService > 0 && <p className="text-xs text-ink-muted">{t("parent.child.finFee", { fee: formatMontant(p.fraisService) })}</p>}
                           <p className="text-sm text-ink-muted">
                             {p.libelle} · {formatIso(p.date.slice(0, 10))} · {MODE_KEY[p.modePaiement] ? t(MODE_KEY[p.modePaiement]) : p.modePaiement}
                           </p>

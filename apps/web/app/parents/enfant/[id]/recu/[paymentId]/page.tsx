@@ -17,6 +17,8 @@ interface Receipt {
   numeroRecu: string;
   statut: "VALIDE" | "ANNULE";
   montant: number;
+  fraisService: number;
+  total: number;
   devise: string;
   modePaiement: string;
   referenceExterne: string | null;
@@ -118,13 +120,15 @@ export default function ParentReceiptPage() {
             <Row label={t("receipt.reason")} value={receipt.libelle} />
             <Row label={t("receipt.method")} value={MODE_KEY[receipt.modePaiement] ? t(MODE_KEY[receipt.modePaiement]) : receipt.modePaiement} />
             {receipt.referenceExterne && <Row label={t("receipt.reference")} value={receipt.referenceExterne} />}
+            {receipt.fraisService > 0 && <Row label={t("receipt.tuitionPart")} value={formatMontant(receipt.montant, receipt.devise === "XAF" ? "FCFA" : receipt.devise)} />}
+            {receipt.fraisService > 0 && <Row label={t("receipt.serviceFee")} value={formatMontant(receipt.fraisService, receipt.devise === "XAF" ? "FCFA" : receipt.devise)} />}
           </dl>
 
           <div className="mt-4 flex items-center justify-between rounded-xl bg-surface-muted px-4 py-3">
             <span className="text-sm font-medium text-ink">{t("receipt.amountPaid")}</span>
-            <span className="font-display text-xl font-semibold text-ink">{formatMontant(receipt.montant, receipt.devise === "XAF" ? "FCFA" : receipt.devise)}</span>
+            <span className="font-display text-xl font-semibold text-ink">{formatMontant(receipt.total ?? receipt.montant, receipt.devise === "XAF" ? "FCFA" : receipt.devise)}</span>
           </div>
-          <p className="mt-2 text-xs italic text-ink-muted">{t("receipt.inWords", { words: amountInWords(receipt.montant, receipt.devise) })}</p>
+          <p className="mt-2 text-xs italic text-ink-muted">{t("receipt.inWords", { words: amountInWords(receipt.total ?? receipt.montant, receipt.devise) })}</p>
           <p className="mt-6 text-center text-[11px] text-ink-muted">{t("receipt.footer")}</p>
         </div>
       )}

@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsNumber,
   IsOptional,
   Max,
   MaxLength,
@@ -32,6 +33,17 @@ export class UpdateSchoolDto {
   @IsOptional()
   @IsBoolean()
   paiementEnLigneActif?: boolean;
+
+  // Frais de service ajoutés au paiement en ligne d'un parent, en pourcentage du montant (2 = 2 %, 0 = aucun frais).
+  // Réservé au droit ONLINE_FEE_MANAGE : le service refuse (403) tout autre compte, même avec SETTINGS_MANAGE.
+  @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'Le taux doit être un nombre avec au plus deux décimales.' },
+  )
+  @Min(0, { message: 'Le taux ne peut pas être négatif.' })
+  @Max(10, { message: 'Le taux ne peut pas dépasser 10 %.' })
+  fraisServicePourcent?: number;
 
   // Durée de validité d'un code d'activation de compte parent, en jours (Lot 18).
   @IsOptional()

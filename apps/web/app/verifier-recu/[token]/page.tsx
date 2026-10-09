@@ -14,6 +14,7 @@ import { BadgeCheck, ShieldAlert } from "lucide-react";
 interface VerifiedReceipt {
   numeroRecu: string;
   montant: number;
+  fraisService?: number;
   statut: "VALIDE" | "ANNULE";
   datePaiement: string;
   reprise?: boolean;
@@ -88,6 +89,7 @@ export default function VerifyReceiptPage() {
 
         <dl className="mt-4 space-y-2 border-t border-dashed border-border pt-4 text-sm">
           <Row label={t("cnt.vr.amount")} value={formatMontant(receipt.montant)} />
+          {(receipt.fraisService ?? 0) > 0 && <Row label={t("receipt.serviceFee")} value={formatMontant(receipt.fraisService ?? 0)} />}
         </dl>
 
         <div className="mt-4 flex items-center gap-2.5 border-t border-dashed border-border pt-4">

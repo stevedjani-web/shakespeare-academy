@@ -5,7 +5,9 @@ import Link from "next/link";
 import { CheckCircle2, Smartphone, XCircle } from "lucide-react";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, Field, Input, Spinner } from "@/components/ui";
-import { formatDate, formatMontant } from "@/lib/format";
+import { formatDate, formatMontant, formatNumber } from "@/lib/format";
+import { computeServiceFee } from "@/lib/service-fee";
+import { ApiError } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/use-i18n";
 
 export interface PayableTranche {
@@ -22,6 +24,9 @@ interface OnlinePaymentState {
   id: string;
   statut: "EN_ATTENTE" | "CONFIRME" | "ECHOUE" | "A_TRAITER";
   montant: number;
+  // Frais de service payés en plus de la scolarité, et total débité sur le téléphone.
+  fraisService: number;
+  total: number;
   motifEchec: string | null;
   paiement: { id: string; numeroRecu: string } | null;
 }
@@ -98,7 +103,7 @@ function PaymentTracker({
           <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div>
             <p className="font-semibold">{t("parent.pay.confirmTitle")}</p>
-            <p>{t("parent.pay.confirmBody", { amount: formatMontant(state.montant) })}</p>
+            <p>{t("parent.pay.confirmBody", { amount: formatMontant(state.total) })}</p>
             {gaveUp && <p className="mt-2">{t("parent.pay.stillWaiting")}</p>}
           </div>
         </div>
@@ -107,7 +112,10 @@ function PaymentTracker({
         <div className="flex items-start gap-3 rounded-xl bg-success-soft px-3 py-3 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
           <div>
-            <p className="font-semibold">{t("parent.pay.confirmed", { amount: formatMontant(state.montant) })}</p>
+            <p className="font-semibold">{t("parent.pay.confirmed", { amount: formatMontant(state.total) })}</p>
+            {state.fraisService > 0 && (
+              <p>{t("parent.pay.confirmedFee", { tuition: formatMontant(state.montant), fee: formatMontant(state.fraisService) })}</p>
+            )}
             {state.paiement && (
               <p>
                 {t("parent.pay.receipt", { number: state.paiement.numeroRecu })}{" "}
@@ -148,11 +156,14 @@ export function PayTranches({
   studentId,
   tranches,
   defaultPhone,
+  fraisServiceBp,
   onChanged,
 }: {
   studentId: string;
   tranches: PayableTranche[];
   defaultPhone: string;
+  // Taux des frais de service en centièmes de pour cent (200 = 2 %). Le serveur recalcule et fait foi.
+  fraisServiceBp: number;
   onChanged: () => void;
 }) {
   const { t } = useI18n();
@@ -189,24 +200,30 @@ export function PayTranches({
     setBusy(true);
     setError(null);
     try {
+      // Le total vu à l'écran est envoyé : si le taux a changé entre-temps, le serveur refuse et montre le nouveau total.
       const res = await portalApi.post<{ id: string }>(`/portal/children/${studentId}/payments`, {
         trancheId: tr.trancheId,
         montant: amount,
+        totalAttendu: amount + computeServiceFee(amount, fraisServiceBp),
         telephone,
       });
       setTracked((prev) => ({ ...prev, [tr.trancheId]: res.id }));
       setOpenId(null);
     } catch (e) {
       setError(describePortalError(e));
+      // 409 : le taux a changé (ou la tranche a bougé) : on recharge la situation pour afficher le nouveau total.
+      if (e instanceof ApiError && e.status === 409) onChanged();
     } finally {
       setBusy(false);
     }
   };
 
+  const rateLabel = formatNumber(fraisServiceBp / 100);
+
   return (
     <Card className="mb-4">
       <h2 className="font-display text-base font-semibold text-ink">{t("parent.pay.title")}</h2>
-      <p className="mt-1 text-sm text-ink-muted">{t("parent.pay.intro")}</p>
+      <p className="mt-1 text-sm text-ink-muted">{fraisServiceBp > 0 ? t("parent.pay.introFee", { rate: rateLabel }) : t("parent.pay.intro")}</p>
       <ul className="mt-3 space-y-3">
         {shown.map((tr) => {
           const paymentId = tracked[tr.trancheId] ?? tr.enAttente?.id ?? null;
@@ -264,10 +281,30 @@ export function PayTranches({
                   <Field label={t("parent.pay.phoneLabel")}>
                     <Input inputMode="tel" autoComplete="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
                   </Field>
+                  {fraisServiceBp > 0 && Number(montant) > 0 && (
+                    <dl className="space-y-1 rounded-xl bg-surface-muted px-3.5 py-3 text-sm" aria-live="polite">
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink-muted">{tr.libelle}</dt>
+                        <dd className="font-medium text-ink">{formatMontant(Number(montant))}</dd>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-ink-muted">{t("parent.pay.feeLine", { rate: rateLabel })}</dt>
+                        <dd className="font-medium text-ink">{formatMontant(computeServiceFee(Number(montant), fraisServiceBp))}</dd>
+                      </div>
+                      <div className="flex justify-between gap-3 border-t border-border pt-1.5">
+                        <dt className="font-semibold text-ink">{t("parent.pay.totalLine")}</dt>
+                        <dd className="font-semibold text-ink">{formatMontant(Number(montant) + computeServiceFee(Number(montant), fraisServiceBp))}</dd>
+                      </div>
+                    </dl>
+                  )}
                   <ErrorMessage>{error}</ErrorMessage>
                   <div className="flex flex-wrap gap-2">
                     <Button type="submit" disabled={busy}>
-                      {busy ? t("parent.pay.sending") : montant ? t("parent.pay.payAmount", { amount: formatMontant(Number(montant)) }) : t("parent.pay.pay")}
+                      {busy
+                        ? t("parent.pay.sending")
+                        : Number(montant) > 0
+                          ? t("parent.pay.payAmount", { amount: formatMontant(Number(montant) + computeServiceFee(Number(montant), fraisServiceBp)) })
+                          : t("parent.pay.pay")}
                     </Button>
                     <Button type="button" variant="secondary" onClick={() => setOpenId(null)} disabled={busy}>
                       {t("parent.pay.cancel")}

@@ -32,7 +32,10 @@ export interface ReceiptSheetProps {
   method: string;
   reference?: string | null;
   cashier: string;
+  /** Part imputée à la scolarité. */
   montant: number;
+  /** Frais de service payés EN PLUS (paiement en ligne) : le total payé est montant + fraisService. */
+  fraisService?: number;
   /** Images déjà chargées (avec le jeton) : `null` = emplacement vide, à signer ou tamponner à la main. */
   cachetSrc?: string | null;
   signatureSrc?: string | null;
@@ -52,6 +55,8 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
   const { school, cancelled, provisional, reprise } = props;
   const logo = useTrimmedLogo(school?.logoUrl);
   const seals = !cancelled && !provisional && !reprise;
+  const fee = props.fraisService ?? 0;
+  const total = props.montant + fee;
 
   return (
     <article
@@ -141,11 +146,16 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
             {provisional ? t("receipt.amountPaid") : t("fin.receipt.paid")}
           </p>
           <p className="mt-1 font-display text-4xl font-bold leading-none tracking-tight text-primary print:text-[42px]">
-            {formatMontant(props.montant)}
+            {formatMontant(total)}
           </p>
           <p className="mx-auto mt-2 max-w-[92%] text-[11px] italic leading-snug text-ink-muted">
-            {t("receipt.inWords", { words: amountInWords(props.montant, school?.devise) })}
+            {t("receipt.inWords", { words: amountInWords(total, school?.devise) })}
           </p>
+          {fee > 0 && (
+            <p className="mt-1.5 text-[11px] font-medium text-ink">
+              {t("receipt.tuitionPart")} : {formatMontant(props.montant)} · {t("receipt.serviceFee")} : {formatMontant(fee)}
+            </p>
+          )}
         </section>
 
         {/* Détail : toujours visible, sans rien à déplier. */}

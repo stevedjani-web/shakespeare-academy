@@ -146,13 +146,16 @@ export default function CashClosingPage() {
             />
           </div>
 
-          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.especes.enCaisse !== 0) && (
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.entrees.fraisService.count > 0 || closing.especes.enCaisse !== 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
                 <>
                   <Badge color="green">{t("fin.closing.modeAmount", { mode: t("fin.mode.ESPECES"), amount: formatMontant(closing.entrees.parMode.ESPECES) })}</Badge>
                   <Badge color="blue">{t("fin.closing.modeAmount", { mode: t("fin.mode.MOBILE_MONEY"), amount: formatMontant(closing.entrees.parMode.MOBILE_MONEY) })}</Badge>
                 </>
+              )}
+              {closing.entrees.fraisService.count > 0 && (
+                <Badge color="orange">{t("fin.closing.serviceFees", { amount: formatMontant(closing.entrees.fraisService.total), n: closing.entrees.fraisService.count })}</Badge>
               )}
               {closing.entrees.reprise.count > 0 && (
                 <Badge color="primary">{t("fin.closing.reprise", { amount: formatMontant(closing.entrees.reprise.total), n: closing.entrees.reprise.count })}</Badge>
@@ -212,6 +215,12 @@ export default function CashClosingPage() {
                                 <dt className="text-xs text-ink-muted">{t("fin.f.receivedBy")}</dt>
                                 <dd className="font-medium text-ink">{item.recuPar}</dd>
                               </div>
+                              {item.fraisService > 0 && (
+                                <div>
+                                  <dt className="text-xs text-ink-muted">{t("receipt.serviceFee")}</dt>
+                                  <dd className="font-medium text-ink">{formatMontant(item.fraisService)}</dd>
+                                </div>
+                              )}
                             </dl>
                           )}
                         </li>

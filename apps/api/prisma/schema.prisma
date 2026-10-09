@@ -84,6 +84,9 @@ model School {
   bulletinAfficheRang  Boolean  @default(false)
   // Interrupteur du paiement des frais par les parents (Mobile Money). Faux tant que l'Administrateur ne l'a pas activé.
   paiementEnLigneActif Boolean  @default(false)
+  // Frais de service ajoutés au paiement en ligne d'un parent, en centièmes de pour cent (200 = 2 %). 0 = aucun frais.
+  // Calculés par le serveur sur le montant de la scolarité, arrondis à l'XAF supérieur (RG16) : jamais une valeur saisie.
+  fraisServiceBp       Int      @default(0)
 
   // Lot 19 (documents officiels) : ce qui figure sur une attestation (nom et titre du signataire, ville du lieu de
   // signature, image de la signature). Tous facultatifs : une attestation ne se génère que s'ils sont renseignés.
@@ -681,7 +684,11 @@ model OnlinePayment {
   invoiceLine      InvoiceLine         @relation(fields: [invoiceLineId], references: [id])
   guardianId       String
   guardian         Guardian            @relation(fields: [guardianId], references: [id])
+  // Part imputée à la tranche (la scolarité). Les frais de service s'y ajoutent : le parent débité paie montant + fraisService.
   montant          Int
+  // Frais de service figés à la création de la tentative, avec le taux utilisé (un changement de taux ne touche pas un paiement en cours).
+  fraisService     Int                 @default(0)
+  tauxFraisBp      Int                 @default(0)
   // Numéro débité, au format international sans le plus.
   telephone        String
   // Identifiant envoyé au fournisseur (UUID), clé de rapprochement du retour signé.
@@ -1115,6 +1122,9 @@ model Payment {
   numeroProvisoire  String?
   saisieHorsLigneAt DateTime?
   montant           Int
+  // Frais de service payés EN PLUS du montant (paiement en ligne). Jamais imputés à la tranche : ni solde, ni solvabilité,
+  // ni recouvrement ne les voient ; la clôture de journée les montre à part.
+  fraisService      Int            @default(0)
   modePaiement      PaymentMode    @default(ESPECES)
   // Renseignée uniquement pour MOBILE_MONEY (référence externe de la transaction) — jamais
   // d'intégration API automatisée, un simple enregistrement manuel (cahier §11, déjà tranché).

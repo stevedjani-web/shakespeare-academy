@@ -25,6 +25,8 @@ export const RESERVED_PERMISSIONS = [
   'DISCIPLINE_DECIDE',
   // Versement en banque : confirmer ou rejeter un versement déclaré (contrôle des espèces encaissées).
   'BANK_DEPOSIT_VERIFY',
+  // Paiement en ligne : fixer le taux des frais de service facturés aux parents.
+  'ONLINE_FEE_MANAGE',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);
