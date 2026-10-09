@@ -80,7 +80,7 @@ describe('Langue de l’utilisateur (e2e)', () => {
         code,
         motDePasse: 'MotDePasse123',
         consentement: true,
-        versionPolitique: '2026-09-v8',
+        versionPolitique: '2026-09-v9',
       })
       .expect(201);
     return {

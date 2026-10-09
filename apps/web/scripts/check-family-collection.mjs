@@ -67,14 +67,14 @@ const body = buildSubmission(
   [child, { ...child, key: "b", prenom: "Brice", classId: "autre", lieuNaissance: "Pointe-Noire" }, { ...child, key: "c", prenom: "Chloé", classId: "lien" }],
   "lien",
   "MotDePasse123",
-  "2026-09-v8",
+  "2026-09-v9",
 );
 assert.equal(body.responsable.email, undefined);
 assert.equal(body.responsable.profession, undefined);
 assert.equal(body.responsable.adresse, "Poto-Poto");
 assert.equal(body.responsable.lien, "Mère");
 assert.equal(body.consentement, true);
-assert.equal(body.versionPolitique, "2026-09-v8");
+assert.equal(body.versionPolitique, "2026-09-v9");
 assert.equal(body.enfants[0].classId, undefined);
 assert.equal(body.enfants[0].lieuNaissance, undefined);
 assert.equal(body.enfants[1].classId, "autre");

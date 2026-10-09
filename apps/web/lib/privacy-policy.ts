@@ -1,7 +1,7 @@
 import type { Locale } from "@/lib/i18n/locales";
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-export const PRIVACY_VERSION = "2026-09-v8";
+export const PRIVACY_VERSION = "2026-09-v9";
 
 export interface PrivacySection {
   titre: string;
@@ -33,6 +33,15 @@ const FR: PrivacyPolicy = {
       contenu: [
         "Votre numéro de téléphone, tel que vous l'avez donné à l'école, sert d'identifiant. Votre mot de passe est conservé sous une forme chiffrée : personne, pas même l'école, ne peut le lire.",
         "Nous gardons la date à laquelle vous avez accepté cette politique et la version acceptée, ainsi que la date de votre dernière connexion.",
+      ],
+    },
+    {
+      titre: "Les informations que vous envoyez par le formulaire de la classe",
+      contenu: [
+        "Si vous remplissez le formulaire de votre classe (le lien partagé par l'école), vous envoyez à l'école : votre nom, votre prénom, votre numéro de téléphone et votre lien avec l'enfant ; si vous le souhaitez, votre adresse e-mail, votre profession et votre adresse ; pour chaque enfant, son nom, son prénom, sa date de naissance et sa classe, et si vous le souhaitez son lieu de naissance et une photo d'identité ; enfin le mot de passe que vous choisissez, conservé sous une forme chiffrée que personne ne peut lire.",
+        "Ces informations servent uniquement à compléter le dossier de votre enfant, à créer votre compte de cet espace et, pour la photo, à établir sa carte d'élève. Rien n'est ajouté aux dossiers de l'école avant qu'un membre du secrétariat ait vérifié votre demande, et il peut la refuser : une demande refusée n'est pas ajoutée aux dossiers et sa photo est supprimée.",
+        "La photo est facultative. Votre téléphone la recadre en portrait avant de l'envoyer ; l'école la range dans un espace privé, accessible seulement au personnel habilité, et ne la publie jamais. Elle n'est visible que dans le dossier de l'élève et sur sa carte d'élève.",
+        "Tant que vous n'avez pas envoyé le formulaire, ce que vous saisissez reste sur votre téléphone, sans le mot de passe ni les photos, pour vous éviter de tout ressaisir. Vous pouvez l'effacer à tout moment depuis le formulaire.",
       ],
     },
     {
@@ -118,6 +127,15 @@ const EN: PrivacyPolicy = {
       contenu: [
         "Your phone number, as you gave it to the school, is used as your username. Your password is stored in encrypted form: nobody, not even the school, can read it.",
         "We keep the date on which you accepted this policy and the version you accepted, as well as the date of your last sign-in.",
+      ],
+    },
+    {
+      titre: "The information you send through the class form",
+      contenu: [
+        "If you fill in your class form (the link shared by the school), you send the school: your last name, first name, phone number and relationship to the child; if you wish, your e-mail address, occupation and address; for each child, their last name, first name, date of birth and class, and if you wish their place of birth and an ID photo; and finally the password you choose, kept in an encrypted form that nobody can read.",
+        "This information is used only to complete your child's file, to create your account in this space and, for the photo, to make their student card. Nothing is added to the school's files until a member of the school office has checked your request, and they can refuse it: a refused request is not added to the files and its photo is deleted.",
+        "The photo is optional. Your phone crops it to a portrait before sending it; the school keeps it in a private area, accessible only to authorised staff, and never publishes it. It is visible only in the student's file and on their student card.",
+        "Until you send the form, what you type stays on your phone, without the password or photos, so that you do not have to type everything again. You can clear it at any time from the form.",
       ],
     },
     {
