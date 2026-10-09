@@ -11,6 +11,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { ExpandButton, useExpanded } from "@/components/expand";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { useSchoolBrand } from "@/lib/school-brand";
+import { BrandMark } from "@/components/brand-mark";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -91,9 +92,7 @@ export default function LoginPage() {
               <img src={logoSrc} alt={brand?.nom ?? "Shakespeare Academy"} className="h-12 w-auto max-w-[60%] object-contain md:hidden" />
             ) : (
               <div className="flex items-center gap-2.5 md:hidden">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
-                  S
-                </span>
+                <BrandMark />
                 <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
               </div>
             )}

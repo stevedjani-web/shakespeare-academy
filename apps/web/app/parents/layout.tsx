@@ -11,6 +11,7 @@ import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { ParentAlert } from "@/components/parents/parent-alert";
+import { BrandMark } from "@/components/brand-mark";
 
 /** Icône de la messagerie avec le nombre de messages non lus. */
 function MessagesLink() {
@@ -106,9 +107,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="bg-primary text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Link href="/parents" className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 font-display text-lg font-bold text-accent">
-              S
-            </span>
+            <BrandMark />
             <span>
               <span className="block font-display text-base font-semibold leading-tight">
                 Shakespeare Academy

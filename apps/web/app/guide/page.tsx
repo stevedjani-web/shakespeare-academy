@@ -13,6 +13,7 @@ import { CopyrightFooter } from "@/components/copyright-footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { MessageKey } from "@/lib/i18n";
+import { BrandMark } from "@/components/brand-mark";
 
 type RoleKey = "direction" | "secretariat" | "surveillance" | "enseignant" | "parent";
 
@@ -142,9 +143,7 @@ export default function GuidePage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-2 flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
-          S
-        </span>
+        <BrandMark />
         <p className="font-display text-lg font-semibold text-ink">Shakespeare Academy</p>
         <LanguageSwitcher className="ml-auto" />
       </div>

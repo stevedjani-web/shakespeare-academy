@@ -6,6 +6,7 @@ import { amountInWords } from "@/lib/amount-in-words";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { useTrimmedLogo } from "@/lib/school-brand";
 import { ParentSpaceCallout } from "@/components/parent-space-callout";
+import { BrandMark } from "@/components/brand-mark";
 
 export interface ReceiptSchool {
   nom: string;
@@ -99,7 +100,7 @@ export function ReceiptSheet(props: ReceiptSheetProps) {
               // eslint-disable-next-line @next/next/no-img-element -- logo de l'école recadré côté navigateur
               <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
             ) : (
-              <span className="font-display text-2xl font-bold text-primary">S</span>
+              <BrandMark className="h-full w-full rounded-xl" />
             )}
           </div>
           <div className="min-w-0">

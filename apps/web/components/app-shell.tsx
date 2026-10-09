@@ -43,6 +43,7 @@ import { OfflineStatus } from "@/components/offline-status";
 import { CopyrightFooter } from "@/components/copyright-footer";
 import { useOutbox } from "@/lib/outbox";
 import { useSchoolBrand } from "@/lib/school-brand";
+import { BrandMark } from "@/components/brand-mark";
 
 interface NavLink {
   href: string;
@@ -105,9 +106,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
   }
   return (
     <div className="flex items-center gap-2.5 px-1">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary font-display text-base font-bold text-accent">
-        S
-      </span>
+      <BrandMark />
       <div className="leading-tight">
         <p className="font-display text-base font-semibold text-white">Shakespeare</p>
         <p className="-mt-0.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Academy</p>
