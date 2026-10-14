@@ -13,6 +13,7 @@ import { TextbookModule } from '../textbook/textbook.module';
 import { OnlinePaymentsModule } from '../online-payments/online-payments.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { DisciplineModule } from '../discipline/discipline.module';
+import { BankPaymentsModule } from '../bank-payments/bank-payments.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
@@ -24,6 +25,7 @@ import {
 import { ParentAccountsController } from './parent-accounts.controller';
 import { ParentNotificationsController } from './parent-notifications.controller';
 import { ParentMessagingController } from './parent-messaging.controller';
+import { ParentBankPaymentsController } from './parent-bank-payments.controller';
 
 /** Lot 11 : comptes parents et portail en lecture (addendum v1.1). */
 @Module({
@@ -42,12 +44,14 @@ import { ParentMessagingController } from './parent-messaging.controller';
     OnlinePaymentsModule,
     DocumentsModule,
     DisciplineModule,
+    BankPaymentsModule,
   ],
   controllers: [
     ParentAuthController,
     ParentPortalController,
     ParentNotificationsController,
     ParentMessagingController,
+    ParentBankPaymentsController,
     ParentAccountsController,
   ],
   providers: [

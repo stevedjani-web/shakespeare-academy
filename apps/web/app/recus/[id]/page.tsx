@@ -1,5 +1,6 @@
 "use client";
 
+import { PAYMENT_MODE_KEY } from "@/lib/payment-modes";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +16,7 @@ import { ReceiptSheet } from "@/components/receipt/receipt-sheet";
 import { useAuthImage } from "@/lib/use-auth-image";
 import { ArrowLeft, Printer } from "lucide-react";
 
-const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
+const MODE_KEY: Record<string, MessageKey> = PAYMENT_MODE_KEY;
 
 export default function ReceiptPage() {
   const { t } = useI18n();

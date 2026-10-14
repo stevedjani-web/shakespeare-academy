@@ -237,7 +237,7 @@ export interface Discount {
   approbateur: { id: string; nom: string; prenom: string } | null;
 }
 
-export type PaymentMode = "ESPECES" | "MOBILE_MONEY";
+export type PaymentMode = "ESPECES" | "MOBILE_MONEY" | "VIREMENT" | "DEPOT_BANCAIRE" | "CHEQUE";
 export type PaymentStatus = "VALIDE" | "ANNULE";
 
 export interface Payment {
@@ -460,7 +460,7 @@ export interface DashboardStats {
     tauxRecouvrement: number | null;
     soldeCaisseCumule: number;
   };
-  paiements: { parMode: { ESPECES: number; MOBILE_MONEY: number } };
+  paiements: { parMode: { ESPECES: number; MOBILE_MONEY: number; VIREMENT?: number; DEPOT_BANCAIRE?: number; CHEQUE?: number } };
   remises: { enAttente: number; approuvees: number; rejetees: number };
   depenses: {
     totalDecaisse: number;

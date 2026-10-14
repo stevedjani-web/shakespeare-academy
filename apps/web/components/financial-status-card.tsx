@@ -1,5 +1,6 @@
 "use client";
 
+import { PAYMENT_MODE_KEY } from "@/lib/payment-modes";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-const MODE_KEY: Record<string, MessageKey> = { ESPECES: "fin.mode.ESPECES", MOBILE_MONEY: "fin.mode.MOBILE_MONEY" };
+const MODE_KEY: Record<string, MessageKey> = PAYMENT_MODE_KEY;
 const DISCOUNT_STATUS_KEY: Record<"EN_ATTENTE" | "APPROUVEE" | "REJETEE", MessageKey> = {
   EN_ATTENTE: "fin.status.EN_ATTENTE",
   APPROUVEE: "fin.status.APPROUVEE",

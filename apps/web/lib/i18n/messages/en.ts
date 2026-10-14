@@ -7,6 +7,7 @@ import { enTimetable } from "./domains/timetable.ts";
 import { enAcademics } from "./domains/academics.ts";
 import { enContent } from "./domains/content.ts";
 import { enFamily } from "./domains/family.ts";
+import { enBank } from "./domains/bank.ts";
 
 // English dictionary (British spelling: enrolment, programme…). Same keys as fr.ts: the compiler checks it.
 export const en: Record<MessageKey, string> = {
@@ -311,6 +312,7 @@ export const en: Record<MessageKey, string> = {
   "parent.child.modeMobile": "Mobile Money",
   "parent.child.modeTransfer": "Bank transfer",
   "parent.child.modeCheque": "Cheque",
+  "parent.child.modeDeposit": "Bank deposit",
 
   // ---------------------------------------------------------------------------------------------- Espace parents : onglets (devoirs, bulletins, vie scolaire, documents)
   "parent.textbook.dueBy": "due {date}",
@@ -526,4 +528,5 @@ export const en: Record<MessageKey, string> = {
   ...enAcademics,
   ...enContent,
   ...enFamily,
+  ...enBank,
 };

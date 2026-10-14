@@ -76,6 +76,7 @@ const LINKS: NavLink[] = [
   { href: "/insolvables", labelKey: "nav.insolvent", icon: AlertOctagon, requiredPermission: "FINANCE_READ" },
   { href: "/paiements-en-ligne", labelKey: "nav.onlinePayments", icon: Smartphone, requiredPermission: "FINANCE_READ" },
   { href: "/depenses", labelKey: "nav.expenses", icon: Wallet, requiredPermission: "CASH_CLOSE" },
+  { href: "/paiements-bancaires", labelKey: "bank.nav", icon: Building2, requiredPermission: "FINANCE_READ" },
   { href: "/versements", labelKey: "nav.deposits", icon: Landmark, requiredPermission: "CASH_CLOSE" },
   { href: "/cloture", labelKey: "nav.closing", icon: ClipboardList, requiredPermission: "CASH_CLOSE" },
   { href: "/parametres/annees", labelKey: "nav.years", icon: CalendarRange, requiredPermission: "SETTINGS_READ" },

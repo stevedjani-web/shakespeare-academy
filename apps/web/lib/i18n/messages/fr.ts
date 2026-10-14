@@ -6,6 +6,7 @@ import { frTimetable } from "./domains/timetable.ts";
 import { frAcademics } from "./domains/academics.ts";
 import { frContent } from "./domains/content.ts";
 import { frFamily } from "./domains/family.ts";
+import { frBank } from "./domains/bank.ts";
 // Dictionnaire français : la référence. Toute clé ajoutée ici doit l'être aussi dans en.ts (le compilateur le vérifie).
 // Un texte enrichi marque le gras avec **deux étoiles** ; {nom} est remplacé par une valeur.
 export const fr = {
@@ -311,6 +312,7 @@ export const fr = {
   "parent.child.modeMobile": "Mobile Money",
   "parent.child.modeTransfer": "Virement",
   "parent.child.modeCheque": "Chèque",
+  "parent.child.modeDeposit": "Dépôt en banque",
 
   // ---------------------------------------------------------------------------------------------- Espace parents : onglets (devoirs, bulletins, vie scolaire, documents)
   "parent.textbook.dueBy": "pour le {date}",
@@ -525,6 +527,7 @@ export const fr = {
   ...frAcademics,
   ...frContent,
   ...frFamily,
+  ...frBank,
 } as const;
 
 export type MessageKey = keyof typeof fr;

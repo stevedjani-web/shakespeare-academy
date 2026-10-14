@@ -1,6 +1,6 @@
 import {
   IsDateString,
-  IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -11,6 +11,10 @@ import {
 } from 'class-validator';
 import { PaymentMode } from '@prisma/client';
 
+// Au guichet : espèces ou Mobile Money seulement. Virement, dépôt et chèque passent par une déclaration avec preuve
+// (`/bank-payments`), jamais par un encaissement direct sans contrôle du relevé.
+const COUNTER_MODES: PaymentMode[] = ['ESPECES', 'MOBILE_MONEY'];
+
 export class CreatePaymentDto {
   @IsString()
   invoiceLineId!: string;
@@ -20,7 +24,7 @@ export class CreatePaymentDto {
   montant!: number;
 
   @IsOptional()
-  @IsEnum(PaymentMode)
+  @IsIn(COUNTER_MODES)
   modePaiement?: PaymentMode;
 
   // Requise seulement pour MOBILE_MONEY (enregistrement manuel avec référence externe — cahier

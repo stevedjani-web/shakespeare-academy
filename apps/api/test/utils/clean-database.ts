@@ -9,6 +9,11 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.refreshToken.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.onlinePayment.deleteMany();
+  // Paiement par banque : lignes et preuves avant les déclarations, qui précèdent les paiements, les comptes et les familles.
+  await prisma.bankPaymentProof.deleteMany();
+  await prisma.bankPaymentClaimLine.deleteMany();
+  await prisma.bankPaymentClaim.deleteMany();
+  await prisma.schoolBankAccount.deleteMany();
   await prisma.issuedDocument.deleteMany();
   // Aucune relation Prisma vers Student/Enrollment (simples identifiants informatifs) : seule sa relation
   // vers Level (jamais supprimé par cette fonction) impose de la vider avant l'école, sans contrainte réelle.

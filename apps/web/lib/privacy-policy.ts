@@ -1,7 +1,7 @@
 import type { Locale } from "@/lib/i18n/locales";
 
 // Version affichée au responsable au moment de l'activation : à garder identique à CONSENT_VERSION de l'API.
-export const PRIVACY_VERSION = "2026-09-v9";
+export const PRIVACY_VERSION = "2026-09-v10";
 
 export interface PrivacySection {
   titre: string;
@@ -70,7 +70,14 @@ const FR: PrivacyPolicy = {
       titre: "Paiement des frais en ligne",
       contenu: [
         "Si l'école a activé le paiement en ligne, vous pouvez payer une tranche de scolarité par Mobile Money depuis cet espace. Pour cela, le numéro de téléphone que vous saisissez est transmis à notre prestataire de paiement (PawaPay) et à votre opérateur, avec le montant, uniquement pour effectuer le paiement. Votre code secret Mobile Money reste sur votre téléphone : l'école ne le voit jamais et ne conserve aucun numéro de carte.",
-        "L'école conserve la trace de chaque tentative (montant, numéro débité, résultat) et le reçu de chaque paiement réussi, comme pour un paiement fait au secrétariat. Les frais du prestataire sont à la charge de l'école : vous payez exactement le montant de la tranche.",
+        "L'école conserve la trace de chaque tentative (montant, numéro débité, résultat) et le reçu de chaque paiement réussi, comme pour un paiement fait au secrétariat. Si l'école fixe des frais de service, ils sont indiqués avant que vous validiez et s'ajoutent au montant de la tranche ; ils ne diminuent jamais ce qui est compté sur la scolarité de l'enfant.",
+      ],
+    },
+    {
+      titre: "Paiement par banque (virement, dépôt, chèque)",
+      contenu: [
+        "Si l'école a indiqué ses coordonnées bancaires, vous pouvez déclarer un virement, un dépôt en banque ou un chèque depuis cet espace. Vous envoyez à l'école la référence de l'opération, sa date, la banque et le montant, avec la preuve du paiement (une photo ou un PDF, trois fichiers au plus). Si votre preuve montre d'autres opérations de votre compte, cachez-les avant de la photographier : seule la ligne de votre paiement est utile.",
+        "Vos preuves sont rangées dans un espace privé et ne sont lues que par le personnel habilité (secrétariat, comptabilité, Direction) ; chaque lecture est enregistrée. Une déclaration n'est pas un paiement : le Promoteur vérifie d'abord le crédit sur le relevé de la banque de l'école, puis le secrétariat valide et vous remet le reçu. Vous pouvez retirer une déclaration tant qu'elle n'est pas vérifiée. Si l'école a reçu plus que le solde de vos tranches, elle vous rend la différence.",
       ],
     },
     {
@@ -164,7 +171,14 @@ const EN: PrivacyPolicy = {
       titre: "Paying fees online",
       contenu: [
         "If the school has enabled online payment, you can pay a school fee instalment by Mobile Money from this area. To do so, the phone number you enter is passed to our payment provider (PawaPay) and to your operator, with the amount, solely to carry out the payment. Your Mobile Money secret code stays on your phone: the school never sees it and keeps no card number.",
-        "The school keeps a record of each attempt (amount, number debited, result) and the receipt of each successful payment, as for a payment made at the school office. The provider's fees are borne by the school: you pay exactly the amount of the instalment.",
+        "The school keeps a record of each attempt (amount, number debited, result) and the receipt of each successful payment, as for a payment made at the school office. If the school sets a service fee, it is shown before you confirm and is added to the instalment amount; it never reduces what is counted towards your child's fees.",
+      ],
+    },
+    {
+      titre: "Paying by bank (transfer, deposit, cheque)",
+      contenu: [
+        "If the school has given its bank details, you can declare a bank transfer, a bank deposit or a cheque from this area. You send the school the operation reference, its date, the bank and the amount, with proof of payment (a photo or a PDF, up to three files). If your proof shows other transactions on your account, hide them before photographing it: only the line for your payment is needed.",
+        "Your proofs are kept in a private space and are read only by authorised staff (office, accounts, Management); each reading is recorded. A declaration is not a payment: the Promoter first checks the credit on the school's bank statement, then the office validates it and gives you the receipt. You can withdraw a declaration until it has been checked. If the school received more than the balance of your instalments, it returns the difference.",
       ],
     },
     {

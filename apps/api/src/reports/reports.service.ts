@@ -149,7 +149,13 @@ export class ReportsService {
       0,
     );
     const totalSorties = expenses.reduce((sum, e) => sum + e.montant, 0);
-    const parMode = { ESPECES: 0, MOBILE_MONEY: 0 };
+    const parMode = {
+      ESPECES: 0,
+      MOBILE_MONEY: 0,
+      VIREMENT: 0,
+      DEPOT_BANCAIRE: 0,
+      CHEQUE: 0,
+    };
     for (const p of payments) parMode[p.modePaiement] += p.montant;
     const parCategorie: Record<string, number> = {};
     for (const e of expenses)
@@ -390,7 +396,13 @@ export class ReportsService {
       tauxRecouvrement: null as number | null,
       soldeCaisseCumule: cashClosing.soldeCumule,
     };
-    const parModePaiement = { ESPECES: 0, MOBILE_MONEY: 0 };
+    const parModePaiement = {
+      ESPECES: 0,
+      MOBILE_MONEY: 0,
+      VIREMENT: 0,
+      DEPOT_BANCAIRE: 0,
+      CHEQUE: 0,
+    };
 
     if (activeYear) {
       const enrollments = await this.prisma.enrollment.findMany({

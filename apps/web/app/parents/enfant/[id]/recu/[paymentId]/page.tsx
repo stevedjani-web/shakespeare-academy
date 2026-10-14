@@ -36,6 +36,7 @@ const MODE_KEY: Record<string, MessageKey> = {
   MOBILE_MONEY: "parent.child.modeMobile",
   VIREMENT: "parent.child.modeTransfer",
   CHEQUE: "parent.child.modeCheque",
+  DEPOT_BANCAIRE: "parent.child.modeDeposit",
 };
 
 function Row({ label, value }: { label: string; value: string }) {

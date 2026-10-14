@@ -145,6 +145,20 @@ export const ONLINE_FEE_PERMISSIONS = [
 ] as const;
 
 /**
+ * Paiement par banque (14 octobre 2026) : `BANK_PAYMENT_CONFIRM` confirme qu'un crédit figure sur le relevé de la banque
+ * (droit réservé : voir auth/reserved-permissions.ts). Aucun rôle du seed ne le porte : la migration le donne au rôle
+ * Promoteur (code PRO) de l'école, qui n'existe pas dans le seed. La déclaration et la validation par le secrétariat
+ * réutilisent `PAYMENT_CREATE`, la lecture `FINANCE_READ`.
+ */
+export const BANK_PAYMENT_PERMISSIONS = [
+  {
+    code: 'BANK_PAYMENT_CONFIRM',
+    description:
+      "Confirmer le crédit d'un paiement par banque après contrôle du relevé de la banque.",
+  },
+] as const;
+
+/**
  * Catalogue de permissions du Lot 7 (vie scolaire : référentiel pédagogique et personnel, addendum
  * v1.1). `PEDAGOGY_MANAGE` couvre la saisie des horaires, matières, enseignants, affectations,
  * calendrier et salles. Les permissions des lots suivants (emploi du temps, appel, pointage...) seront
@@ -612,6 +626,7 @@ export async function seedReferenceData(
     ...LOT5_PERMISSIONS,
     ...BANK_DEPOSIT_PERMISSIONS,
     ...ONLINE_FEE_PERMISSIONS,
+    ...BANK_PAYMENT_PERMISSIONS,
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,

@@ -213,7 +213,7 @@ describe('Assistant de rédaction de la messagerie (e2e, Lot 22)', () => {
           code,
           motDePasse: 'MotDePasse123',
           consentement: true,
-          versionPolitique: '2026-09-v9',
+          versionPolitique: '2026-09-v10',
         })
         .expect(201)
     ).body.accessToken as string;

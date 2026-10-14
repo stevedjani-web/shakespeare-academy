@@ -268,6 +268,12 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     ],
     permission: "CASH_CLOSE",
   },
+  "paiements-bancaires": {
+    id: "paiements-bancaires",
+    titleKey: "bank.help.title",
+    tipKeys: ["bank.help.tip1", "bank.help.tip2", "bank.help.tip3", "bank.help.tip4"],
+    permission: "FINANCE_READ",
+  },
   "versements": {
     id: "versements",
     titleKey: "cnt.help.versements.title",
@@ -380,6 +386,7 @@ export const HELP_ORDER = [
   "insolvables",
   "paiements-en-ligne",
   "depenses",
+  "paiements-bancaires",
   "versements",
   "cloture",
   "parametres-annees",

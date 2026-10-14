@@ -1,5 +1,6 @@
 "use client";
 
+import { bankTotal } from "@/lib/payment-modes";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -86,6 +87,7 @@ export default function DashboardHomePage() {
       [t("dash.cashBalance"), formatMontant(stats.financier.soldeCaisseCumule)],
       [t("dash.cashPayments"), formatMontant(stats.paiements.parMode.ESPECES)],
       [t("dash.mobilePayments"), formatMontant(stats.paiements.parMode.MOBILE_MONEY)],
+      [t("bank.dashLabel"), formatMontant(bankTotal(stats.paiements.parMode))],
       [t("dash.pendingDiscounts"), String(stats.remises.enAttente)],
       [t("dash.pendingExpenses"), String(stats.depenses.enAttenteCount)],
       [t("dash.approvedExpenses"), formatMontant(stats.depenses.totalDecaisse)],
@@ -305,6 +307,7 @@ export default function DashboardHomePage() {
                 />
                 <StatCard label={t("dash.cashPayments")} value={formatMontant(stats.paiements.parMode.ESPECES)} tone="success" icon={<Banknote size={18} />} />
                 <StatCard label={t("dash.mobilePayments")} value={formatMontant(stats.paiements.parMode.MOBILE_MONEY)} tone="info" icon={<Smartphone size={18} />} />
+                <StatCard label={t("bank.dashLabel")} value={formatMontant(bankTotal(stats.paiements.parMode))} tone="info" icon={<Landmark size={18} />} />
               </div>
 
               {totalNet > 0 && (

@@ -27,6 +27,8 @@ export const RESERVED_PERMISSIONS = [
   'BANK_DEPOSIT_VERIFY',
   // Paiement en ligne : fixer le taux des frais de service facturés aux parents.
   'ONLINE_FEE_MANAGE',
+  // Paiement par banque : confirmer qu'un crédit figure bien sur le relevé de la banque (le Promoteur seul).
+  'BANK_PAYMENT_CONFIRM',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);

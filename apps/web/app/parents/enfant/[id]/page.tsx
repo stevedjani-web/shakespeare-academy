@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, BookOpenText, CalendarDays, FileText, GraduationCap, ShieldAlert, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, BookOpenText, CalendarDays, FileText, GraduationCap, Landmark, ShieldAlert, Wallet, UserX, ChevronLeft, ChevronRight } from "lucide-react";
 import { useParent } from "@/contexts/parent-context";
 import { describePortalError, portalApi } from "@/lib/portal-api";
 import { Badge, Button, Card, ErrorMessage, PageTitle, Spinner } from "@/components/ui";
@@ -83,6 +83,7 @@ const MODE_KEY: Record<string, MessageKey> = {
   MOBILE_MONEY: "parent.child.modeMobile",
   VIREMENT: "parent.child.modeTransfer",
   CHEQUE: "parent.child.modeCheque",
+  DEPOT_BANCAIRE: "parent.child.modeDeposit",
 };
 
 export default function ChildPage() {
@@ -333,6 +334,16 @@ export default function ChildPage() {
               {finance.paiementEnLigne && (
                 <PayTranches studentId={id} tranches={finance.tranches} defaultPhone={parent.telephone} fraisServiceBp={finance.fraisServiceBp ?? 0} onChanged={reloadFinance} />
               )}
+
+              <Card className="mb-4">
+                <h2 className="flex items-center gap-2 font-display text-base font-semibold text-ink">
+                  <Landmark size={17} className="text-primary" /> {t("bank.parent.cardTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-ink-muted">{t("bank.parent.cardBody")}</p>
+                <Link href="/parents/paiements-bancaires" className="mt-2 inline-block text-sm font-medium text-primary underline">
+                  {t("bank.parent.cardCta")}
+                </Link>
+              </Card>
 
               <h2 className="mb-2 font-display text-base font-semibold text-ink">{t("parent.child.finPayments")}</h2>
               {finance.paiements.length === 0 ? (

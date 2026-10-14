@@ -11,6 +11,7 @@ import { categoryLabel as labelOfCategory } from "@/lib/expense-categories";
 import { Badge, Card, EmptyState, Input, PageTitle, StatCard } from "@/components/ui";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
+import { bankTotal } from "@/lib/payment-modes";
 import { ArrowDownCircle, ArrowUpCircle, ClipboardList, Wallet } from "lucide-react";
 
 const MODE_KEY: Record<string, MessageKey> = {
@@ -18,6 +19,7 @@ const MODE_KEY: Record<string, MessageKey> = {
   MOBILE_MONEY: "fin.mode.MOBILE_MONEY",
   VIREMENT: "fin.expenses.mode.VIREMENT",
   CHEQUE: "fin.expenses.mode.CHEQUE",
+  DEPOT_BANCAIRE: "bank.method.DEPOT_BANCAIRE",
 };
 
 function todayIso() {
@@ -146,13 +148,16 @@ export default function CashClosingPage() {
             />
           </div>
 
-          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.entrees.fraisService.count > 0 || closing.especes.enCaisse !== 0) && (
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.entrees.fraisService.count > 0 || bankTotal(closing.entrees.parMode) > 0 || closing.especes.enCaisse !== 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
                 <>
                   <Badge color="green">{t("fin.closing.modeAmount", { mode: t("fin.mode.ESPECES"), amount: formatMontant(closing.entrees.parMode.ESPECES) })}</Badge>
                   <Badge color="blue">{t("fin.closing.modeAmount", { mode: t("fin.mode.MOBILE_MONEY"), amount: formatMontant(closing.entrees.parMode.MOBILE_MONEY) })}</Badge>
                 </>
+              )}
+              {bankTotal(closing.entrees.parMode) > 0 && (
+                <Badge color="primary">{t("fin.closing.modeAmount", { mode: t("bank.closingLabel"), amount: formatMontant(bankTotal(closing.entrees.parMode)) })}</Badge>
               )}
               {closing.entrees.fraisService.count > 0 && (
                 <Badge color="orange">{t("fin.closing.serviceFees", { amount: formatMontant(closing.entrees.fraisService.total), n: closing.entrees.fraisService.count })}</Badge>
