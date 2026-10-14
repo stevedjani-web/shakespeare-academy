@@ -13,6 +13,7 @@ export function SchoolBankAccountsCard({ canManage }: { canManage: boolean }) {
   const { t } = useI18n();
   const [accounts, setAccounts] = useState<SchoolBankAccount[]>([]);
   const [form, setForm] = useState({ banque: "", titulaire: "", numero: "", instructions: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -27,20 +28,43 @@ export function SchoolBankAccountsCard({ canManage }: { canManage: boolean }) {
 
   const describe = (err: unknown) => (isApiError(err) ? err.message : t("common.error"));
 
+  function startEdit(a: SchoolBankAccount) {
+    setEditingId(a.id);
+    setForm({ banque: a.banque, titulaire: a.titulaire, numero: a.numero, instructions: a.instructions ?? "" });
+    setError(null);
+    setNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm({ banque: "", titulaire: "", numero: "", instructions: "" });
+  }
+
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      await api.post("/school-bank-accounts", {
-        banque: form.banque.trim(),
-        titulaire: form.titulaire.trim(),
-        numero: form.numero.trim(),
-        ...(form.instructions.trim() ? { instructions: form.instructions.trim() } : {}),
-      });
-      setForm({ banque: "", titulaire: "", numero: "", instructions: "" });
-      setNotice(t("bank.acc.added"));
+      if (editingId) {
+        // Une consigne vidée est envoyée vide : le serveur l'efface.
+        await api.patch(`/school-bank-accounts/${editingId}`, {
+          banque: form.banque.trim(),
+          titulaire: form.titulaire.trim(),
+          numero: form.numero.trim(),
+          instructions: form.instructions.trim(),
+        });
+      } else {
+        await api.post("/school-bank-accounts", {
+          banque: form.banque.trim(),
+          titulaire: form.titulaire.trim(),
+          numero: form.numero.trim(),
+          ...(form.instructions.trim() ? { instructions: form.instructions.trim() } : {}),
+        });
+      }
+      const updated = editingId !== null;
+      cancelEdit();
+      setNotice(updated ? t("bank.acc.updated") : t("bank.acc.added"));
       await load();
     } catch (err) {
       setError(describe(err));
@@ -96,6 +120,9 @@ export function SchoolBankAccountsCard({ canManage }: { canManage: boolean }) {
               </div>
               {canManage && (
                 <div className="mt-2 flex gap-4 text-xs font-medium">
+                  <button type="button" onClick={() => startEdit(a)} className="text-primary hover:underline">
+                    {t("bank.acc.edit")}
+                  </button>
                   <button type="button" onClick={() => void toggle(a)} className="text-primary hover:underline">
                     {a.actif ? t("bank.acc.deactivate") : t("bank.acc.activate")}
                   </button>
@@ -111,6 +138,7 @@ export function SchoolBankAccountsCard({ canManage }: { canManage: boolean }) {
 
       {canManage && (
         <form onSubmit={(e) => void add(e)} className="mt-4 space-y-3 border-t border-border pt-4">
+          {editingId && <p className="text-sm font-medium text-ink">{t("bank.acc.editing")}</p>}
           <Field label={t("bank.acc.bank")}>
             <Input required minLength={2} maxLength={80} value={form.banque} onChange={(e) => setForm({ ...form, banque: e.target.value })} />
           </Field>
@@ -124,9 +152,16 @@ export function SchoolBankAccountsCard({ canManage }: { canManage: boolean }) {
             <Input maxLength={400} value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} />
           </Field>
           <p className="-mt-1 text-xs text-ink-muted">{t("bank.acc.instructionsHint")}</p>
-          <Button type="submit" disabled={busy}>
-            {busy ? t("bank.acc.saving") : t("bank.acc.add")}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={busy}>
+              {busy ? t("bank.acc.saving") : editingId ? t("bank.acc.save") : t("bank.acc.add")}
+            </Button>
+            {editingId && (
+              <Button type="button" variant="secondary" onClick={cancelEdit}>
+                {t("bank.acc.cancel")}
+              </Button>
+            )}
+          </div>
         </form>
       )}
       <ErrorMessage>{error}</ErrorMessage>
