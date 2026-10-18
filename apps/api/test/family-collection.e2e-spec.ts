@@ -553,6 +553,100 @@ describe('Collecte des informations des familles (e2e)', () => {
       expect(res.body.message).toMatch(/choisissez l’élève/);
     });
 
+    it('signale une orthographe proche : élève proposé, alerte à confirmer, jamais validable en un clic', async () => {
+      const kaba = await student('KABA', 'Khloé', env.classA.id);
+      await publicPost(
+        token,
+        payload({
+          enfants: [
+            { nom: 'Kaba', prenom: 'Chloé', dateNaissance: '2015-04-12' },
+          ],
+        }),
+      ).expect(201);
+      const child = (await pending())[0].enfants[0];
+      const a = child.analyse!;
+      expect(a.match).toBe('ORTHOGRAPHE');
+      expect(a.etudiantPropose!.id).toBe(kaba.id);
+      expect(a.simple).toBe(false);
+      expect(a.alertes[0]).toMatchObject({
+        code: 'ORTHOGRAPHE',
+        severite: 'conflit',
+      });
+
+      // « Valider les cas simples » ne la prend pas.
+      const res = await post(
+        `/family-collection/classes/${env.classA.id}/valider-simples`,
+      ).expect(201);
+      expect(res.body).toMatchObject({ valides: 0, aExaminer: 1 });
+
+      // Sans confirmation, la validation est refusée et rien n'est enregistré.
+      const refused = await post(
+        `/family-collection/children/${child.id}/valider`,
+      ).expect(409);
+      expect(refused.body.message).toMatch(/s’écrit un peu autrement/);
+      expect(
+        (await prisma.student.findUniqueOrThrow({ where: { id: kaba.id } }))
+          .dateNaissance,
+      ).toBeNull();
+
+      // Avec la confirmation du secrétariat, l'enfant est rattaché à l'élève proposé.
+      await post(`/family-collection/children/${child.id}/valider`, admin, {
+        confirmer: true,
+      }).expect(201);
+      expect(
+        (
+          await prisma.familySubmissionChild.findUniqueOrThrow({
+            where: { id: child.id },
+          })
+        ).studentId,
+      ).toBe(kaba.id);
+    });
+
+    it('un élève choisi à la main dans la liste de la classe n’a pas besoin de confirmation d’orthographe', async () => {
+      const kaba = await student('KABA', 'Khloé', env.classA.id);
+      await publicPost(
+        token,
+        payload({
+          enfants: [
+            { nom: 'Kaba', prenom: 'Chloé', dateNaissance: '2015-04-12' },
+          ],
+        }),
+      ).expect(201);
+      const child = (await pending())[0].enfants[0];
+      await post(`/family-collection/children/${child.id}/valider`, admin, {
+        studentId: kaba.id,
+      }).expect(201);
+    });
+
+    it('préfère le nom écrit exactement à un nom seulement proche', async () => {
+      await student('KABA', 'Khloé', env.classA.id);
+      await student('KABA', 'Chloe', env.classA.id);
+      await publicPost(
+        token,
+        payload({
+          enfants: [
+            { nom: 'Kaba', prenom: 'Chloé', dateNaissance: '2015-04-12' },
+          ],
+        }),
+      ).expect(201);
+      // « Chloe » (sans accent) est identique : EXACT, jamais confondu avec « Khloé ».
+      const a = (await pending())[0].enfants[0].analyse!;
+      expect(a.match).toBe('EXACT');
+    });
+
+    it('ne rapproche pas un frère ou une sœur qui ne partage qu’un mot', async () => {
+      await student('NDZELENGUE', 'Kerney Denovane', env.classA.id);
+      await publicPost(
+        token,
+        payload({
+          enfants: [
+            { nom: 'Ndzelengue', prenom: 'Denis', dateNaissance: '2015-04-12' },
+          ],
+        }),
+      ).expect(201);
+      expect((await pending())[0].enfants[0].analyse!.match).toBe('AUCUN');
+    });
+
     it('ne rapproche jamais un homonyme d’une autre classe', async () => {
       const inA = await student('Moukala', 'Alice', env.classA.id);
       await student('Moukala', 'Alice', env.classB.id);

@@ -209,7 +209,7 @@ export interface FamilyChange {
   type: "ajout" | "remplacement";
 }
 
-export type FamilyMatch = "EXACT" | "PROBABLE" | "PLUSIEURS" | "AUCUN" | "CHOISI";
+export type FamilyMatch = "EXACT" | "PROBABLE" | "ORTHOGRAPHE" | "PLUSIEURS" | "AUCUN" | "CHOISI";
 
 export interface FamilyAnalysis {
   match: FamilyMatch;

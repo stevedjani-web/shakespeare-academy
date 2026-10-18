@@ -38,7 +38,7 @@ const tr = (key: string, params?: Record<string, string | number>) => translate(
 function alertText(a: FamilyAlert): string {
   const d = (a.detail ?? {}) as Record<string, unknown>;
   const s = (v: unknown) => (typeof v === "string" ? v : v == null ? "—" : String(v));
-  const params: Record<string, string> = { avant: s(d.avant), apres: s(d.apres), declaree: s(d.declaree), reelle: s(d.reelle) };
+  const params: Record<string, string> = { avant: s(d.avant), apres: s(d.apres), declaree: s(d.declaree), reelle: s(d.reelle), saisi: s(d.saisi), enregistre: s(d.enregistre) };
   if (typeof d.champ === "string") params.champ = tr(`fam.adm.field.${d.champ}`);
   if (Array.isArray(d.responsables)) {
     params.liste = (d.responsables as Array<{ nom: string; telephone: string | null }>).map((r) => (r.telephone ? `${r.nom} (${r.telephone})` : r.nom)).join(", ");

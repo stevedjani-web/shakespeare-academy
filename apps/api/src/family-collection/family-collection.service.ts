@@ -708,7 +708,7 @@ export class FamilyCollectionService {
       const scored = list
         .map((s) => ({ s, m: matchNames(child, s) }))
         .filter((x) => x.m !== 'AUCUN');
-      for (const level of ['EXACT', 'PROBABLE'] as const) {
+      for (const level of ['EXACT', 'PROBABLE', 'ORTHOGRAPHE'] as const) {
         const hits = scored.filter((x) => x.m === level).map((x) => x.s);
         if (hits.length === 1) {
           return {
@@ -929,6 +929,20 @@ export class FamilyCollectionService {
     };
   }
 
+  private spellingAlert(
+    child: { nom: string; prenom: string },
+    student: { nom: string; prenom: string },
+  ): Alert {
+    return {
+      code: 'ORTHOGRAPHE',
+      severite: 'conflit',
+      detail: {
+        saisi: `${child.prenom} ${child.nom}`.trim(),
+        enregistre: `${student.prenom} ${student.nom}`.trim(),
+      },
+    };
+  }
+
   private describe(student: {
     id: string;
     nom: string;
@@ -966,6 +980,11 @@ export class FamilyCollectionService {
           modifications: [] as Change[],
           conflit: false,
         };
+    // Nom écrit un peu autrement dans la base : proposé, mais seulement après vérification et confirmation du secrétariat.
+    if (!chosen && student && proposal.match === 'ORTHOGRAPHE') {
+      detail.alertes.unshift(this.spellingAlert(child, student));
+      detail.conflit = true;
+    }
     // Élève trouvé dans une autre classe que celle déclarée : le secrétariat le voit, et ce n'est jamais un cas « simple ».
     if (!chosen && proposal.student && proposal.horsClasse) {
       detail.alertes.unshift({
@@ -1190,6 +1209,7 @@ export class FamilyCollectionService {
     const roster = await this.roster(child.classId);
     const guardians = await this.allGuardians();
     let student: StudentCtx | null = null;
+    let spelled = false;
     if (dto.studentId) {
       student = await this.prisma.student.findFirst({
         where: { id: dto.studentId, statut: 'ACTIF' },
@@ -1197,7 +1217,9 @@ export class FamilyCollectionService {
       });
       if (!student) throw new NotFoundException('Élève introuvable.');
     } else {
-      student = this.propose(child, roster, await this.yearRoster()).student;
+      const proposal = this.propose(child, roster, await this.yearRoster());
+      student = proposal.student;
+      spelled = proposal.match === 'ORTHOGRAPHE';
     }
     if (!student) {
       throw new UnprocessableEntityException(
@@ -1205,10 +1227,17 @@ export class FamilyCollectionService {
       );
     }
     const plan = this.analyse(student, child, sub, guardians);
+    // Un élève choisi à la main dans la liste est un choix du secrétariat ; une proposition par ressemblance de nom ne
+    // devient jamais une validation sans confirmation.
+    if (spelled) {
+      plan.alertes.unshift(this.spellingAlert(child, student));
+      plan.conflit = true;
+    }
     if (plan.conflit && !dto.confirmer) {
       throw new ConflictException({
-        message:
-          'Des valeurs déjà enregistrées diffèrent, ou l’élève a déjà un autre responsable : vérifiez puis confirmez.',
+        message: spelled
+          ? 'Le nom écrit par le parent s’écrit un peu autrement dans le dossier : vérifiez que c’est bien le même enfant, puis confirmez.'
+          : 'Des valeurs déjà enregistrées diffèrent, ou l’élève a déjà un autre responsable : vérifiez puis confirmez.',
         alertes: plan.alertes,
         modifications: plan.modifications,
       });
