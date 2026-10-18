@@ -1126,6 +1126,72 @@ describe('Collecte des informations des familles (e2e)', () => {
       );
       expect(carine).toMatchObject({ dateNaissance: true, responsable: true });
     });
+
+    it('donne le téléphone à appeler pour relancer une famille, celui du responsable prioritaire', async () => {
+      await student('Zola', 'Carine', env.classA.id, {
+        dateNaissance: '2014-02-02',
+        responsable: { nom: 'Zola', prenom: 'Paul', telephone: '242060000002' },
+      });
+      await student('Moukala', 'Alice', env.classA.id);
+      const res = await get(
+        `/family-collection/classes/${env.classA.id}`,
+      ).expect(200);
+      const byName = (n: string) =>
+        res.body.eleves.find((e: { prenom: string }) => e.prenom === n);
+      expect(byName('Carine').telephone).toBe('242060000002');
+      expect(byName('Alice').telephone).toBeNull();
+    });
+
+    it('compte les dossiers à traiter, validés et refusés de chaque classe', async () => {
+      const token = await link(env.classA.id);
+      await student('Moukala', 'Alice', env.classA.id);
+      await student('Zola', 'Carine', env.classA.id);
+      await publicPost(
+        token,
+        payload({
+          enfants: [
+            { nom: 'Moukala', prenom: 'Alice', dateNaissance: '2015-04-12' },
+            { nom: 'Zola', prenom: 'Carine', dateNaissance: '2014-02-02' },
+            { nom: 'Inconnu', prenom: 'Paul', dateNaissance: '2013-01-01' },
+          ],
+        }),
+      ).expect(201);
+      const rowA = async () =>
+        (await get('/family-collection/classes').expect(200)).body.find(
+          (r: { classe: string }) => r.classe === 'CM2 A',
+        );
+      expect(await rowA()).toMatchObject({
+        enAttente: 3,
+        valides: 0,
+        refuses: 0,
+      });
+
+      const kids = (await pending())[0].enfants;
+      const find = (prenom: string) =>
+        kids.find(
+          (c) => (c as unknown as { prenom: string }).prenom === prenom,
+        )!;
+      await post(
+        `/family-collection/children/${find('Alice').id}/valider`,
+      ).expect(201);
+      await post(
+        `/family-collection/children/${find('Paul').id}/refuser`,
+        admin,
+        {
+          motif: 'Élève inconnu',
+        },
+      ).expect(201);
+      expect(await rowA()).toMatchObject({
+        enAttente: 1,
+        valides: 1,
+        refuses: 1,
+      });
+      // Une autre classe n'est pas touchée.
+      const rowB = (
+        await get('/family-collection/classes').expect(200)
+      ).body.find((r: { classe: string }) => r.classe === 'CM2 B');
+      expect(rowB).toMatchObject({ enAttente: 0, valides: 0, refuses: 0 });
+    });
   });
 
   // ----------------------------------------------------------------- Photo d'identité

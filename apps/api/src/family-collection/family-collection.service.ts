@@ -602,12 +602,14 @@ export class FamilyCollectionService {
         },
       },
     });
-    const waiting = await this.prisma.familySubmissionChild.groupBy({
-      by: ['classId'],
-      where: { statut: 'EN_ATTENTE' },
+    // Dossiers reçus par classe et par état : à traiter, validés, refusés (un dossier = un enfant déclaré).
+    const received = await this.prisma.familySubmissionChild.groupBy({
+      by: ['classId', 'statut'],
       _count: { _all: true },
     });
-    const waitingBy = new Map(waiting.map((w) => [w.classId, w._count._all]));
+    const countOf = (classId: string, statut: string) =>
+      received.find((r) => r.classId === classId && r.statut === statut)?._count
+        ._all ?? 0;
     return classes
       .map((c) => {
         const states = c.enrollments.map((e) => this.completeness(e.student));
@@ -620,7 +622,9 @@ export class FamilyCollectionService {
           sansDate: states.filter((s) => !s.date).length,
           sansResponsable: states.filter((s) => !s.responsable).length,
           comptesActifs: states.filter((s) => s.compte === 'ACTIF').length,
-          enAttente: waitingBy.get(c.id) ?? 0,
+          enAttente: countOf(c.id, 'EN_ATTENTE'),
+          valides: countOf(c.id, 'VALIDE'),
+          refuses: countOf(c.id, 'REFUSE'),
           lien: this.linkView(c.collectLink),
         };
       })
@@ -655,6 +659,11 @@ export class FamilyCollectionService {
           dateNaissance: c.date,
           responsable: c.responsable,
           compte: c.compte,
+          // Numéro à appeler pour relancer la famille : le responsable prioritaire qui en a un.
+          telephone:
+            [...s.studentGuardians]
+              .sort((a, b) => Number(b.prioritaire) - Number(a.prioritaire))
+              .find((l) => l.guardian.telephone)?.guardian.telephone ?? null,
         };
       }),
     };

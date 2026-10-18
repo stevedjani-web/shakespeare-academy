@@ -171,6 +171,9 @@ export interface ClassProgress {
   sansResponsable: number;
   comptesActifs: number;
   enAttente: number;
+  /** Dossiers (enfants déclarés) déjà traités : validés et refusés. */
+  valides: number;
+  refuses: number;
   lien: CollectLinkView | null;
 }
 
@@ -182,6 +185,8 @@ export interface ClassRosterStudent {
   dateNaissance: boolean;
   responsable: boolean;
   compte: "ACTIF" | null;
+  /** Téléphone du responsable prioritaire, pour relancer la famille. */
+  telephone: string | null;
 }
 
 export interface ClassDetail {

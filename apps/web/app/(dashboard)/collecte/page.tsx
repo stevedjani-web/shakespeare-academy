@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCheck, ClipboardList, Copy, Link2, Lock, LockOpen, RefreshCw, TimerReset, X } from "lucide-react";
+import { CheckCheck, ClipboardList, Copy, Hourglass, Inbox, Link2, Lock, LockOpen, RefreshCw, TimerReset, UserCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { translate } from "@/lib/i18n";
 import type { MessageKey } from "@/lib/i18n";
@@ -9,7 +9,9 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import { formatDate } from "@/lib/format";
 import { useSchoolBrand } from "@/lib/school-brand";
 import { useAuthImage } from "@/lib/use-auth-image";
-import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Select, SuccessMessage } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorMessage, PageTitle, Select, StatCard, SuccessMessage } from "@/components/ui";
+import { ExportButtons } from "@/components/export-buttons";
+import { buildSection, type ExportSection } from "@/lib/export";
 import { describeError } from "@/components/vie-scolaire/shared";
 import {
   activatedMessage,
@@ -437,6 +439,8 @@ export default function CollectePage() {
   const [classFilter, setClassFilter] = useState("");
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Élèves dont le dossier est incomplet, toutes classes : alimente l'export « à relancer ».
+  const [followUp, setFollowUp] = useState<Array<{ row: ClassProgress; detail: ClassDetail }> | null>(null);
 
   const loadClasses = useCallback(async () => {
     try {
@@ -465,6 +469,25 @@ export default function CollectePage() {
     setSubs(null);
     void loadSubs();
   }, [loadSubs]);
+
+  useEffect(() => {
+    if (tab !== "progress" || !classes) return;
+    let cancelled = false;
+    const need = classes.filter((c) => c.effectif - c.complets > 0);
+    void Promise.all(
+      need.map((row) =>
+        api
+          .get<ClassDetail>(`/family-collection/classes/${row.classId}`)
+          .then((detail) => ({ row, detail }))
+          .catch(() => null),
+      ),
+    ).then((res) => {
+      if (!cancelled) setFollowUp(res.filter((x): x is { row: ClassProgress; detail: ClassDetail } => x !== null));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, classes]);
 
   function refresh() {
     void loadClasses();
@@ -499,13 +522,122 @@ export default function CollectePage() {
     }
   }
 
-  const waitingTotal = (classes ?? []).reduce((n, c) => n + c.enAttente, 0);
+  const sum = (pick: (c: ClassProgress) => number) => (classes ?? []).reduce((n, c) => n + pick(c), 0);
+  const waitingTotal = sum((c) => c.enAttente);
+  const validatedTotal = sum((c) => c.valides);
+  const refusedTotal = sum((c) => c.refuses);
+  const doneTotal = validatedTotal + refusedTotal;
+  const receivedTotal = waitingTotal + doneTotal;
+  const enrolledTotal = sum((c) => c.effectif);
+  const completeTotal = sum((c) => c.complets);
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "progress", label: t("fam.adm.tabProgress") },
     { key: "pending", label: waitingTotal > 0 ? t("fam.adm.tabPendingN", { n: waitingTotal }) : t("fam.adm.tabPending") },
-    { key: "done", label: t("fam.adm.tabDone") },
+    { key: "done", label: doneTotal > 0 ? t("fam.adm.tabDoneN", { n: doneTotal }) : t("fam.adm.tabDone") },
   ];
   const selectedClass = classes?.find((c) => c.classId === classFilter);
+
+  const byText = (a: string, b: string) => a.localeCompare(b, "fr");
+  const linkLabel = (c: ClassProgress) => (!c.lien ? t("fam.adm.xl.noLink") : c.lien.expire ? t("fam.adm.linkExpired") : c.lien.actif ? t("fam.adm.linkActive") : t("fam.adm.linkClosed"));
+
+  // Avancement : un tableau par classe, puis la liste des élèves dont le dossier est à compléter (pour la relance).
+  const progressSections: ExportSection[] = (() => {
+    const rows = [...(classes ?? [])].sort((a, b) => byText(a.section, b.section) || byText(a.classe, b.classe));
+    const summary = buildSection(
+      t("fam.adm.xl.sheetSummary"),
+      [
+        { header: t("fam.adm.xl.colSection"), value: (c: ClassProgress) => c.section },
+        { header: t("fam.adm.xl.colClass"), value: (c: ClassProgress) => c.classe },
+        { header: t("fam.adm.xl.colEnrolled"), value: (c: ClassProgress) => c.effectif, kind: "number" as const },
+        { header: t("fam.adm.xl.colComplete"), value: (c: ClassProgress) => c.complets, kind: "number" as const },
+        { header: t("fam.adm.xl.colMissing"), value: (c: ClassProgress) => c.effectif - c.complets, kind: "number" as const },
+        { header: t("fam.adm.xl.colReceived"), value: (c: ClassProgress) => c.enAttente + c.valides + c.refuses, kind: "number" as const },
+        { header: t("fam.adm.xl.colWaiting"), value: (c: ClassProgress) => c.enAttente, kind: "number" as const },
+        { header: t("fam.adm.xl.colValidated"), value: (c: ClassProgress) => c.valides, kind: "number" as const },
+        { header: t("fam.adm.xl.colRefused"), value: (c: ClassProgress) => c.refuses, kind: "number" as const },
+        { header: t("fam.adm.xl.colAccounts"), value: (c: ClassProgress) => c.comptesActifs, kind: "number" as const },
+        { header: t("fam.adm.xl.colLink"), value: (c: ClassProgress) => linkLabel(c) },
+      ],
+      rows,
+      [
+        "",
+        "",
+        enrolledTotal,
+        completeTotal,
+        enrolledTotal - completeTotal,
+        receivedTotal,
+        waitingTotal,
+        validatedTotal,
+        refusedTotal,
+        sum((c) => c.comptesActifs),
+        "",
+      ],
+    );
+    type FollowRow = { section: string; classe: string; s: ClassRosterStudent };
+    const follow: FollowRow[] = (followUp ?? [])
+      .flatMap(({ row, detail }) => detail.eleves.filter((s) => !s.dateNaissance || !s.responsable).map((s) => ({ section: row.section, classe: row.classe, s })))
+      .sort((a, b) => byText(a.section, b.section) || byText(a.classe, b.classe) || byText(a.s.nom, b.s.nom) || byText(a.s.prenom, b.s.prenom));
+    const followSection = buildSection(
+      t("fam.adm.xl.sheetFollowUp"),
+      [
+        { header: t("fam.adm.xl.colClass"), value: (r: FollowRow) => r.classe },
+        { header: t("fam.adm.xl.colStudent"), value: (r: FollowRow) => `${r.s.nom} ${r.s.prenom}` },
+        { header: t("fam.adm.xl.colMatricule"), value: (r: FollowRow) => r.s.matricule },
+        { header: t("fam.adm.xl.colLacks"), value: (r: FollowRow) => [!r.s.dateNaissance && t("fam.adm.lacksDate"), !r.s.responsable && t("fam.adm.lacksGuardian")].filter(Boolean).join(", ") },
+        { header: t("fam.adm.xl.colPhone"), value: (r: FollowRow) => r.s.telephone ?? "" },
+      ],
+      follow,
+    );
+    return [summary, followSection];
+  })();
+
+  // À traiter / traités : une ligne par enfant déclaré, filtrée comme l'écran (classe choisie).
+  type ChildRowData = { sub: FamilySubmissionView; child: FamilyChildView };
+  const childRows: ChildRowData[] = (subs ?? [])
+    .flatMap((sub) => sub.enfants.filter((child) => (tab === "pending" ? child.statut === "EN_ATTENTE" : child.statut !== "EN_ATTENTE")).map((child) => ({ sub, child })))
+    .sort((a, b) => byText(a.child.classe.nom, b.child.classe.nom) || byText(a.child.nom, b.child.nom) || byText(a.child.prenom, b.child.prenom));
+  const childColumns = [
+    { header: t("fam.adm.xl.colDeclaredClass"), value: (r: ChildRowData) => r.child.classe.nom },
+    { header: t("fam.adm.xl.colChild"), value: (r: ChildRowData) => `${r.child.prenom} ${r.child.nom}` },
+    { header: t("fam.adm.xl.colBirth"), value: (r: ChildRowData) => (r.child.dateNaissance ? formatDate(r.child.dateNaissance) : "") },
+    { header: t("fam.adm.xl.colGuardian"), value: (r: ChildRowData) => `${r.sub.responsable.prenom} ${r.sub.responsable.nom}` },
+    { header: t("fam.adm.xl.colGuardianPhone"), value: (r: ChildRowData) => r.sub.responsable.telephone },
+    { header: t("fam.adm.xl.colRelation"), value: (r: ChildRowData) => r.sub.responsable.lien ?? "" },
+    { header: t("fam.adm.xl.colReceivedOn"), value: (r: ChildRowData) => formatDate(r.sub.creeLe) },
+  ];
+  const pendingSection = buildSection(
+    t("fam.adm.xl.sheetPending"),
+    [
+      ...childColumns,
+      { header: t("fam.adm.xl.colMatching"), value: (r: ChildRowData) => (r.child.analyse ? tr(`fam.adm.match.${r.child.analyse.match}`) : "") },
+      {
+        header: t("fam.adm.xl.colProposed"),
+        value: (r: ChildRowData) => {
+          const e = r.child.analyse?.etudiantPropose;
+          return e ? `${e.prenom} ${e.nom} (${e.matricule})` : "";
+        },
+      },
+      { header: t("fam.adm.xl.colTodo"), value: (r: ChildRowData) => (r.child.analyse ? tr(`fam.adm.xl.todo.${r.child.analyse.match}`) : "") },
+    ],
+    childRows,
+  );
+  const doneSection = buildSection(
+    t("fam.adm.xl.sheetDone"),
+    [
+      ...childColumns,
+      { header: t("fam.adm.xl.colStatus"), value: (r: ChildRowData) => (r.child.statut === "VALIDE" ? t("fam.adm.validated") : t("fam.adm.refused")) },
+      { header: t("fam.adm.xl.colStudent"), value: (r: ChildRowData) => (r.child.eleve ? `${r.child.eleve.prenom} ${r.child.eleve.nom} (${r.child.eleve.matricule})` : "") },
+      { header: t("fam.adm.xl.colReason"), value: (r: ChildRowData) => r.child.motifRefus ?? "" },
+      { header: t("fam.adm.xl.colTreatedOn"), value: (r: ChildRowData) => (r.child.traiteLe ? formatDate(r.child.traiteLe) : "") },
+    ],
+    childRows,
+  );
+  const exportProps =
+    tab === "progress"
+      ? { fileName: t("fam.adm.xl.fileProgress"), title: t("fam.adm.xl.titleProgress"), sections: progressSections, disabled: !classes }
+      : tab === "pending"
+        ? { fileName: t("fam.adm.xl.filePending"), title: t("fam.adm.xl.titlePending"), sections: [pendingSection], disabled: !subs }
+        : { fileName: t("fam.adm.xl.fileDone"), title: t("fam.adm.xl.titleDone"), sections: [doneSection], disabled: !subs };
 
   return (
     <div>
@@ -513,7 +645,29 @@ export default function CollectePage() {
         {t("fam.adm.title")}
       </PageTitle>
 
-      <div role="tablist" className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label={t("fam.adm.statReceived")} value={receivedTotal} tone="info" icon={<Inbox size={18} />} hint={t("fam.adm.statReceivedHint")} />
+        <StatCard
+          label={t("fam.adm.statDone")}
+          value={doneTotal}
+          tone="success"
+          icon={<CheckCheck size={18} />}
+          hint={t("fam.adm.statDoneHint", { valid: validatedTotal, refused: refusedTotal })}
+          progress={receivedTotal === 0 ? null : (doneTotal / receivedTotal) * 100}
+        />
+        <StatCard label={t("fam.adm.statPending")} value={waitingTotal} tone={waitingTotal > 0 ? "warning" : "success"} icon={<Hourglass size={18} />} hint={t("fam.adm.statPendingHint")} />
+        <StatCard
+          label={t("fam.adm.statComplete")}
+          value={completeTotal}
+          tone="primary"
+          icon={<UserCheck size={18} />}
+          hint={t("fam.adm.statCompleteHint", { done: completeTotal, total: enrolledTotal })}
+          progress={enrolledTotal === 0 ? null : (completeTotal / enrolledTotal) * 100}
+        />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div role="tablist" className="flex flex-wrap gap-2">
         {tabs.map((x) => (
           <button
             key={x.key}
@@ -526,6 +680,8 @@ export default function CollectePage() {
             {x.label}
           </button>
         ))}
+      </div>
+        <ExportButtons {...exportProps} landscape subtitle={t("fam.adm.xl.subtitleN", { n: tab === "progress" ? (classes ?? []).length : childRows.length })} />
       </div>
 
       <div className="mb-4 space-y-2">
