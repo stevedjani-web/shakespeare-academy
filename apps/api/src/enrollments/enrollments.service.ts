@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { CurrentUserData } from '../auth/types/current-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
@@ -193,12 +195,17 @@ export class EnrollmentsService {
   }
 
   /**
-   * Corrige une erreur de saisie sur la classe d'une inscription active (ex. mauvaise classe
-   * sélectionnée) — jamais un changement de niveau : les frais déjà facturés (`InvoiceLine`) sont
-   * un snapshot lié au niveau (RG03), une classe de niveau différent les rendrait incohérents.
-   * Un vrai changement de niveau passe par annulation + nouvelle inscription.
+   * Corrige la classe d'une inscription active (classe mal choisie, élève rétrogradé ou surclassé par erreur).
+   *
+   * - Même niveau : seule la classe change, la facture reste telle quelle.
+   * - Autre niveau : la facture est réalignée sur les tarifs du nouveau niveau (voir
+   *   `InvoicesService.realignForLevelChange`) dans la même transaction, jamais un paiement touché. Un motif est
+   *   obligatoire, et si les montants changent il faut en plus le droit de gérer les tarifs (`FEE_MANAGE`) : sinon un
+   *   caissier pourrait baisser une facture en changeant la classe. L'inscription, son numéro, son type et ses
+   *   paiements restent les mêmes : rien à annuler ni à ressaisir.
+   * - `simuler` ne change rien et montre l'effet (facture, notes et appels déjà saisis dans l'ancienne classe).
    */
-  async changeClass(id: string, dto: ChangeClassDto, actingUserId: string) {
+  async changeClass(id: string, dto: ChangeClassDto, actor: CurrentUserData) {
     const before = await this.findOne(id);
     if (before.statut !== 'ACTIVE') {
       throw new ConflictException(
@@ -216,29 +223,130 @@ export class EnrollmentsService {
         'La nouvelle classe doit appartenir à la même année scolaire.',
       );
     }
-    if (newClass.levelId !== currentClass.levelId) {
+    const levelChange = newClass.levelId !== currentClass.levelId;
+    if (levelChange && !dto.simuler && !dto.motif?.trim()) {
       throw new BadRequestException(
-        'Le niveau de la nouvelle classe diffère de l’actuel — les frais déjà facturés ne correspondraient plus. Annulez cette inscription et recréez-en une nouvelle pour changer de niveau.',
+        'Indiquez le motif du changement de niveau (erreur de saisie, décision de la Direction…).',
       );
     }
 
-    const updated = await this.prisma.enrollment.update({
-      where: { id },
-      data: { classId: dto.classId },
-      include: ENROLLMENT_INCLUDE,
+    const schoolId = await this.schoolService.getDefaultId();
+    const realignParams = {
+      schoolId,
+      enrollmentId: id,
+      academicYearId: before.academicYearId,
+      levelId: newClass.levelId,
+      enrollmentType: before.type,
+      actingUserId: actor.id,
+    };
+
+    const [notes, appels] = await Promise.all([
+      this.prisma.grade.count({
+        where: {
+          studentId: before.studentId,
+          evaluation: { classId: before.classId },
+        },
+      }),
+      this.prisma.attendanceRecord.count({
+        where: {
+          studentId: before.studentId,
+          call: { classId: before.classId },
+        },
+      }),
+    ]);
+
+    if (dto.simuler) {
+      const facture = levelChange
+        ? await this.prisma.$transaction((tx) =>
+            this.invoicesService.realignForLevelChange(tx, {
+              ...realignParams,
+              appliquer: false,
+            }),
+          )
+        : null;
+      return {
+        simulation: true,
+        niveauChange: levelChange,
+        ancienneClasse: currentClass.nom,
+        nouvelleClasse: newClass.nom,
+        facture,
+        droitTarifsRequis: Boolean(facture?.impactFinancier),
+        droitTarifsManquant:
+          Boolean(facture?.impactFinancier) &&
+          !actor.permissions.includes('FEE_MANAGE'),
+        notesDansAncienneClasse: notes,
+        appelsDansAncienneClasse: appels,
+      };
+    }
+
+    const { updated, facture } = await this.prisma.$transaction(async (tx) => {
+      // Prise conditionnelle : deux corrections simultanées, une seule passe.
+      const taken = await tx.enrollment.updateMany({
+        where: { id, statut: 'ACTIVE', classId: before.classId },
+        data: { classId: dto.classId },
+      });
+      if (taken.count !== 1) {
+        throw new ConflictException(
+          'Cette inscription vient d’être modifiée : rechargez la page.',
+        );
+      }
+      const realigned = levelChange
+        ? await this.invoicesService.realignForLevelChange(tx, {
+            ...realignParams,
+            appliquer: false,
+          })
+        : null;
+      if (realigned?.impactFinancier) {
+        if (!actor.permissions.includes('FEE_MANAGE')) {
+          throw new ForbiddenException(
+            'Ce changement de niveau modifie le montant de la facture : il faut le droit de gérer les tarifs (Administrateur ou Promoteur).',
+          );
+        }
+      }
+      if (levelChange) {
+        await this.invoicesService.realignForLevelChange(tx, {
+          ...realignParams,
+          appliquer: true,
+        });
+      }
+      const row = await tx.enrollment.findUniqueOrThrow({
+        where: { id },
+        include: ENROLLMENT_INCLUDE,
+      });
+      return { updated: row, facture: realigned };
     });
 
-    const schoolId = await this.schoolService.getDefaultId();
     await this.auditService.log({
       schoolId,
-      userId: actingUserId,
-      action: 'ENROLLMENT_CLASS_UPDATE',
+      userId: actor.id,
+      action: levelChange
+        ? 'ENROLLMENT_LEVEL_CHANGE'
+        : 'ENROLLMENT_CLASS_UPDATE',
       entite: 'Enrollment',
       entiteId: id,
       ancienneValeur: before,
-      nouvelleValeur: updated,
+      nouvelleValeur: facture
+        ? {
+            ...updated,
+            motif: dto.motif?.trim(),
+            facture: {
+              totalAvant: facture.totalAvant,
+              totalApres: facture.totalApres,
+              lignesModifiees: facture.modifiees.length,
+              lignesAjoutees: facture.ajoutees.length,
+            },
+          }
+        : updated,
     });
+    if (facture) {
+      await this.invoicesService.auditRealignment(
+        schoolId,
+        actor.id,
+        facture,
+        `Changement de niveau de l’inscription ${before.numero} : ${dto.motif?.trim()}`,
+      );
+    }
 
-    return updated;
+    return { ...updated, facture };
   }
 }

@@ -52,6 +52,6 @@ export class EnrollmentsController {
     @Body() dto: ChangeClassDto,
     @CurrentUser() user: CurrentUserData,
   ) {
-    return this.enrollmentsService.changeClass(id, dto, user.id);
+    return this.enrollmentsService.changeClass(id, dto, user);
   }
 }

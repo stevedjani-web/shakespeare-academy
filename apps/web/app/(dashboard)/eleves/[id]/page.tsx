@@ -11,7 +11,7 @@ import { isApiError, useAuth } from "@/contexts/auth-context";
 import { submitOrQueue } from "@/lib/offline-actions";
 import { useOnOutboxChange } from "@/lib/outbox";
 import { ExpandButton, useExpanded } from "@/components/expand";
-import type { Class, Enrollment, FinancialStatus, School, Student, StudentAttendanceHistory, StudentDossier } from "@/lib/types";
+import type { FinancialStatus, School, Student, StudentAttendanceHistory, StudentDossier } from "@/lib/types";
 import type { StudentBulletinRow } from "@/lib/grades";
 import { Badge, Button, Card, ErrorMessage, Field, Input, PageTitle, Select } from "@/components/ui";
 import { FinancialStatusCard } from "@/components/financial-status-card";
@@ -20,6 +20,7 @@ import { StudentDocumentsCard } from "@/components/documents/student-documents-c
 import { StudentPhoto } from "@/components/documents/student-photo";
 import { StudentDisciplineCard } from "@/components/discipline/student-discipline-card";
 import { StudentGradesCard } from "@/components/notes/student-grades-card";
+import { ChangeClassAction } from "@/components/change-class-action";
 import { StudentSummaryStrip } from "@/components/student-summary-strip";
 import { downloadStudentSummaryPdf } from "@/lib/student-summary-pdf";
 import { ArrowLeft, CalendarDays, Download, IdCard, Pencil, UserPlus, Users } from "lucide-react";
@@ -514,7 +515,7 @@ export default function StudentDossierPage() {
                       <td className="py-2 pr-4">
                         {en.statut === "ACTIVE" && (
                           <div className="flex flex-wrap items-center gap-2">
-                            <ChangeClassAction enrollment={en} onChanged={load} />
+                            <ChangeClassAction enrollment={en} studentName={`${student.prenom} ${student.nom}`} onChanged={load} />
                             <Button variant="ghost" onClick={() => void handleCancelEnrollment(en.id)}>
                               {t("stu.doss.cancel")}
                             </Button>
@@ -558,73 +559,5 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
       <dt className="text-ink-muted">{label}</dt>
       <dd className="font-medium text-ink">{value}</dd>
     </div>
-  );
-}
-
-/** Corrige une erreur de saisie sur la classe (même niveau uniquement — voir EnrollmentsService.changeClass). */
-function ChangeClassAction({ enrollment, onChanged }: { enrollment: Enrollment; onChanged: () => Promise<void> }) {
-  const { t } = useI18n();
-  const [editing, setEditing] = useState(false);
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function startEditing() {
-    setError(null);
-    setEditing(true);
-    const levelId = enrollment.class.levelId;
-    if (!levelId) return;
-    const data = await api.get<Class[]>(
-      `/classes?academicYearId=${enrollment.academicYear.id}&levelId=${levelId}`,
-    );
-    setClasses(data);
-    setSelectedClassId(data.find((c) => c.id !== enrollment.class.id)?.id ?? "");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-    try {
-      await api.post(`/enrollments/${enrollment.id}/change-class`, { classId: selectedClassId });
-      setEditing(false);
-      await onChanged();
-    } catch (err) {
-      setError(isApiError(err) ? err.message : t("stu.doss.errGeneric"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <Button variant="ghost" onClick={() => void startEditing()}>
-        <Pencil size={14} /> {t("stu.doss.cClass")}
-      </Button>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-1.5">
-      <Select
-        value={selectedClassId}
-        onChange={(e) => setSelectedClassId(e.target.value)}
-        className="w-auto py-1.5 text-xs"
-      >
-        {classes.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.nom}
-          </option>
-        ))}
-      </Select>
-      <Button type="submit" disabled={saving || !selectedClassId}>
-        OK
-      </Button>
-      <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
-        ✕
-      </Button>
-      {error && <span className="text-xs text-danger">{error}</span>}
-    </form>
   );
 }

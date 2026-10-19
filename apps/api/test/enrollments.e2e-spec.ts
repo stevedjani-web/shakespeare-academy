@@ -356,7 +356,7 @@ describe('Inscriptions et réinscriptions (e2e)', () => {
     expect(changed.body.class.id).toBe(klassB.body.id);
   });
 
-  it('refuse de changer vers une classe d’un autre niveau (400)', async () => {
+  it('accepte une classe d’un autre niveau avec un motif, et le refuse sans motif (400)', async () => {
     const { year, class: klassA } = await createClassInYear('2026-2027', {
       debut: '2026-09-01',
       fin: '2027-07-15',
@@ -392,5 +392,14 @@ describe('Inscriptions et réinscriptions (e2e)', () => {
     )
       .send({ classId: otherClass.body.id })
       .expect(400);
+
+    // Avec un motif, le niveau change (la facture suit : voir enrollments-level-change.e2e-spec.ts).
+    await auth(
+      request(app.getHttpServer()).post(
+        `/enrollments/${enrollment.body.id}/change-class`,
+      ),
+    )
+      .send({ classId: otherClass.body.id, motif: 'Erreur de classe' })
+      .expect(201);
   });
 });
