@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +25,7 @@ import {
   BookOpenText,
   ClipboardCheck,
   KeyRound,
+  Activity,
   ScanLine,
   UserCheck,
   MessagesSquare,
@@ -69,6 +70,7 @@ const LINKS: NavLink[] = [
   { href: "/pointage", labelKey: "nav.myCheckin", icon: ScanLine, requiredPermission: "TEACHER_CHECKIN_SELF" },
   { href: "/pointage-enseignants", labelKey: "nav.teacherCheckins", icon: UserCheck, requiredPermission: "TEACHER_CHECKIN_READ" },
   { href: "/portail-parents", labelKey: "nav.parentAccounts", icon: KeyRound, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
+  { href: "/activite-parents", labelKey: "nav.parentActivity", icon: Activity, requiredPermission: "PARENT_ACCOUNT_MANAGE" },
   { href: "/pilotage", labelKey: "nav.pilotage", icon: Gauge, requiredPermission: "PILOTAGE_READ" },
   { href: "/messagerie", labelKey: "nav.messaging", icon: MessagesSquare, requiredPermission: "MESSAGE_USE" },
   { href: "/annonces", labelKey: "nav.announcements", icon: Megaphone, requiredPermission: "MESSAGE_USE" },
@@ -153,6 +155,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Menu ouvert : la page derrière ne défile plus, seul le menu défile.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [drawerOpen]);
+
   const visibleLinks = LINKS.filter(
     (link) =>
       (!link.requiredPermission || hasPermission(link.requiredPermission)) &&
@@ -193,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {drawerOpen && (
           <div className="fixed inset-0 z-50 md:hidden">
             <div className="absolute inset-0 bg-ink/50" onClick={() => setDrawerOpen(false)} />
-            <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 bg-primary px-4 py-6 shadow-[var(--shadow-lift)]">
+            <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col gap-6 overflow-y-auto overscroll-contain bg-primary px-4 py-6 shadow-[var(--shadow-lift)] [-webkit-overflow-scrolling:touch]">
               <div className="flex items-center justify-between">
                 <Brand />
                 <button

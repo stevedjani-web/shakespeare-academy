@@ -207,6 +207,16 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     ],
     permission: "PARENT_ACCOUNT_MANAGE",
   },
+  "activite-parents": {
+    id: "activite-parents",
+    titleKey: "cnt.help.activite-parents.title",
+    tipKeys: [
+      "cnt.help.activite-parents.tip1",
+      "cnt.help.activite-parents.tip2",
+      "cnt.help.activite-parents.tip3",
+    ],
+    permission: "PARENT_ACCOUNT_MANAGE",
+  },
   "pilotage": {
     id: "pilotage",
     titleKey: "cnt.help.pilotage.title",
@@ -379,6 +389,7 @@ export const HELP_ORDER = [
   "pointage",
   "pointage-enseignants",
   "portail-parents",
+  "activite-parents",
   "pilotage",
   "messagerie",
   "annonces",

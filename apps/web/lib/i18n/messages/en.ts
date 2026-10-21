@@ -50,6 +50,7 @@ export const en: Record<MessageKey, string> = {
   "nav.myCheckin": "My check-in",
   "nav.teacherCheckins": "Teacher check-ins",
   "nav.parentAccounts": "Parent accounts",
+  "nav.parentActivity": "Parent activity",
   "nav.pilotage": "360° overview",
   "nav.messaging": "Messages",
   "nav.announcements": "Announcements",

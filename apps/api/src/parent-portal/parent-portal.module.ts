@@ -23,6 +23,8 @@ import {
   ParentPortalController,
 } from './parent-portal.controller';
 import { ParentAccountsController } from './parent-accounts.controller';
+import { ParentActivityController } from './parent-activity.controller';
+import { ParentActivityService } from './parent-activity.service';
 import { ParentNotificationsController } from './parent-notifications.controller';
 import { ParentMessagingController } from './parent-messaging.controller';
 import { ParentBankPaymentsController } from './parent-bank-payments.controller';
@@ -53,12 +55,14 @@ import { ParentBankPaymentsController } from './parent-bank-payments.controller'
     ParentMessagingController,
     ParentBankPaymentsController,
     ParentAccountsController,
+    ParentActivityController,
   ],
   providers: [
     ParentAuthService,
     ParentAuthGuard,
     ParentPortalService,
     ParentAccountsService,
+    ParentActivityService,
   ],
 })
 export class ParentPortalModule {}

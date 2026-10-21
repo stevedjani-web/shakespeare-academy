@@ -49,6 +49,7 @@ export const fr = {
   "nav.myCheckin": "Mon pointage",
   "nav.teacherCheckins": "Pointage enseignants",
   "nav.parentAccounts": "Comptes parents",
+  "nav.parentActivity": "Activité des parents",
   "nav.pilotage": "Pilotage 360°",
   "nav.messaging": "Messagerie",
   "nav.announcements": "Annonces",
