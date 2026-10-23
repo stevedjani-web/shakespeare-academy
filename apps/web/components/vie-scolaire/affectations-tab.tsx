@@ -7,6 +7,7 @@ import type { AcademicYear, Class, ClassAssignments, Teacher } from "@/lib/types
 import { Badge, Card, EmptyState, ErrorMessage, Field, Select } from "@/components/ui";
 import { ListChecks } from "lucide-react";
 import { describeError, TAB_HINT } from "./shared";
+import { CombinaisonsCard } from "./combinaisons-card";
 
 /** Affectations : pour une classe, qui enseigne chaque matière de son niveau (un seul enseignant, RV01). */
 export function AffectationsTab({
@@ -83,6 +84,7 @@ export function AffectationsTab({
   const done = grid?.matieres.filter((m) => m.assignment).length ?? 0;
 
   return (
+    <div className="space-y-6">
     <Card>
       <h2 className="font-display text-lg font-semibold text-ink">{tr("sl.assign.title")}</h2>
       <p className={`mb-3 ${TAB_HINT}`}>
@@ -162,5 +164,7 @@ export function AffectationsTab({
         </>
       )}
     </Card>
+    <CombinaisonsCard yearId={yearId} classes={classes} levelLabel={levelLabel} onChanged={onChanged} />
+    </div>
   );
 }

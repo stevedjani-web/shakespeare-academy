@@ -77,6 +77,8 @@ export interface Level {
   code: string;
   nom: string;
   ordre: number;
+  /** Grille horaire nommée suivie par ce niveau (sinon celle de sa section, sinon la grille commune). */
+  gridId?: string | null;
 }
 
 export interface Class {
@@ -87,6 +89,8 @@ export interface Class {
   serie: string | null;
   groupe: string | null;
   capacite: number | null;
+  /** Groupe de classes combinées (un enseignant et une salle partagés pour la même matière). */
+  combinationId?: string | null;
 }
 
 export interface Role {
@@ -501,10 +505,26 @@ export type TimeSlotType = "COURS" | "PAUSE";
 export interface TimeSlot {
   id: string;
   sectionId: string | null;
+  /** Grille nommée à laquelle appartient le créneau (absent = grille commune ou d'une section). */
+  gridId: string | null;
   libelle: string;
   heureDebut: string;
   heureFin: string;
   type: TimeSlotType;
+}
+
+export interface TimeGrid {
+  id: string;
+  nom: string;
+  creneaux: number;
+  niveaux: Array<{ id: string; nom: string }>;
+}
+
+export interface ClassCombination {
+  id: string;
+  nom: string;
+  academicYearId: string;
+  classes: Array<{ id: string; nom: string }>;
 }
 
 export interface Room {
@@ -570,7 +590,7 @@ export interface CalendarEvent {
 export interface PedagogySummary {
   anneeScolaire: { id: string; libelle: string } | null;
   joursClasse: number[];
-  creneaux: { communs: number; parSection: number };
+  creneaux: { communs: number; parSection: number; parGrille?: number };
   matieres: { total: number; sansNiveau: number };
   enseignants: { total: number; actifs: number; sansAffectation: number };
   affectations: { classes: number; classesCompletes: number; requises: number; manquantes: number };

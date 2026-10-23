@@ -4,26 +4,41 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import type { MessageKey } from "@/lib/i18n";
-import type { Section, TimeSlot, TimeSlotType } from "@/lib/types";
+import type { Level, Section, TimeGrid, TimeSlot, TimeSlotType } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorMessage, Field, Input, Select, SuccessMessage } from "@/components/ui";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { Clock } from "lucide-react";
 import { describeError, TAB_HINT, WEEK_DAYS } from "./shared";
+import { GrillesCard } from "./grilles-card";
 
 const SLOT_TYPE_KEY: Record<TimeSlotType, MessageKey> = {
   COURS: "sl.hours.type.COURS",
   PAUSE: "sl.hours.type.PAUSE",
 };
 
-/** Jours de classe (D52) et grille des créneaux, commune ou propre à une section (D53). */
-export function HorairesTab({ sections, onChanged }: { sections: Section[]; onChanged: () => void }) {
+/** Jours de classe (D52) et grilles des créneaux : commune, propre à une section (D53) ou nommée et rattachée à des niveaux. */
+export function HorairesTab({
+  sections,
+  levels,
+  levelLabel,
+  onChanged,
+  onStructureChanged,
+}: {
+  sections: Section[];
+  levels: Level[];
+  levelLabel: (id: string) => string;
+  onChanged: () => void;
+  /** Les niveaux ont changé de grille : recharger la structure. */
+  onStructureChanged: () => void;
+}) {
   const { t } = useI18n();
   const [jours, setJours] = useState<number[]>([]);
   const [joursSaved, setJoursSaved] = useState(false);
   const [joursError, setJoursError] = useState<string | null>(null);
 
   const [slots, setSlots] = useState<TimeSlot[]>([]);
-  const [scope, setScope] = useState(""); // "" = grille commune, sinon id de section
+  const [grids, setGrids] = useState<TimeGrid[]>([]);
+  const [scope, setScope] = useState(""); // "" = grille commune, "s:<id>" = section, "g:<id>" = grille nommée
   const [form, setForm] = useState<{ libelle: string; heureDebut: string; heureFin: string; type: TimeSlotType }>({
     libelle: "",
     heureDebut: "",
@@ -36,12 +51,16 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
   const expand = useExpanded();
 
   async function load() {
-    const [settings, list] = await Promise.all([
+    const [settings, list, namedGrids] = await Promise.all([
       api.get<{ joursClasse: number[] }>("/pedagogy/settings"),
       api.get<TimeSlot[]>("/time-slots"),
+      api.get<TimeGrid[]>("/time-grids"),
     ]);
     setJours(settings.joursClasse);
     setSlots(list);
+    setGrids(namedGrids);
+    // Une grille supprimée ne peut plus rester sélectionnée.
+    setScope((current) => (current.startsWith("g:") && !namedGrids.some((g) => `g:${g.id}` === current) ? "" : current));
   }
 
   useEffect(() => {
@@ -49,10 +68,19 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
   }, []);
 
   const visible = useMemo(
-    () => slots.filter((s) => (scope ? s.sectionId === scope : s.sectionId === null)).sort((a, b) => a.heureDebut.localeCompare(b.heureDebut)),
+    () =>
+      slots
+        .filter((s) =>
+          scope.startsWith("g:")
+            ? s.gridId === scope.slice(2)
+            : scope.startsWith("s:")
+              ? s.sectionId === scope.slice(2) && s.gridId === null
+              : s.sectionId === null && s.gridId === null,
+        )
+        .sort((a, b) => a.heureDebut.localeCompare(b.heureDebut)),
     [slots, scope],
   );
-  const sectionHasOwnGrid = (id: string) => slots.some((s) => s.sectionId === id);
+  const sectionHasOwnGrid = (id: string) => slots.some((s) => s.sectionId === id && s.gridId === null);
 
   async function saveJours() {
     setJoursError(null);
@@ -70,7 +98,11 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
     e.preventDefault();
     setError(null);
     try {
-      await api.post("/time-slots", { ...form, sectionId: scope || undefined });
+      await api.post("/time-slots", {
+        ...form,
+        sectionId: scope.startsWith("s:") ? scope.slice(2) : undefined,
+        gridId: scope.startsWith("g:") ? scope.slice(2) : undefined,
+      });
       setForm({ libelle: "", heureDebut: form.heureFin, heureFin: "", type: "COURS" });
       await load();
       onChanged();
@@ -127,6 +159,18 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
         </Button>
       </Card>
 
+      <GrillesCard
+        grids={grids}
+        levels={levels}
+        levelLabel={levelLabel}
+        onSelectGrid={(id) => setScope(`g:${id}`)}
+        onChanged={async () => {
+          await load();
+          onStructureChanged();
+          onChanged();
+        }}
+      />
+
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -139,9 +183,14 @@ export function HorairesTab({ sections, onChanged }: { sections: Section[]; onCh
             <Select value={scope} onChange={(e) => setScope(e.target.value)}>
               <option value="">{t("sl.hours.slots.commonGrid")}</option>
               {sections.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.id} value={`s:${s.id}`}>
                   {t("sl.hours.slots.sectionOption", { name: s.nom })}
                   {sectionHasOwnGrid(s.id) ? t("sl.hours.slots.ownGrid") : ""}
+                </option>
+              ))}
+              {grids.map((g) => (
+                <option key={g.id} value={`g:${g.id}`}>
+                  {t("sl.hours.slots.namedGridOption", { name: g.nom })}
                 </option>
               ))}
             </Select>

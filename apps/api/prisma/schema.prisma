@@ -120,6 +120,8 @@ model School {
   bankPaymentClaims BankPaymentClaim[]
   rooms             Room[]
   timeSlots         TimeSlot[]
+  timeGrids         TimeGrid[]
+  classCombinations ClassCombination[]
   subjects          Subject[]
   teachers          Teacher[]
 
@@ -153,6 +155,7 @@ model AcademicYear {
   terms             Term[]
   calendarEvents    CalendarEvent[]
   timetables        Timetable[]
+  classCombinations ClassCombination[]
   issuedDocuments   IssuedDocument[]
   disciplineRecords DisciplineRecord[]
 
@@ -201,14 +204,17 @@ model Cycle {
 }
 
 model Level {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   cycleId   String
-  cycle     Cycle    @relation(fields: [cycleId], references: [id])
+  cycle     Cycle     @relation(fields: [cycleId], references: [id])
   code      String
   nom       String
-  ordre     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  ordre     Int       @default(0)
+  // Grille horaire nommée suivie par ce niveau (vide : la grille de la section, ou la grille commune).
+  gridId    String?
+  grid      TimeGrid? @relation(fields: [gridId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   classes                         Class[]
   feeSchedules                    FeeSchedule[]
@@ -221,11 +227,11 @@ model Level {
 }
 
 model Class {
-  id             String       @id @default(cuid())
+  id             String            @id @default(cuid())
   levelId        String
-  level          Level        @relation(fields: [levelId], references: [id])
+  level          Level             @relation(fields: [levelId], references: [id])
   academicYearId String
-  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYear   AcademicYear      @relation(fields: [academicYearId], references: [id])
   nom            String
   // serie/groupe : colonnes prévues par anticipation de D02 (séries de lycée, sous-groupes de classe),
   // jamais renseignées automatiquement tant que D02 reste ouvert.
@@ -233,9 +239,12 @@ model Class {
   groupe         String?
   capacite       Int?
   // Lot 7 : classe pilote pour tester l'appel et le pointage (une seule à la fois, garanti par le service).
-  pilote         Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  pilote         Boolean           @default(false)
+  // Classes combinées (un même enseignant fait cours à plusieurs classes à la fois, ex. GS et CP).
+  combinationId  String?
+  combination    ClassCombination? @relation(fields: [combinationId], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   enrollments       Enrollment[]
   collectLink       ClassCollectLink?
@@ -1514,6 +1523,41 @@ enum TimeSlotType {
   PAUSE
 }
 
+// Grille horaire nommée (ex. « Primaire », « Maternelle ») : un jeu de créneaux que l'école assigne à des niveaux. Un niveau
+// sans grille suit celle de sa section, ou la grille commune. Deux créneaux d'une même grille ne se chevauchent pas.
+model TimeGrid {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  nom       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slots  TimeSlot[]
+  levels Level[]
+
+  @@unique([schoolId, nom])
+  @@map("time_grids")
+}
+
+// Classes combinées : un même enseignant fait cours à plusieurs classes en même temps (ex. GS et CP). Pour ces classes seulement,
+// l'enseignant et la salle ne sont pas en double emploi quand la matière est la même au même moment.
+model ClassCombination {
+  id             String       @id @default(cuid())
+  schoolId       String
+  school         School       @relation(fields: [schoolId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  nom            String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  classes Class[]
+
+  @@unique([academicYearId, nom])
+  @@map("class_combinations")
+}
+
 // Créneau horaire. `sectionId` nul = grille commune à toutes les sections (D53) ; renseigné = grille
 // propre à cette section, qui remplace alors la grille commune pour elle. Heures au format "HH:mm"
 // (heure locale de l'établissement), jamais un fuseau : un créneau est une heure murale récurrente.
@@ -1523,6 +1567,9 @@ model TimeSlot {
   school     School       @relation(fields: [schoolId], references: [id])
   sectionId  String?
   section    Section?     @relation(fields: [sectionId], references: [id])
+  // Grille nommée (sectionId est alors vide) : un jeu de créneaux assigné à des niveaux.
+  gridId     String?
+  grid       TimeGrid?    @relation(fields: [gridId], references: [id], onDelete: Restrict)
   libelle    String
   heureDebut String
   heureFin   String

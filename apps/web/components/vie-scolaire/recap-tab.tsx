@@ -69,7 +69,7 @@ export function RecapTab({
   }
 
   const jours = WEEK_DAYS.filter((d) => summary.joursClasse.includes(d.value)).map((d) => d.label.slice(0, 3)).join(", ");
-  const nbCreneaux = summary.creneaux.communs + summary.creneaux.parSection;
+  const nbCreneaux = summary.creneaux.communs + summary.creneaux.parSection + (summary.creneaux.parGrille ?? 0);
 
   const items: Array<{ done: boolean; title: string; detail: string; tab: VieScolaireTab; action: string }> = [
     {

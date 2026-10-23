@@ -6,6 +6,12 @@ import { PedagogyService } from './pedagogy.service';
 import { ReferentialService } from './referential.service';
 import { CalendarService } from './calendar.service';
 import { TeachersService } from './teachers.service';
+import { TimeGridsService } from './time-grids.service';
+import { ClassCombinationsService } from './class-combinations.service';
+import {
+  ClassCombinationsController,
+  TimeGridsController,
+} from './time-grids.controller';
 import {
   RoomsController,
   SubjectsController,
@@ -32,12 +38,16 @@ import {
     CalendarEventsController,
     TeachersController,
     AssignmentsController,
+    TimeGridsController,
+    ClassCombinationsController,
   ],
   providers: [
     PedagogyService,
     ReferentialService,
     CalendarService,
     TeachersService,
+    TimeGridsService,
+    ClassCombinationsService,
   ],
 })
 export class PedagogyModule {}

@@ -22,6 +22,7 @@ import {
 export function TimetableExcelButtons({
   entries,
   slots,
+  slotsOfClass,
   classes,
   teachers,
   days,
@@ -30,6 +31,8 @@ export function TimetableExcelButtons({
 }: {
   entries: XlEntry[];
   slots: XlSlot[];
+  /** Grille propre à chaque classe (grilles nommées) ; sans elle, `slots` sert à toutes. */
+  slotsOfClass?: (classId: string) => XlSlot[];
   classes: XlClass[];
   /** Enseignants connus (pour lister aussi ceux qui n'ont aucune séance) ; facultatif. */
   teachers?: XlTeacher[];
@@ -72,7 +75,7 @@ export function TimetableExcelButtons({
     setError(null);
     try {
       if (kind === "grid") {
-        const sheets = buildGridSheets({ entries, slots, classes, days, yearLabel, labels: labels() });
+        const sheets = buildGridSheets({ entries, slots, slotsOfClass, classes, days, yearLabel, labels: labels() });
         await downloadWorkbook(`${t("tt.xl.fileGrid")}-${versionLabel}`, sheets);
       } else {
         const sheets = buildHoursSheets({ entries, teachers, classes, days, labels: labels() });

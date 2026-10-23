@@ -91,6 +91,11 @@ export class CreateTimeSlotDto {
   @IsString()
   sectionId?: string;
 
+  // Grille nommée (rythme propre à certains niveaux) ; exclusif avec sectionId.
+  @IsOptional()
+  @IsString()
+  gridId?: string;
+
   @IsString()
   @MinLength(1)
   libelle!: string;
@@ -123,6 +128,69 @@ export class UpdateTimeSlotDto {
   @IsOptional()
   @IsEnum(TIME_SLOT_TYPES)
   type?: (typeof TIME_SLOT_TYPES)[number];
+}
+
+// --- Grilles horaires nommées et classes combinées ---------------------------------------------
+
+export class CreateTimeGridDto {
+  @IsString()
+  @MinLength(1)
+  nom!: string;
+
+  // Niveaux qui suivent cette grille (facultatif à la création).
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  levelIds?: string[];
+
+  // Copie les créneaux d'une grille existante (ou de la grille commune si la valeur est "COMMUNE").
+  @IsOptional()
+  @IsString()
+  copierDe?: string;
+}
+
+export class UpdateTimeGridDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  nom?: string;
+}
+
+export class SetGridLevelsDto {
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  levelIds!: string[];
+}
+
+export class CreateClassCombinationDto {
+  @IsString()
+  @MinLength(1)
+  nom!: string;
+
+  @IsString()
+  academicYearId!: string;
+
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayUnique()
+  @IsString({ each: true })
+  classIds!: string[];
+}
+
+export class UpdateClassCombinationDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  nom?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(2)
+  @ArrayUnique()
+  @IsString({ each: true })
+  classIds?: string[];
 }
 
 // --- Salles ------------------------------------------------------------------------------------

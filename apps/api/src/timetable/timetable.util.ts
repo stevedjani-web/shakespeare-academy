@@ -16,6 +16,21 @@ export function overlaps(
   );
 }
 
+/**
+ * Deux séances de classes combinées (ex. GS et CP) qui ont la même matière au même moment : l'enseignant et la salle y sont
+ * partagés, ce n'est pas un double emploi. Ne vaut jamais en dehors d'un groupe de classes combinées déclaré.
+ */
+export function together(
+  a: { combinationId: string | null; subjectId: string },
+  b: { combinationId: string | null; subjectId: string },
+): boolean {
+  return (
+    a.combinationId !== null &&
+    a.combinationId === b.combinationId &&
+    a.subjectId === b.subjectId
+  );
+}
+
 /** "AAAA-MM-JJ" -> Date à minuit UTC. */
 export function toDateOnly(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);

@@ -123,4 +123,18 @@ assert.equal(teacherRow[2].backgroundColor, "#fee2e2");
 assert.equal(subjectRow[4].backgroundColor, undefined, "une case vide n'a pas de fond");
 assert.equal(teacherRow[4].backgroundColor, undefined);
 
+// Grilles horaires nommées : chaque onglet de classe utilise les créneaux de SA grille.
+const perClass = buildGridSheets({
+  entries: [entry("c6", "6e", 1, "08:00", "09:00", "Français", T1), entry("c5", "5e", 1, "13:30", "15:00", "Histoire-Géographie", T2)],
+  slots,
+  slotsOfClass: (id) => (id === "c5" ? [{ heureDebut: "13:30", heureFin: "15:00", type: "COURS" }] : [{ heureDebut: "08:00", heureFin: "09:00", type: "COURS" }]),
+  classes,
+  days,
+  yearLabel: "x",
+  labels,
+});
+const rowsOf = (sheet) => sheet.data.map((r) => r[0]?.value).filter((v) => typeof v === "string" && /h/.test(v));
+assert.deepEqual(rowsOf(perClass.find((x) => x.sheet === "6e")), ["8h00-9h00"], "la 6e garde sa grille");
+assert.deepEqual(rowsOf(perClass.find((x) => x.sheet === "5e")), ["13h30-15h00"], "la 5e a la sienne");
+
 console.log("timetable-excel : tous les contrôles passent");

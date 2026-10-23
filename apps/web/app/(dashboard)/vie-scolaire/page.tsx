@@ -108,7 +108,15 @@ export default function VieScolairePage() {
           onChanged={() => void loadSummary()}
         />
       )}
-      {tab === "horaires" && <HorairesTab sections={structure.sections} onChanged={() => void loadSummary()} />}
+      {tab === "horaires" && (
+        <HorairesTab
+          sections={structure.sections}
+          levels={structure.levels}
+          levelLabel={structure.levelLabel}
+          onChanged={() => void loadSummary()}
+          onStructureChanged={() => void structure.reload()}
+        />
+      )}
       {tab === "matieres" && (
         <MatieresTab
           sections={structure.sections}

@@ -15,7 +15,8 @@ import {
   PublishTimetableDto,
   UpdateEntryDto,
 } from './dto/timetable.dto';
-import { isoDay, overlaps, toDateOnly } from './timetable.util';
+import { isoDay, overlaps, toDateOnly, together } from './timetable.util';
+import { slotScopeFor } from '../pedagogy/time-grid.util';
 
 export const ENTRY_INCLUDE = {
   class: true,
@@ -284,13 +285,14 @@ export class TimetablesService {
         'Ce créneau est une pause : on n’y place pas de cours.',
       );
     }
-    const sectionId = klass.level.cycle.sectionId;
-    const ownGrid = await this.prisma.timeSlot.count({ where: { sectionId } });
-    const inGrid =
-      ownGrid > 0 ? slot.sectionId === sectionId : slot.sectionId === null;
-    if (!inGrid) {
+    const scope = await slotScopeFor(
+      this.prisma,
+      klass.level,
+      klass.level.cycle.sectionId,
+    );
+    if (slot.sectionId !== scope.sectionId || slot.gridId !== scope.gridId) {
       throw new UnprocessableEntityException(
-        'Ce créneau n’appartient pas à la grille horaire de la section de cette classe.',
+        'Ce créneau n’appartient pas à la grille horaire de cette classe.',
       );
     }
 
@@ -330,6 +332,8 @@ export class TimetablesService {
       classId: string;
       teacherId: string;
       roomId: string;
+      subjectId: string;
+      combinationId: string | null;
     },
     excludeId?: string,
   ) {
@@ -349,12 +353,17 @@ export class TimetablesService {
           `Cette classe a déjà cours à ce moment : ${this.describe(e)}.`,
         );
       }
-      if (e.teacherId === x.teacherId) {
+      // Classes combinées : même enseignant et même salle pour la même matière au même moment, ce n'est pas un double emploi.
+      const shared = together(
+        { combinationId: x.combinationId, subjectId: x.subjectId },
+        { combinationId: e.class.combinationId, subjectId: e.subjectId },
+      );
+      if (e.teacherId === x.teacherId && !shared) {
         throw new ConflictException(
           `L'enseignant ${e.teacher.prenom} ${e.teacher.nom} a déjà cours à ce moment : ${this.describe(e)}.`,
         );
       }
-      if (e.roomId === x.roomId) {
+      if (e.roomId === x.roomId && !shared) {
         throw new ConflictException(
           `La salle ${e.room.nom} est déjà occupée à ce moment : ${this.describe(e)}.`,
         );
@@ -364,7 +373,7 @@ export class TimetablesService {
 
   async createEntry(timetableId: string, dto: CreateEntryDto, userId: string) {
     const timetable = await this.draft(timetableId);
-    const { assignment, slot } = await this.prepareEntry(timetable, dto);
+    const { assignment, slot, klass } = await this.prepareEntry(timetable, dto);
     await this.assertNoConflict(timetableId, {
       jourSemaine: dto.jourSemaine,
       heureDebut: slot.heureDebut,
@@ -372,6 +381,8 @@ export class TimetablesService {
       classId: dto.classId,
       teacherId: assignment.teacherId,
       roomId: dto.roomId,
+      subjectId: dto.subjectId,
+      combinationId: klass.combinationId,
     });
     const entry = await this.prisma.timetableEntry.create({
       data: {
@@ -423,7 +434,7 @@ export class TimetablesService {
       jourSemaine: dto.jourSemaine ?? before.jourSemaine,
       roomId: dto.roomId ?? before.roomId,
     };
-    const { assignment, slot } = await this.prepareEntry(
+    const { assignment, slot, klass } = await this.prepareEntry(
       before.timetable,
       merged,
     );
@@ -436,6 +447,8 @@ export class TimetablesService {
         classId: merged.classId,
         teacherId: assignment.teacherId,
         roomId: merged.roomId,
+        subjectId: merged.subjectId,
+        combinationId: klass.combinationId,
       },
       id,
     );
@@ -511,6 +524,8 @@ export class TimetablesService {
             classId: e.classId,
             teacherId: assignment.teacherId,
             roomId: e.roomId,
+            subjectId: e.subjectId,
+            combinationId: e.class.combinationId,
           },
           e.id,
         );
@@ -669,12 +684,16 @@ export class TimetablesService {
             `Conflit de classe (${a.class.nom}) : ${this.describe(a)} et ${this.describe(b)}.`,
           );
         }
-        if (a.teacherId === b.teacherId) {
+        const shared = together(
+          { combinationId: a.class.combinationId, subjectId: a.subjectId },
+          { combinationId: b.class.combinationId, subjectId: b.subjectId },
+        );
+        if (a.teacherId === b.teacherId && !shared) {
           problemes.push(
             `Conflit d'enseignant (${a.teacher.prenom} ${a.teacher.nom}) : ${this.describe(a)} et ${this.describe(b)}.`,
           );
         }
-        if (a.roomId === b.roomId) {
+        if (a.roomId === b.roomId && !shared) {
           problemes.push(
             `Conflit de salle (${a.room.nom}) : ${this.describe(a)} et ${this.describe(b)}.`,
           );

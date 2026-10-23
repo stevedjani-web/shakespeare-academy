@@ -16,6 +16,7 @@ import {
   mondayOf,
   overlaps,
   toDateOnly,
+  together,
   weekdayOf,
 } from './timetable.util';
 
@@ -119,6 +120,7 @@ export class OccurrencesService {
         heureFin: e.heureFin,
         classId: e.classId,
         className: e.class.nom,
+        combinationId: e.class.combinationId,
         subjectId: e.subjectId,
         subjectName: e.subject.nom,
         subjectCode: e.subject.code,
@@ -254,6 +256,10 @@ export class OccurrencesService {
         entry.id,
         'teacherId',
         teacher.id,
+        {
+          combinationId: entry.class.combinationId,
+          subjectId: entry.subjectId,
+        },
       );
       if (busy) {
         throw new ConflictException(
@@ -283,6 +289,10 @@ export class OccurrencesService {
         entry.id,
         'roomId',
         room.id,
+        {
+          combinationId: entry.class.combinationId,
+          subjectId: entry.subjectId,
+        },
       );
       if (busy) {
         throw new ConflictException(
@@ -334,6 +344,7 @@ export class OccurrencesService {
     exceptEntryId: string,
     by: 'teacherId' | 'roomId',
     id: string,
+    self: { combinationId: string | null; subjectId: string },
   ): Promise<Occurrence | null> {
     const resolved = await this.resolveDay(day);
     return (
@@ -342,6 +353,8 @@ export class OccurrencesService {
           s.entryId !== exceptEntryId &&
           s.statut !== 'ANNULEE' &&
           s[by] === id &&
+          // Classes combinées : le remplaçant ou la salle sont déjà ceux du groupe pour la même matière, ce n'est pas un conflit.
+          !together(self, s) &&
           overlaps(debut, fin, s.heureDebut, s.heureFin),
       ) ?? null
     );
@@ -376,6 +389,8 @@ export interface Occurrence {
   heureFin: string;
   classId: string;
   className: string;
+  /** Groupe de classes combinées de la classe (vide si la classe n'est pas combinée). */
+  combinationId: string | null;
   subjectId: string;
   subjectName: string;
   subjectCode: string;

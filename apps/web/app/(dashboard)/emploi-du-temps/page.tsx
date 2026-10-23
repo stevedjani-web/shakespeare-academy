@@ -23,6 +23,7 @@ import { useI18n } from "@/lib/i18n/use-i18n";
 import { describeError, useStructure } from "@/components/vie-scolaire/shared";
 import { VersionGrid } from "@/components/emploi-du-temps/version-grid";
 import { WeekView } from "@/components/emploi-du-temps/week-view";
+import { slotsForLevel, slotsOfUsedGrids } from "@/lib/time-grids";
 import { VIEW_KINDS, dayLabel, formatIso, shiftWeek, viewLabel, type ViewKind } from "@/components/emploi-du-temps/shared";
 
 type Mode = "version" | "semaine";
@@ -171,13 +172,12 @@ export default function EmploiDuTempsPage() {
     if (mode === "semaine") void loadWeek();
   }, [mode, loadWeek]);
 
-  // Créneaux de la grille de la classe : ceux de sa section s'il y en a, sinon les créneaux communs.
+  // Créneaux de la grille de la classe : celle de son niveau, sinon celle de sa section, sinon la grille commune.
   const classSlots = useMemo(() => {
     const klass = classes.find((c) => c.id === targetId);
     const level = structure.levels.find((l) => l.id === klass?.levelId);
     const cycle = structure.cycles.find((c) => c.id === level?.cycleId);
-    const own = slots.filter((s) => s.sectionId === cycle?.sectionId);
-    return own.length > 0 ? own : slots.filter((s) => s.sectionId === null);
+    return slotsForLevel(slots, level, cycle?.sectionId);
   }, [classes, targetId, slots, structure.levels, structure.cycles]);
 
   const shown = useMemo(
@@ -189,6 +189,20 @@ export default function EmploiDuTempsPage() {
         return e.roomId === targetId;
       }),
     [entries, targetId, view],
+  );
+
+  // Vue par enseignant ou par salle : les créneaux des grilles dont se servent les séances affichées.
+  const viewSlots = useMemo(() => slotsOfUsedGrids(slots, shown), [slots, shown]);
+
+  // Pour l'export Excel : la grille propre à chaque classe.
+  const slotsOfClass = useCallback(
+    (classId: string) => {
+      const klass = classes.find((c) => c.id === classId);
+      const level = structure.levels.find((l) => l.id === klass?.levelId);
+      const cycle = structure.cycles.find((c) => c.id === level?.cycleId);
+      return slotsForLevel(slots, level, cycle?.sectionId);
+    },
+    [classes, slots, structure.levels, structure.cycles],
   );
 
   async function run(action: () => Promise<unknown>, success?: string) {
@@ -399,6 +413,7 @@ export default function EmploiDuTempsPage() {
                   <TimetableExcelButtons
                     entries={entries}
                     slots={slots}
+                    slotsOfClass={slotsOfClass}
                     classes={classes}
                     teachers={teachers.filter((x) => x.statut === "ACTIF")}
                     days={joursClasse}
@@ -473,7 +488,7 @@ export default function EmploiDuTempsPage() {
                   view={view}
                   targetId={targetId}
                   entries={shown}
-                  slots={slots}
+                  slots={viewSlots}
                   rooms={rooms}
                   joursClasse={joursClasse}
                   editable={isDraft && canManage}

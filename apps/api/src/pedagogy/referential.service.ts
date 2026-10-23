@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { normalize, toMinutes } from './pedagogy.util';
+import { slotScopeFor } from './time-grid.util';
 import {
   CreateRoomDto,
   CreateSubjectDto,
@@ -48,16 +49,47 @@ export class ReferentialService {
 
   // ------------------------------------------------------------------ Créneaux
 
-  async listTimeSlots(sectionId?: string) {
+  /**
+   * Sans filtre : tous les créneaux. `sectionId` vide = grille commune (ni section, ni grille nommée) ;
+   * `gridId` = les créneaux d'une grille nommée.
+   */
+  async listTimeSlots(sectionId?: string, gridId?: string) {
+    const where: { sectionId?: string | null; gridId?: string | null } = {};
+    if (gridId) {
+      where.gridId = gridId;
+    } else if (sectionId !== undefined) {
+      where.sectionId = sectionId || null;
+      where.gridId = null;
+    }
     return this.prisma.timeSlot.findMany({
-      where: sectionId === undefined ? {} : { sectionId: sectionId || null },
-      orderBy: [{ sectionId: 'asc' }, { heureDebut: 'asc' }],
+      where,
+      orderBy: [{ gridId: 'asc' }, { sectionId: 'asc' }, { heureDebut: 'asc' }],
     });
   }
 
-  /** Deux créneaux d'une même grille (commune, ou d'une même section) ne peuvent pas se chevaucher. */
+  /** Les créneaux de la grille qui s'applique à une classe (grille de son niveau, sinon de sa section, sinon commune). */
+  async slotsForClass(classId: string) {
+    const klass = await this.prisma.class.findUnique({
+      where: { id: classId },
+      include: { level: { include: { cycle: true } } },
+    });
+    if (!klass) {
+      throw new NotFoundException('Classe introuvable.');
+    }
+    const scope = await slotScopeFor(
+      this.prisma,
+      klass.level,
+      klass.level.cycle.sectionId,
+    );
+    return this.prisma.timeSlot.findMany({
+      where: { sectionId: scope.sectionId, gridId: scope.gridId },
+      orderBy: { heureDebut: 'asc' },
+    });
+  }
+
+  /** Deux créneaux d'une même grille (commune, d'une section ou nommée) ne peuvent pas se chevaucher. */
   private async assertNoOverlap(
-    sectionId: string | null,
+    scope: { sectionId: string | null; gridId: string | null },
     heureDebut: string,
     heureFin: string,
     excludeId?: string,
@@ -68,7 +100,11 @@ export class ReferentialService {
       );
     }
     const same = await this.prisma.timeSlot.findMany({
-      where: { sectionId, id: excludeId ? { not: excludeId } : undefined },
+      where: {
+        sectionId: scope.sectionId,
+        gridId: scope.gridId,
+        id: excludeId ? { not: excludeId } : undefined,
+      },
     });
     const start = toMinutes(heureDebut);
     const end = toMinutes(heureFin);
@@ -92,13 +128,32 @@ export class ReferentialService {
         throw new NotFoundException('Section introuvable.');
       }
     }
+    if (dto.sectionId && dto.gridId) {
+      throw new BadRequestException(
+        'Un créneau appartient soit à une section, soit à une grille nommée, pas aux deux.',
+      );
+    }
+    if (dto.gridId) {
+      const grid = await this.prisma.timeGrid.findUnique({
+        where: { id: dto.gridId },
+      });
+      if (!grid) {
+        throw new NotFoundException('Grille horaire introuvable.');
+      }
+    }
     const sectionId = dto.sectionId ?? null;
-    await this.assertNoOverlap(sectionId, dto.heureDebut, dto.heureFin);
+    const gridId = dto.gridId ?? null;
+    await this.assertNoOverlap(
+      { sectionId, gridId },
+      dto.heureDebut,
+      dto.heureFin,
+    );
 
     const slot = await this.prisma.timeSlot.create({
       data: {
         schoolId,
         sectionId,
+        gridId,
         libelle: dto.libelle.trim(),
         heureDebut: dto.heureDebut,
         heureFin: dto.heureFin,
@@ -131,7 +186,12 @@ export class ReferentialService {
         );
       }
     }
-    await this.assertNoOverlap(before.sectionId, heureDebut, heureFin, id);
+    await this.assertNoOverlap(
+      { sectionId: before.sectionId, gridId: before.gridId },
+      heureDebut,
+      heureFin,
+      id,
+    );
 
     const slot = await this.prisma.timeSlot.update({
       where: { id },

@@ -70,6 +70,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.teacher.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.timeSlot.deleteMany();
+  await prisma.timeGrid.deleteMany();
   await prisma.room.deleteMany();
   await prisma.calendarEvent.deleteMany();
   await prisma.term.deleteMany();
@@ -85,6 +86,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.guardian.deleteMany();
   await prisma.numberSequence.deleteMany();
   await prisma.class.deleteMany();
+  await prisma.classCombination.deleteMany();
   await prisma.level.deleteMany();
   await prisma.cycle.deleteMany();
   await prisma.section.deleteMany();

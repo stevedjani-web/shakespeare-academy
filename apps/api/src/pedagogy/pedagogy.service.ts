@@ -186,7 +186,7 @@ export class PedagogyService {
       await Promise.all([
         this.getSettings(),
         this.prisma.timeSlot.findMany({
-          select: { sectionId: true, type: true },
+          select: { sectionId: true, gridId: true, type: true },
         }),
         this.prisma.subject.findMany({
           where: { actif: true },
@@ -266,8 +266,10 @@ export class PedagogyService {
       anneeScolaire: year ? { id: year.id, libelle: year.libelle } : null,
       joursClasse: settings.joursClasse,
       creneaux: {
-        communs: slots.filter((s) => s.sectionId === null).length,
+        communs: slots.filter((s) => s.sectionId === null && s.gridId === null)
+          .length,
         parSection: slots.filter((s) => s.sectionId !== null).length,
+        parGrille: slots.filter((s) => s.gridId !== null).length,
       },
       matieres: {
         total: subjects.length,

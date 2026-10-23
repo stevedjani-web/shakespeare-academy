@@ -684,7 +684,11 @@ describe('Vie scolaire, référentiel pédagogique (e2e, Lot 7)', () => {
 
       const empty = (await get('/pedagogy/summary').expect(200)).body;
       expect(empty.anneeScolaire.libelle).toBe('2026-2027');
-      expect(empty.creneaux).toEqual({ communs: 0, parSection: 0 });
+      expect(empty.creneaux).toEqual({
+        communs: 0,
+        parSection: 0,
+        parGrille: 0,
+      });
       expect(empty.matieres.total).toBe(0);
       expect(empty.affectations.classes).toBe(1);
       expect(empty.affectations.requises).toBe(0);

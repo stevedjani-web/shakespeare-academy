@@ -115,13 +115,15 @@ export function sheetName(base: string, used: Set<string>): string {
 export function buildGridSheets(input: {
   entries: XlEntry[];
   slots: XlSlot[];
+  /** Grille propre à chaque classe (grilles horaires nommées) ; sans elle, `slots` sert à toutes les classes. */
+  slotsOfClass?: (classId: string) => XlSlot[];
   classes: XlClass[];
   days: number[];
   yearLabel: string;
   labels: XlLabels;
 }): XlSheet[] {
   const { entries, classes, days, yearLabel, labels } = input;
-  const slots = [...input.slots].sort((a, b) => a.heureDebut.localeCompare(b.heureDebut));
+  const byStart = (a: XlSlot, b: XlSlot) => a.heureDebut.localeCompare(b.heureDebut);
   const width = days.length + 1;
   const used = new Set<string>();
   const sheets: XlSheet[] = [];
@@ -129,6 +131,7 @@ export function buildGridSheets(input: {
   for (const klass of classes) {
     const own = entries.filter((e) => e.classId === klass.id);
     if (own.length === 0) continue;
+    const slots = [...(input.slotsOfClass ? input.slotsOfClass(klass.id) : input.slots)].sort(byStart);
     const at = (day: number, start: string) => own.find((e) => e.jourSemaine === day && e.heureDebut === start);
 
     const rows: XlSheet["data"] = [];

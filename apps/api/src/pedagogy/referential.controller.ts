@@ -31,8 +31,17 @@ export class TimeSlotsController {
   constructor(private readonly referential: ReferentialService) {}
 
   @Get()
-  list(@Query('sectionId') sectionId?: string) {
-    return this.referential.listTimeSlots(sectionId);
+  list(
+    @Query('sectionId') sectionId?: string,
+    @Query('gridId') gridId?: string,
+  ) {
+    return this.referential.listTimeSlots(sectionId, gridId);
+  }
+
+  // Les créneaux de la grille qui s'applique à cette classe.
+  @Get('for-class/:classId')
+  forClass(@Param('classId') classId: string) {
+    return this.referential.slotsForClass(classId);
   }
 
   @Post()
