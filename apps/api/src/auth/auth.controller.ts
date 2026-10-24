@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -31,7 +32,13 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto.email, dto.motDePasse);
+    const identifiant = dto.identifiant ?? dto.email;
+    if (!identifiant) {
+      throw new BadRequestException(
+        'Saisissez votre e-mail ou votre numéro de téléphone.',
+      );
+    }
+    const result = await this.authService.login(identifiant, dto.motDePasse);
     this.setRefreshCookie(
       res,
       result.refreshToken,

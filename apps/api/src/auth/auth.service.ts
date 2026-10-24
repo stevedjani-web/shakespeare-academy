@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import ms from '../common/ms';
+import { phoneKey } from '../common/phone.util';
 
 const MAX_TENTATIVES_CONNEXION = 5;
 const DUREE_VERROUILLAGE_MINUTES = 15;
@@ -21,7 +22,8 @@ export interface LoginResult {
     id: string;
     nom: string;
     prenom: string;
-    email: string;
+    email: string | null;
+    telephone: string | null;
     roleCode: string;
     doitChangerMotDePasse: boolean;
     langue: string | null;
@@ -36,11 +38,25 @@ export class AuthService {
     private readonly auditService: AuditService,
   ) {}
 
-  async login(email: string, motDePasse: string): Promise<LoginResult> {
-    const user = await this.prisma.user.findFirst({
-      where: { email },
+  /** Un identifiant avec « @ » est un e-mail ; sinon c'est un numéro de téléphone (comparé sur ses 9 derniers chiffres). */
+  private async findByIdentifier(identifiant: string) {
+    const value = identifiant.trim();
+    if (value.includes('@')) {
+      return this.prisma.user.findFirst({
+        where: { email: value },
+        include: { role: true },
+      });
+    }
+    const key = phoneKey(value);
+    if (!key) return null;
+    return this.prisma.user.findFirst({
+      where: { telephoneCle: key },
       include: { role: true },
     });
+  }
+
+  async login(identifiant: string, motDePasse: string): Promise<LoginResult> {
+    const user = await this.findByIdentifier(identifiant);
 
     if (!user) {
       throw new UnauthorizedException('Identifiant ou mot de passe incorrect.');
@@ -98,6 +114,7 @@ export class AuthService {
         nom: user.nom,
         prenom: user.prenom,
         email: user.email,
+        telephone: user.telephone,
         roleCode: user.role.code,
         doitChangerMotDePasse: user.doitChangerMotDePasse,
         langue: user.langue,

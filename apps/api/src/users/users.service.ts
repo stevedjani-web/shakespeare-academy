@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -12,6 +13,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { assertCanHandleReserved } from '../auth/reserved-permissions';
+import { phoneKey } from '../common/phone.util';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
 
 const SAFE_USER_SELECT = {
@@ -19,6 +21,7 @@ const SAFE_USER_SELECT = {
   nom: true,
   prenom: true,
   email: true,
+  telephone: true,
   statut: true,
   doitChangerMotDePasse: true,
   dernierLoginAt: true,
@@ -74,14 +77,13 @@ export class UsersService {
       'créer un compte avec ce rôle',
     );
     const schoolId = await this.schoolService.getDefaultId();
-    const existing = await this.prisma.user.findFirst({
-      where: { schoolId, email: dto.email },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'Un utilisateur avec cet e-mail existe déjà.',
-      );
-    }
+    const email = dto.email?.trim() || null;
+    const telephone = dto.telephone?.trim() || null;
+    const telephoneCle = await this.checkIdentifiers(
+      schoolId,
+      email,
+      telephone,
+    );
 
     const motDePasseHash = await this.authService.hashPassword(dto.motDePasse);
     const user = await this.prisma.user.create({
@@ -90,7 +92,9 @@ export class UsersService {
         roleId: dto.roleId,
         nom: dto.nom,
         prenom: dto.prenom,
-        email: dto.email,
+        email,
+        telephone,
+        telephoneCle,
         motDePasseHash,
         doitChangerMotDePasse: true,
       },
@@ -107,6 +111,58 @@ export class UsersService {
     });
 
     return user;
+  }
+
+  /**
+   * Un compte a au moins un e-mail ou un numéro de téléphone, et chacun n'appartient qu'à un seul compte.
+   * Renvoie la clé du numéro (ses 9 derniers chiffres), ou null s'il n'y en a pas.
+   */
+  private async checkIdentifiers(
+    schoolId: string,
+    email: string | null,
+    telephone: string | null,
+    excludeId?: string,
+  ): Promise<string | null> {
+    if (!email && !telephone) {
+      throw new BadRequestException(
+        'Renseignez au moins un e-mail ou un numéro de téléphone pour la connexion.',
+      );
+    }
+    const key = telephone ? phoneKey(telephone) : null;
+    if (telephone && !key) {
+      throw new BadRequestException(
+        'Numéro de téléphone invalide : 8 chiffres au moins.',
+      );
+    }
+    if (email) {
+      const same = await this.prisma.user.findFirst({
+        where: {
+          schoolId,
+          email,
+          id: excludeId ? { not: excludeId } : undefined,
+        },
+      });
+      if (same) {
+        throw new ConflictException(
+          'Un utilisateur avec cet e-mail existe déjà.',
+        );
+      }
+    }
+    if (key) {
+      const same = await this.prisma.user.findFirst({
+        where: {
+          schoolId,
+          telephoneCle: key,
+          id: excludeId ? { not: excludeId } : undefined,
+        },
+      });
+      if (same) {
+        throw new ConflictException(
+          'Un utilisateur avec ce numéro de téléphone existe déjà.',
+        );
+      }
+    }
+    return key;
   }
 
   async update(id: string, dto: UpdateUserDto, actor: CurrentUserData) {
@@ -136,9 +192,27 @@ export class UsersService {
         'changer le rôle de ce compte',
       );
     }
+    const { email: wantedEmail, telephone: wantedPhone, ...rest } = dto;
+    const data: Record<string, unknown> = { ...rest };
+    if (wantedEmail !== undefined || wantedPhone !== undefined) {
+      const schoolId = await this.schoolService.getDefaultId();
+      const email =
+        wantedEmail === undefined ? before.email : wantedEmail?.trim() || null;
+      const telephone =
+        wantedPhone === undefined
+          ? before.telephone
+          : wantedPhone?.trim() || null;
+      const telephoneCle = await this.checkIdentifiers(
+        schoolId,
+        email,
+        telephone,
+        id,
+      );
+      Object.assign(data, { email, telephone, telephoneCle });
+    }
     const updated = await this.prisma.user.update({
       where: { id },
-      data: dto,
+      data,
       select: SAFE_USER_SELECT,
     });
 

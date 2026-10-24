@@ -6,7 +6,8 @@ export interface CurrentUserData {
   permissions: string[];
   nom: string;
   prenom: string;
-  email: string;
+  email: string | null;
+  telephone: string | null;
   /** Langue choisie (« fr » ou « en »), vide tant que l'utilisateur n'a pas choisi. */
   langue: string | null;
 }

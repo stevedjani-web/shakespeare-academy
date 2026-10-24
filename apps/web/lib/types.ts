@@ -6,7 +6,8 @@ export interface CurrentUser {
   permissions: string[];
   nom: string;
   prenom: string;
-  email: string;
+  email: string | null;
+  telephone?: string | null;
   /** Langue choisie (« fr » ou « en »), vide tant que l'utilisateur n'a pas choisi. */
   langue?: string | null;
 }
@@ -17,7 +18,8 @@ export interface LoginResponse {
     id: string;
     nom: string;
     prenom: string;
-    email: string;
+    email: string | null;
+    telephone?: string | null;
     roleCode: string;
     doitChangerMotDePasse: boolean;
   };
@@ -113,7 +115,8 @@ export interface AppUser {
   id: string;
   nom: string;
   prenom: string;
-  email: string;
+  email: string | null;
+  telephone: string | null;
   statut: UserStatus;
   doitChangerMotDePasse: boolean;
   dernierLoginAt: string | null;
@@ -128,7 +131,7 @@ export interface AuditLogEntry {
   ancienneValeur: unknown;
   nouvelleValeur: unknown;
   createdAt: string;
-  user: { nom: string; prenom: string; email: string } | null;
+  user: { nom: string; prenom: string; email: string | null } | null;
 }
 
 export type Sexe = "M" | "F";
@@ -868,7 +871,8 @@ export interface LinkableUser {
   id: string;
   nom: string;
   prenom: string;
-  email: string;
+  email: string | null;
+  telephone?: string | null;
   role: string;
   teacherId: string | null;
 }

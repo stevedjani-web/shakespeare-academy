@@ -15,7 +15,8 @@ interface AuthContextValue {
   loading: boolean;
   /** Session ouverte sans Internet (données copiées sur l'appareil, jeton à renouveler au retour du réseau). */
   offlineSession: boolean;
-  login: (email: string, motDePasse: string) => Promise<{ doitChangerMotDePasse: boolean }>;
+  // `identifiant` : l'e-mail ou le numéro de téléphone du compte.
+  login: (identifiant: string, motDePasse: string) => Promise<{ doitChangerMotDePasse: boolean }>;
   logout: () => Promise<void>;
   hasPermission: (code: string) => boolean;
   refreshUser: () => Promise<void>;
@@ -134,8 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [afterOnlineSession, loadCurrentUser, router, setOfflineMode]);
 
   const login = useCallback(
-    async (email: string, motDePasse: string) => {
-      const res = await api.post<LoginResponse>("/auth/login", { email, motDePasse });
+    async (identifiant: string, motDePasse: string) => {
+      const res = await api.post<LoginResponse>("/auth/login", { identifiant, motDePasse });
       setAccessToken(res.accessToken);
       const me = await loadCurrentUser();
       setOfflineMode(false);

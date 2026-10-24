@@ -81,7 +81,7 @@ export const en: Record<MessageKey, string> = {
   // ---------------------------------------------------------------------------------------------- Sign in
   "login.title": "Sign in",
   "login.subtitle": "Access the management area.",
-  "login.email": "Username (e-mail)",
+  "login.email": "Username (e-mail or phone number)",
   "login.password": "Password",
   "login.submit": "Sign in",
   "login.submitting": "Signing in…",

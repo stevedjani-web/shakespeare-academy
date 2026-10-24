@@ -412,7 +412,7 @@ export default function DashboardHomePage() {
 
       <div className="mt-6 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
         <Badge color="primary">{user?.roleCode}</Badge>
-        <span>{t("dash.signedInAs", { email: user?.email ?? "" })}</span>
+        <span>{t("dash.signedInAs", { email: user?.email || user?.telephone || "" })}</span>
       </div>
     </div>
   );

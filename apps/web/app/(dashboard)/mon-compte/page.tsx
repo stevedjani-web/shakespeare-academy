@@ -34,7 +34,7 @@ export default function MonComptePage() {
               </div>
               <div>
                 <dt className="text-ink-muted">{t("account.loginId")}</dt>
-                <dd className="break-all font-medium text-ink">{user?.email}</dd>
+                <dd className="break-all font-medium text-ink">{[user?.email, user?.telephone].filter(Boolean).join(" · ")}</dd>
               </div>
               <div>
                 <dt className="text-ink-muted">{t("account.role")}</dt>

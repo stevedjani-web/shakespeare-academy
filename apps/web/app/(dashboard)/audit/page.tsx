@@ -146,7 +146,7 @@ export default function AuditLogPage() {
                                 <span className="block text-xs text-ink-muted">{t("adm.audit.colUser")}</span>
                                 <span className="font-medium text-ink">
                                   {who}
-                                  {log.user ? ` (${log.user.email})` : ""}
+                                  {log.user?.email ? ` (${log.user.email})` : ""}
                                 </span>
                               </p>
                               <ValueBlock label={t("adm.audit.before")} value={log.ancienneValeur} />

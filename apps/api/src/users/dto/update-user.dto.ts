@@ -1,4 +1,11 @@
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
 import { UserStatus } from '@prisma/client';
 
 export class UpdateUserDto {
@@ -19,4 +26,13 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEnum(UserStatus)
   statut?: UserStatus;
+
+  // `null` retire l'identifiant ; absent = inchangé. Un compte garde toujours au moins un des deux.
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsEmail()
+  email?: string | null;
+
+  @ValidateIf((_o, v) => v !== undefined && v !== null)
+  @IsString()
+  telephone?: string | null;
 }

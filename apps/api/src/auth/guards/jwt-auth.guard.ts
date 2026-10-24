@@ -73,6 +73,7 @@ export class JwtAuthGuard implements CanActivate {
       nom: user.nom,
       prenom: user.prenom,
       email: user.email,
+      telephone: user.telephone,
       langue: user.langue,
     };
 

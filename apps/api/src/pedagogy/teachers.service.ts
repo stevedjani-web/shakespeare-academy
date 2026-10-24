@@ -167,6 +167,7 @@ export class TeachersService {
       nom: u.nom,
       prenom: u.prenom,
       email: u.email,
+      telephone: u.telephone,
       role: u.role.nom,
       teacherId: u.teacher?.id ?? null,
     }));

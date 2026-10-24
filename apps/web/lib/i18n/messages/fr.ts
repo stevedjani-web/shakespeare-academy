@@ -80,7 +80,7 @@ export const fr = {
   // ---------------------------------------------------------------------------------------------- Connexion
   "login.title": "Connexion",
   "login.subtitle": "Accédez à l'espace de gestion.",
-  "login.email": "Identifiant (e-mail)",
+  "login.email": "Identifiant (e-mail ou téléphone)",
   "login.password": "Mot de passe",
   "login.submit": "Se connecter",
   "login.submitting": "Connexion…",

@@ -316,7 +316,11 @@ model User {
   role                      Role       @relation(fields: [roleId], references: [id])
   nom                       String
   prenom                    String
-  email                     String
+  // Identifiants de connexion : un e-mail, un numéro de téléphone, ou les deux (au moins un, vérifié par le service).
+  // `telephoneCle` = les 9 derniers chiffres : « +242 06 000 0001 » et « 060000001 » désignent la même ligne.
+  email                     String?
+  telephone                 String?
+  telephoneCle              String?
   motDePasseHash            String
   statut                    UserStatus @default(ACTIF)
   dernierLoginAt            DateTime?
@@ -376,6 +380,7 @@ model User {
   bankClaimsValidated    BankPaymentClaim[]         @relation("BankClaimValidatedBy")
 
   @@unique([schoolId, email])
+  @@unique([schoolId, telephoneCle])
   @@map("users")
 }
 

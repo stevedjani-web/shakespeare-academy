@@ -57,13 +57,69 @@ function RoleChanger({ user, roles, isSelf, onChange }: { user: AppUser; roles: 
   );
 }
 
-function UserDetails({ user, roles, isSelf, onChangeRole }: { user: AppUser; roles: Role[]; isSelf: boolean; onChangeRole: (roleId: string) => Promise<void> }) {
+/** Identifiants de connexion d'un compte : e-mail, numéro de téléphone, ou les deux (au moins un). */
+function IdentifiersEditor({ user, onSave }: { user: AppUser; onSave: (v: { email: string | null; telephone: string | null }) => Promise<void> }) {
+  const { t } = useI18n();
+  const [email, setEmail] = useState(user.email ?? "");
+  const [telephone, setTelephone] = useState(user.telephone ?? "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setEmail(user.email ?? "");
+    setTelephone(user.telephone ?? "");
+  }, [user.email, user.telephone]);
+  const changed = email.trim() !== (user.email ?? "") || telephone.trim() !== (user.telephone ?? "");
+  const none = !email.trim() && !telephone.trim();
+  return (
+    <div className="sm:col-span-2">
+      <span className="mb-1 block text-xs text-ink-muted">{t("adm.users.identifiers")}</span>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input type="email" value={email} placeholder={t("adm.users.email")} aria-label={t("adm.users.email")} onChange={(e) => setEmail(e.target.value)} />
+        <Input type="tel" value={telephone} placeholder={t("adm.users.phone")} aria-label={t("adm.users.phone")} onChange={(e) => setTelephone(e.target.value)} />
+      </div>
+      <p className="mt-1 text-xs text-ink-muted">{none ? t("adm.users.needOne") : t("adm.users.identifiersHint")}</p>
+      <Button
+        type="button"
+        variant="secondary"
+        className="mt-2"
+        disabled={busy || !changed || none}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onSave({ email: email.trim() || null, telephone: telephone.trim() || null });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <KeyRound size={14} /> {t("adm.users.saveIdentifiers")}
+      </Button>
+    </div>
+  );
+}
+
+function UserDetails({
+  user,
+  roles,
+  isSelf,
+  onChangeRole,
+  onSaveIdentifiers,
+}: {
+  user: AppUser;
+  roles: Role[];
+  isSelf: boolean;
+  onChangeRole: (roleId: string) => Promise<void>;
+  onSaveIdentifiers: (v: { email: string | null; telephone: string | null }) => Promise<void>;
+}) {
   const { t, locale } = useI18n();
   return (
     <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
       <p>
         <span className="block text-xs text-ink-muted">{t("adm.users.email")}</span>
-        <span className="break-all font-medium text-ink">{user.email}</span>
+        <span className="break-all font-medium text-ink">{user.email ?? "—"}</span>
+      </p>
+      <p>
+        <span className="block text-xs text-ink-muted">{t("adm.users.phone")}</span>
+        <span className="break-all font-medium text-ink">{user.telephone ?? "—"}</span>
       </p>
       <p>
         <span className="block text-xs text-ink-muted">{t("adm.users.role")}</span>
@@ -81,6 +137,7 @@ function UserDetails({ user, roles, isSelf, onChangeRole }: { user: AppUser; rol
         </p>
       )}
       <RoleChanger user={user} roles={roles} isSelf={isSelf} onChange={onChangeRole} />
+      <IdentifiersEditor user={user} onSave={onSaveIdentifiers} />
     </div>
   );
 }
@@ -131,7 +188,7 @@ function UsersTab() {
   const { t, locale } = useI18n();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [form, setForm] = useState({ nom: "", prenom: "", email: "", motDePasse: "", roleId: "" });
+  const [form, setForm] = useState({ nom: "", prenom: "", email: "", telephone: "", motDePasse: "", roleId: "" });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -154,8 +211,10 @@ function UsersTab() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.post("/users", form);
-      setForm({ nom: "", prenom: "", email: "", motDePasse: "", roleId: form.roleId });
+      // Un champ vide est omis : le serveur exige au moins un e-mail ou un numéro, jamais une chaîne vide.
+      const { email, telephone, ...rest } = form;
+      await api.post("/users", { ...rest, ...(email.trim() ? { email: email.trim() } : {}), ...(telephone.trim() ? { telephone: telephone.trim() } : {}) });
+      setForm({ nom: "", prenom: "", email: "", telephone: "", motDePasse: "", roleId: form.roleId });
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : t("common.error"));
@@ -174,6 +233,17 @@ function UsersTab() {
       await api.patch(`/users/${user.id}`, { roleId });
       await load();
       setNotice({ kind: "ok", text: t("adm.users.roleChanged", { name, role: next.nom }) });
+    } catch (err) {
+      setNotice({ kind: "error", text: isApiError(err) ? err.message : t("common.error") });
+    }
+  }
+
+  async function handleSaveIdentifiers(user: AppUser, v: { email: string | null; telephone: string | null }) {
+    setNotice(null);
+    try {
+      await api.patch(`/users/${user.id}`, v);
+      await load();
+      setNotice({ kind: "ok", text: t("adm.users.identifiersSaved", { name: `${user.prenom} ${user.nom}` }) });
     } catch (err) {
       setNotice({ kind: "error", text: isApiError(err) ? err.message : t("common.error") });
     }
@@ -217,7 +287,8 @@ function UsersTab() {
                 [
                   { header: t("adm.users.colName"), value: (u: AppUser) => u.nom },
                   { header: t("adm.users.colFirstName"), value: (u: AppUser) => u.prenom },
-                  { header: t("adm.users.email"), value: (u: AppUser) => u.email },
+                  { header: t("adm.users.email"), value: (u: AppUser) => u.email ?? "" },
+                  { header: t("adm.users.phone"), value: (u: AppUser) => u.telephone ?? "" },
                   { header: t("adm.users.role"), value: (u: AppUser) => u.role.nom },
                   { header: t("adm.users.colStatus"), value: (u: AppUser) => (u.statut === "ACTIF" ? t("adm.users.active") : t("adm.users.inactive")) },
                   { header: t("adm.users.lastLogin"), value: (u: AppUser) => (u.dernierLoginAt ? new Date(u.dernierLoginAt).toLocaleString(INTL_LOCALE[locale]) : "") },
@@ -287,7 +358,7 @@ function UsersTab() {
                           <tr className="border-b border-border bg-surface-muted/50">
                             <td></td>
                             <td colSpan={4} className="py-3 pr-4">
-                              <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} />
+                              <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} onSaveIdentifiers={(v) => handleSaveIdentifiers(u, v)} />
                             </td>
                           </tr>
                         )}
@@ -319,7 +390,7 @@ function UsersTab() {
                   </div>
                   {expanded && (
                     <div className="mt-3 space-y-3 border-t border-border pt-3">
-                      <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} />
+                      <UserDetails user={u} roles={roles} isSelf={u.id === me?.id} onChangeRole={(roleId) => handleChangeRole(u, roleId)} onSaveIdentifiers={(v) => handleSaveIdentifiers(u, v)} />
                       <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" onClick={() => void handleToggleStatus(u)}>
                           {u.statut === "ACTIF" ? t("adm.users.deactivate") : t("adm.users.reactivate")}
@@ -350,14 +421,15 @@ function UsersTab() {
               <Input required value={form.prenom} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
             </Field>
           </div>
-          <Field label={t("adm.users.email")}>
-            <Input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label={t("adm.users.email")}>
+              <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </Field>
+            <Field label={t("adm.users.phone")}>
+              <Input type="tel" value={form.telephone} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+            </Field>
+          </div>
+          <p className="-mt-2 text-xs text-ink-muted">{t("adm.users.needOneHelp")}</p>
           <Field label={t("adm.users.tempPassword")}>
             <Input
               type="password"

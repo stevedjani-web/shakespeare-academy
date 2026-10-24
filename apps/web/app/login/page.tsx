@@ -18,7 +18,7 @@ export default function LoginPage() {
   const { t } = useI18n();
   const { brand, logoSrc } = useSchoolBrand();
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifiant, setIdentifiant] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { doitChangerMotDePasse } = await login(email, motDePasse);
+      const { doitChangerMotDePasse } = await login(identifiant, motDePasse);
       // Retour à la page demandée avant la connexion, si c'est une adresse interne.
       const next = new URLSearchParams(window.location.search).get("next");
       const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
@@ -104,11 +104,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <Field label={t("login.email")}>
               <Input
-                type="email"
+                type="text"
                 autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifiant}
+                onChange={(e) => setIdentifiant(e.target.value)}
               />
             </Field>
             <Field label={t("login.password")}>

@@ -81,7 +81,7 @@ export function UserMenu() {
           >
             <div className="border-b border-border px-4 py-3">
               <p className="truncate text-sm font-semibold text-ink">{fullName}</p>
-              {user?.email && <p className="truncate text-xs text-ink-muted">{user.email}</p>}
+              {(user?.email || user?.telephone) && <p className="truncate text-xs text-ink-muted">{user.email || user.telephone}</p>}
               <p className="mt-0.5 truncate text-[11px] font-medium uppercase tracking-wide text-ink-muted">{user?.roleCode}</p>
             </div>
             <Link
