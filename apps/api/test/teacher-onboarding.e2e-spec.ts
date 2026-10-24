@@ -18,6 +18,11 @@ describe('Collecte des enseignants (e2e)', () => {
   let adminToken: string;
   let secretaryToken: string;
   let token: string; // jeton du lien partagé
+  let classPrim: string; // classe de primaire (titulaire : aucune matière demandée)
+  let classCollege: string; // classe de collège (matières demandées)
+  let classLycee: string;
+  let classOld: string; // classe d'une année clôturée : jamais proposée
+  let defaultPhoto: Buffer;
   let ipCounter = 0;
   const PASSWORD = 'MonMotDePasse1!';
   const photoDir = join(process.cwd(), 'private-uploads', 'teacher-photos');
@@ -25,13 +30,15 @@ describe('Collecte des enseignants (e2e)', () => {
   beforeAll(async () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
+    defaultPhoto = await png();
   });
 
   beforeEach(async () => {
     await cleanDatabase(prisma);
     await seedBaseFixtures(prisma);
-    adminToken = await login('admin@shakespeareacademy.cg', 'ChangeMe123!');
     const school = await prisma.school.findFirstOrThrow();
+    await makeStructure(school.id);
+    adminToken = await login('admin@shakespeareacademy.cg', 'ChangeMe123!');
     const sec = await createUserWithRole(
       prisma,
       school.id,
@@ -49,6 +56,57 @@ describe('Collecte des enseignants (e2e)', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  /** Année active (primaire, collège, lycée) et une classe d'une année clôturée. */
+  async function makeStructure(schoolId: string) {
+    const year = await prisma.academicYear.create({
+      data: {
+        schoolId,
+        libelle: '2026/2027',
+        dateDebut: new Date('2026-09-01'),
+        dateFin: new Date('2027-07-31'),
+        statut: 'ACTIVE',
+      },
+    });
+    const closed = await prisma.academicYear.create({
+      data: {
+        schoolId,
+        libelle: '2025/2026',
+        dateDebut: new Date('2025-09-01'),
+        dateFin: new Date('2026-07-31'),
+        statut: 'CLOTUREE',
+      },
+    });
+    const section = await prisma.section.create({
+      data: { schoolId, code: 'FR', nom: 'Francophone' },
+    });
+    const mk = async (
+      cycleCode: string,
+      cycleNom: string,
+      levelNom: string,
+      className: string,
+      yearId: string,
+    ) => {
+      const cycle =
+        (await prisma.cycle.findFirst({
+          where: { sectionId: section.id, code: cycleCode },
+        })) ??
+        (await prisma.cycle.create({
+          data: { sectionId: section.id, code: cycleCode, nom: cycleNom },
+        }));
+      const level = await prisma.level.create({
+        data: { cycleId: cycle.id, code: levelNom, nom: levelNom },
+      });
+      const cls = await prisma.class.create({
+        data: { levelId: level.id, academicYearId: yearId, nom: className },
+      });
+      return cls.id;
+    };
+    classPrim = await mk('PRIMAIRE', 'Primaire', 'CP', 'CP', year.id);
+    classCollege = await mk('COLLEGE', 'Collège', '6e', '6e A', year.id);
+    classLycee = await mk('LYCEE', 'Lycée', '2nde', '2nde C', year.id);
+    classOld = await mk('COLLEGE', 'Collège', '5e', '5e A', closed.id);
+  }
 
   async function login(identifiant: string, motDePasse: string) {
     const res = await request(app.getHttpServer())
@@ -77,6 +135,7 @@ describe('Collecte des enseignants (e2e)', () => {
     email: 'regina@exemple.test',
     urgenceNom: 'Paul Kimpolo',
     urgenceTelephone: '06 000 0009',
+    classes: [classPrim] as string[],
     matieres: [] as string[],
     motDePasse: PASSWORD,
     consentement: true,
@@ -84,20 +143,21 @@ describe('Collecte des enseignants (e2e)', () => {
     ...extra,
   });
 
-  /** Envoi public (JSON ou multipart avec photo) avec une adresse distincte par appel (la limite d'abus est par adresse). */
+  /**
+   * Envoi public (multipart) avec une adresse distincte par appel (la limite d'abus est par adresse). La photo est
+   * obligatoire : une photo valide est jointe sauf `photo: null` (envoi sans photo, JSON seul).
+   */
   function send(
     body: Record<string, unknown>,
-    opts: { photo?: Buffer; ip?: string; token?: string } = {},
+    opts: { photo?: Buffer | null; ip?: string; token?: string } = {},
   ) {
     const req = request(app.getHttpServer())
       .post(`/teacher-onboarding/public/${opts.token ?? token}`)
       .set('X-Forwarded-For', opts.ip ?? `10.0.0.${++ipCounter}`);
-    if (opts.photo) {
-      return req
-        .field('payload', JSON.stringify(body))
-        .attach('photo', opts.photo, 'photo.png');
-    }
-    return req.send(body);
+    if (opts.photo === null) return req.send(body);
+    return req
+      .field('payload', JSON.stringify(body))
+      .attach('photo', opts.photo ?? defaultPhoto, 'photo.png');
   }
 
   async function subject(code: string, nom: string) {
@@ -281,14 +341,42 @@ describe('Collecte des enseignants (e2e)', () => {
       );
     });
 
-    it('la page publique ne montre que l’école, les matières et la version des conditions ; un lien inconnu donne 404', async () => {
+    it('la page publique ne montre que l’école, les classes de l’année active, les matières et la version des conditions ; un lien inconnu donne 404', async () => {
       await subject('MATH', 'Mathématiques');
       const res = await request(app.getHttpServer())
         .get(`/teacher-onboarding/public/${token}`)
         .expect(200);
       expect(Object.keys(res.body).sort()).toEqual(
-        ['ecole', 'matieres', 'versionPolitique'].sort(),
+        ['classes', 'ecole', 'matieres', 'versionPolitique'].sort(),
       );
+      // Les classes de l'année active, dans l'ordre Primaire, Collège, Lycée ; jamais celles d'une année clôturée.
+      expect(res.body.classes).toEqual([
+        {
+          id: classPrim,
+          nom: 'CP',
+          niveau: 'CP',
+          cycle: 'Primaire',
+          section: 'Francophone',
+          secondaire: false,
+        },
+        {
+          id: classCollege,
+          nom: '6e A',
+          niveau: '6e',
+          cycle: 'Collège',
+          section: 'Francophone',
+          secondaire: true,
+        },
+        {
+          id: classLycee,
+          nom: '2nde C',
+          niveau: '2nde',
+          cycle: 'Lycée',
+          section: 'Francophone',
+          secondaire: true,
+        },
+      ]);
+      expect(JSON.stringify(res.body)).not.toContain(classOld);
       expect(res.body.versionPolitique).toBe(STAFF_CONSENT_VERSION);
       expect(res.body.matieres).toEqual([
         { id: expect.any(String), nom: 'Mathématiques' },
@@ -300,7 +388,7 @@ describe('Collecte des enseignants (e2e)', () => {
   });
 
   describe('envoi par l’enseignant', () => {
-    it('refuse : sans consentement, mauvaise version, numéro ou mot de passe trop courts, nom manquant, matière inconnue, champ inattendu', async () => {
+    it('refuse : sans consentement, mauvaise version, numéro ou mot de passe trop courts, nom manquant, classe manquante ou inconnue, matière inconnue, champ inattendu', async () => {
       await send(payload({ consentement: false })).expect(400);
       await send(payload({ versionPolitique: 'ancienne' })).expect(400);
       await send(payload({ telephone: '1234567' })).expect(400);
@@ -309,14 +397,94 @@ describe('Collecte des enseignants (e2e)', () => {
       await send(payload({ motDePasse: 'court' })).expect(400);
       await send(payload({ nom: '' })).expect(400);
       await send(payload({ email: 'pas-un-email' })).expect(400);
-      await send(payload({ matieres: ['inconnue'] })).expect(400);
+      await send(
+        payload({ classes: [classCollege], matieres: ['inconnue'] }),
+      ).expect(400);
       await send(payload({ role: 'DIRECTION' })).expect(400);
+      await send(payload({ classes: [] })).expect(400);
+      await send(payload({ classes: ['inconnue'] })).expect(400);
+      // Une classe d'une année clôturée est refusée pour elle-même, matières fournies (sinon c'est l'absence de matière qui refuse).
+      const math = await subject('MATH', 'Mathématiques');
+      const closed = await send(
+        payload({ classes: [classOld], matieres: [math.id] }),
+      ).expect(400);
+      expect(JSON.stringify(closed.body)).toContain('Classe inconnue');
+      await send(payload({ classes: undefined })).expect(400);
       expect(await prisma.teacherSubmission.count()).toBe(0);
+    });
+
+    it('la photo est obligatoire : sans photo, rien n’est enregistré ; un message clair dans la langue demandée', async () => {
+      const res = await send(payload(), { photo: null }).expect(400);
+      expect(JSON.stringify(res.body)).toContain('photo est obligatoire');
+      const en = await send(payload(), { photo: null })
+        .set('Accept-Language', 'en')
+        .expect(400);
+      expect(JSON.stringify(en.body)).toContain('photo is required');
+      // Un envoi multipart sans fichier est refusé de la même façon.
+      await request(app.getHttpServer())
+        .post(`/teacher-onboarding/public/${token}`)
+        .set('X-Forwarded-For', `10.0.1.${++ipCounter}`)
+        .field('payload', JSON.stringify(payload()))
+        .expect(400);
+      expect(await prisma.teacherSubmission.count()).toBe(0);
+    });
+
+    it('les classes sont gardées avec la demande ; en maternelle et primaire aucune matière n’est demandée ni retenue', async () => {
+      const math = await subject('MATH', 'Mathématiques');
+      // Primaire seul : les matières envoyées sont ignorées (titulaire de sa classe).
+      const prim = await submitted({ matieres: [math.id] });
+      expect(prim.matieres).toEqual([]);
+      const rows = await prisma.teacherSubmissionClass.findMany({
+        where: { submissionId: prim.id },
+      });
+      expect(rows.map((r) => r.classId)).toEqual([classPrim]);
+    });
+
+    it('au collège ou au lycée, au moins une matière est exigée, même si une classe de primaire est aussi choisie', async () => {
+      const math = await subject('MATH', 'Mathématiques');
+      for (const classes of [
+        [classCollege],
+        [classLycee],
+        [classPrim, classCollege],
+      ]) {
+        const res = await send(payload({ classes, matieres: [] })).expect(400);
+        expect(JSON.stringify(res.body)).toContain('matière');
+      }
+      expect(await prisma.teacherSubmission.count()).toBe(0);
+      const ok = await submitted({
+        classes: [classPrim, classCollege, classLycee, classCollege],
+        matieres: [math.id],
+      });
+      expect(ok.matieres).toEqual([math.id]);
+      const rows = await prisma.teacherSubmissionClass.findMany({
+        where: { submissionId: ok.id },
+      });
+      expect(rows.map((r) => r.classId).sort()).toEqual(
+        [classPrim, classCollege, classLycee].sort(),
+      );
+    });
+
+    it('le journal retient le nombre de classes et si le secondaire est concerné, jamais leur nom', async () => {
+      const math = await subject('MATH', 'Mathématiques');
+      await submitted({ classes: [classCollege], matieres: [math.id] });
+      const log = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'TEACHER_ONBOARDING_SUBMIT' },
+      });
+      expect(log.nouvelleValeur).toMatchObject({
+        classes: 1,
+        secondaire: true,
+        matieres: 1,
+        photo: true,
+      });
+      expect(JSON.stringify(log)).not.toContain('6e A');
     });
 
     it('enregistre la demande avec une empreinte du mot de passe et la clé du numéro, sans rien créer d’autre', async () => {
       const math = await subject('MATH', 'Mathématiques');
-      const sub = await submitted({ matieres: [math.id, math.id] });
+      const sub = await submitted({
+        classes: [classCollege],
+        matieres: [math.id, math.id],
+      });
       expect(sub.statut).toBe('EN_ATTENTE');
       expect(sub.telephoneCle).toBe('060000001');
       expect(sub.motDePasseHash).toMatch(/^\$argon2id\$/);
@@ -441,7 +609,10 @@ describe('Collecte des enseignants (e2e)', () => {
   describe('file du secrétariat', () => {
     it('liste les demandes à valider avec les matières déclarées, puis les demandes traitées', async () => {
       const math = await subject('MATH', 'Mathématiques');
-      const sub = await submitted({ matieres: [math.id] });
+      const sub = await submitted({
+        classes: [classCollege, classPrim],
+        matieres: [math.id],
+      });
       const waiting = (
         await asSecretary(
           request(app.getHttpServer()).get(
@@ -455,9 +626,28 @@ describe('Collecte des enseignants (e2e)', () => {
         nom: 'Kimpolo',
         telephone: '+242 06 000 0001',
         statut: 'EN_ATTENTE',
-        photo: false,
+        photo: true,
         matieres: [{ id: math.id, nom: 'Mathématiques' }],
       });
+      // Les classes déclarées, avec de quoi les reconnaître (section, cycle, niveau) ; le secondaire est signalé.
+      expect(waiting[0].classes).toEqual([
+        {
+          id: classPrim,
+          nom: 'CP',
+          niveau: 'CP',
+          cycle: 'Primaire',
+          section: 'Francophone',
+          secondaire: false,
+        },
+        {
+          id: classCollege,
+          nom: '6e A',
+          niveau: '6e',
+          cycle: 'Collège',
+          section: 'Francophone',
+          secondaire: true,
+        },
+      ]);
       expect(waiting[0]).not.toHaveProperty('motDePasseHash');
       expect(waiting[0]).not.toHaveProperty('telephoneCle');
       const done = (
@@ -584,7 +774,10 @@ describe('Collecte des enseignants (e2e)', () => {
     it('rattache la demande à une fiche, crée le compte au rôle Enseignant et l’enseignant se connecte avec son numéro et SON mot de passe', async () => {
       const math = await subject('MATH', 'Mathématiques');
       const fiche = await teacher('KIMPOLO', 'Régina');
-      const sub = await submitted({ matieres: [math.id] }, await png());
+      const sub = await submitted(
+        { classes: [classCollege], matieres: [math.id] },
+        await png(),
+      );
 
       const res = await validate(sub.id, {
         teacherId: fiche.id,

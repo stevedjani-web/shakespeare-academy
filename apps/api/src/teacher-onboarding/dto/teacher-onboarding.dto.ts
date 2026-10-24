@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -13,7 +14,10 @@ import {
   MinLength,
 } from 'class-validator';
 import { msg } from '../../common/language';
-import { LINK_MAX_DAYS } from '../teacher-onboarding.util';
+import {
+  LINK_MAX_DAYS,
+  MAX_DECLARED_CLASSES,
+} from '../teacher-onboarding.util';
 
 export const MAX_DECLARED_SUBJECTS = 30;
 
@@ -67,7 +71,31 @@ export class SubmitTeacherDto {
   @MaxLength(30)
   urgenceTelephone?: string;
 
-  // Matières que l'enseignant dit pouvoir enseigner : une indication, les affectations restent décidées par l'école.
+  // Classes où l'enseignant intervient (de l'année active) : au moins une. Une indication pour le secrétariat, qui prépare
+  // les affectations : elles ne s'appliquent jamais toutes seules.
+  @IsArray({
+    message: msg(
+      'Indiquez au moins une classe où vous enseignez.',
+      'Select at least one class where you teach.',
+    ),
+  })
+  @ArrayMinSize(1, {
+    message: msg(
+      'Indiquez au moins une classe où vous enseignez.',
+      'Select at least one class where you teach.',
+    ),
+  })
+  @ArrayMaxSize(MAX_DECLARED_CLASSES, {
+    message: msg(
+      'Trop de classes : 15 au plus.',
+      'Too many classes: 15 at most.',
+    ),
+  })
+  @IsString({ each: true })
+  classes!: string[];
+
+  // Matières enseignées : demandées seulement pour le collège et le lycée (le serveur l'impose d'après les classes), une
+  // indication, les affectations restent décidées par l'école.
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(MAX_DECLARED_SUBJECTS)

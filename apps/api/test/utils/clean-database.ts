@@ -20,6 +20,7 @@ export async function cleanDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.familySubmissionChild.deleteMany();
   await prisma.familySubmission.deleteMany();
   await prisma.classCollectLink.deleteMany();
+  await prisma.teacherSubmissionClass.deleteMany();
   await prisma.teacherSubmission.deleteMany();
   await prisma.teacherCollectLink.deleteMany();
   await prisma.preRegistrationChild.deleteMany();

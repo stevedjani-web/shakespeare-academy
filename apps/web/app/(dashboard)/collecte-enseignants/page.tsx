@@ -236,9 +236,23 @@ function SubmissionCard({ sub, onProcessed }: { sub: TeacherSubmissionView; onPr
             </div>
           </dl>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-ink-muted">{t("tco.adm.subjects")} :</span>
-            {sub.matieres.length === 0 ? <span className="text-xs text-ink-muted">{t("tco.adm.noSubjects")}</span> : sub.matieres.map((m) => <Badge key={m.id} color="primary">{m.nom}</Badge>)}
+            <span className="text-xs text-ink-muted">{t("tco.adm.classes")} :</span>
+            {sub.classes.length === 0 ? (
+              <span className="text-xs text-ink-muted">{t("tco.adm.noClasses")}</span>
+            ) : (
+              sub.classes.map((c) => (
+                <Badge key={c.id} color={c.secondaire ? "blue" : "green"}>
+                  {c.nom} · {c.cycle}
+                </Badge>
+              ))
+            )}
           </div>
+          {sub.matieres.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-ink-muted">{t("tco.adm.subjects")} :</span>
+              {sub.matieres.map((m) => <Badge key={m.id} color="primary">{m.nom}</Badge>)}
+            </div>
+          )}
           {sub.statut === "REFUSEE" && sub.motifRefus && <p className="mt-2 text-sm text-danger">{sub.motifRefus}</p>}
         </div>
         {pending && (

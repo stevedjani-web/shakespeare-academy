@@ -249,18 +249,19 @@ model Class {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  enrollments       Enrollment[]
-  collectLink       ClassCollectLink?
-  familyChildren    FamilySubmissionChild[]
-  assignments       TeachingAssignment[]
-  timetableEntries  TimetableEntry[]
-  attendanceCalls   AttendanceCall[]
-  sessionCheckins   TeacherSessionCheckin[]
-  announcements     Announcement[]
-  disciplineRecords DisciplineRecord[]
-  evaluations       Evaluation[]
-  bulletinPeriods   BulletinPeriod[]
-  textbookEntries   TextbookEntry[]
+  enrollments        Enrollment[]
+  collectLink        ClassCollectLink?
+  familyChildren     FamilySubmissionChild[]
+  assignments        TeachingAssignment[]
+  timetableEntries   TimetableEntry[]
+  attendanceCalls    AttendanceCall[]
+  sessionCheckins    TeacherSessionCheckin[]
+  announcements      Announcement[]
+  disciplineRecords  DisciplineRecord[]
+  teacherSubmissions TeacherSubmissionClass[]
+  evaluations        Evaluation[]
+  bulletinPeriods    BulletinPeriod[]
+  textbookEntries    TextbookEntry[]
 
   @@unique([levelId, academicYearId, nom])
   @@map("classes")
@@ -1754,9 +1755,28 @@ model TeacherSubmission {
   traiteLe            DateTime?
   createdAt           DateTime                @default(now())
 
+  // Classes où l'enseignant dit intervenir (de l'année active au moment de l'envoi).
+  classes TeacherSubmissionClass[]
+
   @@index([schoolId, statut, createdAt])
   @@index([telephoneCle])
   @@map("teacher_submissions")
+}
+
+/**
+ * Une classe déclarée par l'enseignant dans sa demande : une indication pour le secrétariat, qui prépare ainsi les
+ * affectations. Elle n'affecte rien toute seule.
+ */
+model TeacherSubmissionClass {
+  id           String            @id @default(cuid())
+  submissionId String
+  submission   TeacherSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  classId      String
+  class        Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, classId])
+  @@index([classId])
+  @@map("teacher_submission_classes")
 }
 
 model TeacherSubject {

@@ -22,6 +22,7 @@ import {
   LINK_MAX_DAYS,
   STAFF_CONSENT_VERSION,
   TEACHER_ROLE_CODE,
+  isSecondaryCycle,
 } from './teacher-onboarding.util';
 import {
   removeTeacherPhoto,
@@ -43,6 +44,79 @@ export interface TeacherAlert {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Une classe telle que la voient la page publique et le secrétariat. */
+export interface TeacherClassView {
+  id: string;
+  nom: string;
+  niveau: string;
+  cycle: string;
+  section: string;
+  // Collège ou lycée : l'enseignant y intervient par matière, on lui demande donc ses matières.
+  secondaire: boolean;
+}
+
+const CLASS_WITH_LEVEL = {
+  level: {
+    select: {
+      nom: true,
+      ordre: true,
+      createdAt: true,
+      cycle: {
+        select: {
+          code: true,
+          nom: true,
+          ordre: true,
+          createdAt: true,
+          section: { select: { nom: true, createdAt: true } },
+        },
+      },
+    },
+  },
+} as const;
+
+type ClassRow = {
+  id: string;
+  nom: string;
+  level: {
+    nom: string;
+    ordre: number;
+    createdAt: Date;
+    cycle: {
+      code: string;
+      nom: string;
+      ordre: number;
+      createdAt: Date;
+      section: { nom: string; createdAt: Date };
+    };
+  };
+};
+
+function toClassView(c: ClassRow): TeacherClassView {
+  return {
+    id: c.id,
+    nom: c.nom,
+    niveau: c.level.nom,
+    cycle: c.level.cycle.nom,
+    section: c.level.cycle.section.nom,
+    secondaire: isSecondaryCycle(c.level.cycle.code),
+  };
+}
+
+/** Sections dans l'ordre de création, puis cycles, niveaux et classes : Maternelle avant Primaire avant Collège. */
+function byStructure(a: ClassRow, b: ClassRow): number {
+  const sa = a.level.cycle.section;
+  const sb = b.level.cycle.section;
+  return (
+    sa.createdAt.getTime() - sb.createdAt.getTime() ||
+    sa.nom.localeCompare(sb.nom) ||
+    a.level.cycle.ordre - b.level.cycle.ordre ||
+    a.level.cycle.createdAt.getTime() - b.level.cycle.createdAt.getTime() ||
+    a.level.ordre - b.level.ordre ||
+    a.level.createdAt.getTime() - b.level.createdAt.getTime() ||
+    a.nom.localeCompare(b.nom, undefined, { numeric: true })
+  );
+}
 
 /**
  * Collecte des informations des enseignants par un lien commun, validée par le secrétariat. Rien n'atteint les fiches ni
@@ -174,11 +248,24 @@ export class TeacherOnboardingService {
 
   // ------------------------------------------------------------------------------------------------- public
 
-  /** Ce que la page publique a besoin de savoir : l'école, les matières à cocher, la version des conditions d'usage. */
+  /** Classes de l'année active : celles que l'enseignant peut déclarer (aucun effectif, aucun nom d'élève). */
+  private async activeYearClasses(): Promise<ClassRow[]> {
+    const schoolId = await this.school.getDefaultId();
+    const rows = await this.prisma.class.findMany({
+      where: { academicYear: { schoolId, statut: 'ACTIVE' } },
+      select: { id: true, nom: true, ...CLASS_WITH_LEVEL },
+    });
+    return rows.sort(byStructure);
+  }
+
+  /**
+   * Ce que la page publique a besoin de savoir : l'école, les classes à choisir, les matières à cocher (secondaire
+   * seulement, côté page), la version des conditions d'usage.
+   */
   async publicInfo(token: string) {
     await this.activeLink(token);
     const schoolId = await this.school.getDefaultId();
-    const [school, subjects] = await Promise.all([
+    const [school, subjects, classes] = await Promise.all([
       this.prisma.school.findUniqueOrThrow({
         where: { id: schoolId },
         select: { nom: true },
@@ -188,9 +275,11 @@ export class TeacherOnboardingService {
         orderBy: { nom: 'asc' },
         select: { id: true, nom: true },
       }),
+      this.activeYearClasses(),
     ]);
     return {
       ecole: school.nom,
+      classes: classes.map(toClassView),
       matieres: subjects,
       versionPolitique: STAFF_CONSENT_VERSION,
     };
@@ -214,6 +303,14 @@ export class TeacherOnboardingService {
         }),
       );
     }
+    if (!photo) {
+      throw new BadRequestException(
+        pick({
+          fr: 'La photo est obligatoire : ajoutez un portrait de vous, visage bien visible.',
+          en: 'A photo is required: add a portrait of yourself, with your face clearly visible.',
+        }),
+      );
+    }
     const telephone = dto.telephone.trim();
     const key = phoneKey(telephone);
     if (!key) {
@@ -233,7 +330,36 @@ export class TeacherOnboardingService {
         }),
       );
     }
-    const subjectIds = [...new Set(dto.matieres ?? [])];
+    // Les classes : toutes de l'année active ; leur cycle dit si l'on demande aussi les matières (collège et lycée).
+    const classIds = [...new Set(dto.classes)];
+    const declared = await this.prisma.class.findMany({
+      where: {
+        id: { in: classIds },
+        academicYear: {
+          schoolId: await this.school.getDefaultId(),
+          statut: 'ACTIVE',
+        },
+      },
+      select: { id: true, ...CLASS_WITH_LEVEL },
+    });
+    if (declared.length !== classIds.length) {
+      throw new BadRequestException(
+        pick({ fr: 'Classe inconnue.', en: 'Unknown class.' }),
+      );
+    }
+    const secondary = declared.some((c) =>
+      isSecondaryCycle(c.level.cycle.code),
+    );
+    // Maternelle et primaire : l'enseignant est titulaire de sa classe, aucune matière n'est retenue.
+    const subjectIds = secondary ? [...new Set(dto.matieres ?? [])] : [];
+    if (secondary && subjectIds.length === 0) {
+      throw new BadRequestException(
+        pick({
+          fr: 'Indiquez au moins une matière que vous enseignez au collège ou au lycée.',
+          en: 'Select at least one subject you teach in middle or high school.',
+        }),
+      );
+    }
     if (subjectIds.length > 0) {
       const found = await this.prisma.subject.count({
         where: { id: { in: subjectIds }, actif: true },
@@ -262,7 +388,7 @@ export class TeacherOnboardingService {
     const motDePasseHash = await argon2.hash(dto.motDePasse, {
       type: argon2.argon2id,
     });
-    const photoFichier = photo ? await storeTeacherPhoto(photo) : null;
+    const photoFichier = await storeTeacherPhoto(photo);
     try {
       const created = await this.prisma.teacherSubmission.create({
         data: {
@@ -277,6 +403,7 @@ export class TeacherOnboardingService {
           urgenceTelephone,
           photoFichier,
           matieres: subjectIds,
+          classes: { create: classIds.map((classId) => ({ classId })) },
           motDePasseHash,
           consentementVersion: dto.versionPolitique,
         },
@@ -290,8 +417,10 @@ export class TeacherOnboardingService {
         entite: 'TeacherSubmission',
         entiteId: created.id,
         nouvelleValeur: {
+          classes: classIds.length,
+          secondaire: secondary,
           matieres: subjectIds.length,
-          photo: !!photoFichier,
+          photo: true,
           email: !!dto.email,
         },
       });
@@ -303,6 +432,14 @@ export class TeacherOnboardingService {
   }
 
   // ----------------------------------------------------------------------------------------------- personnel
+
+  /** Toutes les classes (de n'importe quelle année : une demande peut être traitée après un changement d'année). */
+  private async classViews() {
+    const rows = await this.prisma.class.findMany({
+      select: { id: true, nom: true, ...CLASS_WITH_LEVEL },
+    });
+    return new Map(rows.sort(byStructure).map((c) => [c.id, toClassView(c)]));
+  }
 
   private async subjectNames() {
     const subjects = await this.prisma.subject.findMany({
@@ -325,9 +462,13 @@ export class TeacherOnboardingService {
       },
       orderBy: { createdAt: query.statut === 'TRAITEES' ? 'desc' : 'asc' },
       take: 200,
+      include: { classes: { select: { classId: true } } },
     });
-    const names = await this.subjectNames();
-    return rows.map((r) => this.view(r, names));
+    const [names, classes] = await Promise.all([
+      this.subjectNames(),
+      this.classViews(),
+    ]);
+    return rows.map((r) => this.view(r, names, classes));
   }
 
   private view(
@@ -341,6 +482,7 @@ export class TeacherOnboardingService {
       urgenceTelephone: string | null;
       photoFichier: string | null;
       matieres: string[];
+      classes: Array<{ classId: string }>;
       statut: string;
       motifRefus: string | null;
       teacherId: string | null;
@@ -348,6 +490,7 @@ export class TeacherOnboardingService {
       traiteLe: Date | null;
     },
     names: Map<string, string>,
+    classes: Map<string, TeacherClassView>,
   ) {
     return {
       id: r.id,
@@ -358,6 +501,10 @@ export class TeacherOnboardingService {
       urgenceNom: r.urgenceNom,
       urgenceTelephone: r.urgenceTelephone,
       photo: !!r.photoFichier,
+      // Dans l'ordre de la structure scolaire (Primaire avant Collège), pas dans l'ordre où elles ont été cochées.
+      classes: [...classes.values()].filter((c) =>
+        r.classes.some((rc) => rc.classId === c.id),
+      ),
       matieres: r.matieres
         .map((id) => ({ id, nom: names.get(id) ?? '' }))
         .filter((m) => m.nom),
@@ -407,6 +554,7 @@ export class TeacherOnboardingService {
     const schoolId = await this.school.getDefaultId();
     const sub = await this.prisma.teacherSubmission.findFirst({
       where: { id, schoolId },
+      include: { classes: { select: { classId: true } } },
     });
     if (!sub) {
       throw new NotFoundException('Demande introuvable.');
@@ -588,9 +736,12 @@ export class TeacherOnboardingService {
       if (!teacher) throw new NotFoundException('Enseignant introuvable.');
     }
     const alertes = await this.computeAlerts(sub, teacher, candidats);
-    const names = await this.subjectNames();
+    const [names, classes] = await Promise.all([
+      this.subjectNames(),
+      this.classViews(),
+    ]);
     return {
-      demande: this.view(sub, names),
+      demande: this.view(sub, names, classes),
       candidats: candidats.map((c) => ({
         id: c.id,
         nom: c.nom,
