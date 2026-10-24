@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import ms from '../common/ms';
 import { phoneKey } from '../common/phone.util';
+import { pick } from '../common/language';
+import { PENDING_LOGIN_HINT_DAYS } from '../teacher-onboarding/teacher-onboarding.util';
 
 const MAX_TENTATIVES_CONNEXION = 5;
 const DUREE_VERROUILLAGE_MINUTES = 15;
@@ -55,10 +57,48 @@ export class AuthService {
     });
   }
 
+  /**
+   * Un enseignant qui a envoyé ses informations par le lien partagé et dont la demande n'est pas encore validée essaie de se
+   * connecter : on lui dit que l'école vérifie, mais SEULEMENT s'il donne le bon mot de passe, pour ne rien révéler à
+   * quelqu'un qui ne connaît que le numéro.
+   */
+  private async throwIfPendingTeacher(identifiant: string, motDePasse: string) {
+    if (identifiant.includes('@')) return;
+    const key = phoneKey(identifiant);
+    if (!key) return;
+    const since = new Date(
+      Date.now() - PENDING_LOGIN_HINT_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const pending = await this.prisma.teacherSubmission.findMany({
+      where: {
+        statut: 'EN_ATTENTE',
+        telephoneCle: key,
+        motDePasseHash: { not: null },
+        createdAt: { gte: since },
+      },
+      select: { motDePasseHash: true },
+      take: 3,
+    });
+    for (const p of pending) {
+      if (
+        p.motDePasseHash &&
+        (await argon2.verify(p.motDePasseHash, motDePasse))
+      ) {
+        throw new ForbiddenException(
+          pick({
+            fr: "Votre demande est en cours de vérification par l'école. Vous pourrez vous connecter dès qu'elle sera validée.",
+            en: 'Your request is being checked by the school. You will be able to sign in as soon as it is approved.',
+          }),
+        );
+      }
+    }
+  }
+
   async login(identifiant: string, motDePasse: string): Promise<LoginResult> {
     const user = await this.findByIdentifier(identifiant);
 
     if (!user) {
+      await this.throwIfPendingTeacher(identifiant, motDePasse);
       throw new UnauthorizedException('Identifiant ou mot de passe incorrect.');
     }
 

@@ -123,6 +123,12 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     tipKeys: ["fam.help.tip1", "fam.help.tip2", "fam.help.tip3", "fam.help.tip4"],
     permission: "ENROLLMENT_MANAGE",
   },
+  "collecte-enseignants": {
+    id: "collecte-enseignants",
+    titleKey: "tco.help.title",
+    tipKeys: ["tco.help.tip1", "tco.help.tip2", "tco.help.tip3", "tco.help.tip4"],
+    permission: "TEACHER_ONBOARDING_MANAGE",
+  },
   "emploi-du-temps": {
     id: "emploi-du-temps",
     titleKey: "cnt.help.emploi-du-temps.title",

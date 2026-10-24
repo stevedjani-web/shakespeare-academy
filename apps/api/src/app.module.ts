@@ -40,6 +40,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { DisciplineModule } from './discipline/discipline.module';
 import { PreRegistrationsModule } from './pre-registrations/pre-registrations.module';
 import { FamilyCollectionModule } from './family-collection/family-collection.module';
+import { TeacherOnboardingModule } from './teacher-onboarding/teacher-onboarding.module';
 import { ReceiptAssetsModule } from './receipt-assets/receipt-assets.module';
 import { AssistantModule } from './assistant/assistant.module';
 
@@ -82,6 +83,7 @@ import { AssistantModule } from './assistant/assistant.module';
     DisciplineModule,
     PreRegistrationsModule,
     FamilyCollectionModule,
+    TeacherOnboardingModule,
     ReceiptAssetsModule,
     AssistantModule,
   ],

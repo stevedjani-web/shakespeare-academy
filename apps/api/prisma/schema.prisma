@@ -125,6 +125,9 @@ model School {
   subjects          Subject[]
   teachers          Teacher[]
 
+  teacherCollectLink TeacherCollectLink?
+  teacherSubmissions TeacherSubmission[]
+
   @@map("schools")
 }
 
@@ -1669,6 +1672,11 @@ model Teacher {
   // SEANCE : il scanne le QR de la salle au début et à la fin de chaque cours (collège, lycée).
   // JOURNEE : il scanne le QR de l'entrée à l'arrivée et au départ (maternelle, primaire).
   modePointage     PointageMode  @default(SEANCE)
+  // Renseignés par l'enseignant lui-même (formulaire de collecte) et validés par le secrétariat.
+  urgenceNom       String?
+  urgenceTelephone String?
+  // Photo d'identité (portrait 3:4, JPEG), fichier privé jamais servi publiquement.
+  photoFichier     String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -1686,6 +1694,69 @@ model Teacher {
   dayCheckins     TeacherDayCheckin[]
 
   @@map("teachers")
+}
+
+/**
+ * Collecte des informations des enseignants : UN lien commun, partagé dans le groupe WhatsApp du personnel. Une seule
+ * ligne par école : régénérer le lien remplace le jeton (l'ancien cesse de fonctionner).
+ */
+model TeacherCollectLink {
+  id          String   @id @default(cuid())
+  schoolId    String   @unique
+  school      School   @relation(fields: [schoolId], references: [id])
+  token       String   @unique
+  actif       Boolean  @default(true)
+  expiresAt   DateTime
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  submissions TeacherSubmission[]
+
+  @@map("teacher_collect_links")
+}
+
+enum TeacherSubmissionStatus {
+  EN_ATTENTE
+  VALIDEE
+  REFUSEE
+}
+
+/**
+ * Ce qu'un enseignant a tapé : ses coordonnées, un mot de passe choisi (empreinte Argon2id, effacée dès que la demande est
+ * traitée) et ses matières. Rien n'atteint les fiches ni les comptes avant la validation du secrétariat.
+ */
+model TeacherSubmission {
+  id                  String                  @id @default(cuid())
+  schoolId            String
+  school              School                  @relation(fields: [schoolId], references: [id])
+  linkId              String
+  link                TeacherCollectLink      @relation(fields: [linkId], references: [id])
+  nom                 String
+  prenom              String
+  telephone           String
+  // Les 9 derniers chiffres du numéro : retrouve la même ligne quelle que soit l'écriture.
+  telephoneCle        String
+  email               String?
+  urgenceNom          String?
+  urgenceTelephone    String?
+  photoFichier        String?
+  // Matières que l'enseignant déclare pouvoir enseigner (identifiants), à titre d'indication.
+  matieres            String[]
+  motDePasseHash      String?
+  consentementVersion String
+  statut              TeacherSubmissionStatus @default(EN_ATTENTE)
+  motifRefus          String?
+  // Fiche et compte obtenus à la validation (simples identifiants informatifs).
+  teacherId           String?
+  userId              String?
+  traiteParId         String?
+  traiteLe            DateTime?
+  createdAt           DateTime                @default(now())
+
+  @@index([schoolId, statut, createdAt])
+  @@index([telephoneCle])
+  @@map("teacher_submissions")
 }
 
 model TeacherSubject {

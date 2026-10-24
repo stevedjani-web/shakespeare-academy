@@ -120,6 +120,18 @@ export const LOT5_PERMISSIONS = [
  * bordereau (caissier, comptable, administrateur). `BANK_DEPOSIT_VERIFY` : le confirmer ou le rejeter (Direction et
  * Promoteur, droit réservé : voir auth/reserved-permissions.ts) ; le serveur refuse qu'on vérifie son propre versement.
  */
+/**
+ * Collecte des informations des enseignants (24 octobre 2026) : voir la file des demandes, les valider ou les refuser,
+ * gérer le lien partagé. Le secrétariat l'exerce ; la validation crée un compte au rôle Enseignant uniquement.
+ */
+export const TEACHER_ONBOARDING_PERMISSIONS = [
+  {
+    code: 'TEACHER_ONBOARDING_MANAGE',
+    description:
+      'Gérer le lien de collecte des enseignants, valider ou refuser leurs demandes.',
+  },
+] as const;
+
 export const BANK_DEPOSIT_PERMISSIONS = [
   {
     code: 'BANK_DEPOSIT_CREATE',
@@ -437,6 +449,7 @@ export const ROLES: Array<{
       'AUDIT_LOG_READ',
       'STUDENT_READ',
       'ENROLLMENT_MANAGE',
+      'TEACHER_ONBOARDING_MANAGE',
       'FINANCE_READ',
       'FEE_MANAGE',
       'PAYMENT_CREATE',
@@ -482,6 +495,7 @@ export const ROLES: Array<{
       'EXPENSE_APPROVE',
       'BANK_DEPOSIT_VERIFY',
       'CASH_CLOSE',
+      'TEACHER_ONBOARDING_MANAGE',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
       'ATTENDANCE_TAKE',
@@ -518,6 +532,7 @@ export const ROLES: Array<{
       'STUDENT_READ',
       'FINANCE_READ',
       'ENROLLMENT_MANAGE',
+      'TEACHER_ONBOARDING_MANAGE',
       'PAYMENT_CREATE',
       'CASH_CLOSE',
       'BANK_DEPOSIT_CREATE',
@@ -625,6 +640,7 @@ export async function seedReferenceData(
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
     ...BANK_DEPOSIT_PERMISSIONS,
+    ...TEACHER_ONBOARDING_PERMISSIONS,
     ...ONLINE_FEE_PERMISSIONS,
     ...BANK_PAYMENT_PERMISSIONS,
     ...LOT7_PERMISSIONS,

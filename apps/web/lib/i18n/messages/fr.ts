@@ -6,6 +6,7 @@ import { frTimetable } from "./domains/timetable.ts";
 import { frAcademics } from "./domains/academics.ts";
 import { frContent } from "./domains/content.ts";
 import { frFamily } from "./domains/family.ts";
+import { frTeacherOnboarding } from "./domains/teacheronboarding.ts";
 import { frBank } from "./domains/bank.ts";
 // Dictionnaire français : la référence. Toute clé ajoutée ici doit l'être aussi dans en.ts (le compilateur le vérifie).
 // Un texte enrichi marque le gras avec **deux étoiles** ; {nom} est remplacé par une valeur.
@@ -528,6 +529,7 @@ export const fr = {
   ...frAcademics,
   ...frContent,
   ...frFamily,
+  ...frTeacherOnboarding,
   ...frBank,
 } as const;
 
