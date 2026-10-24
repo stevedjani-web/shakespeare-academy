@@ -253,6 +253,12 @@ function SubmissionCard({ sub, onProcessed }: { sub: TeacherSubmissionView; onPr
               {sub.matieres.map((m) => <Badge key={m.id} color="primary">{m.nom}</Badge>)}
             </div>
           )}
+          {sub.autresMatieres.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-ink-muted">{t("tco.adm.otherSubjects")} :</span>
+              {sub.autresMatieres.map((m) => <Badge key={m} color="orange">{m}</Badge>)}
+            </div>
+          )}
           {sub.statut === "REFUSEE" && sub.motifRefus && <p className="mt-2 text-sm text-danger">{sub.motifRefus}</p>}
         </div>
         {pending && (

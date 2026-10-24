@@ -17,6 +17,8 @@ import { msg } from '../../common/language';
 import {
   LINK_MAX_DAYS,
   MAX_DECLARED_CLASSES,
+  MAX_OTHER_SUBJECTS,
+  MAX_OTHER_SUBJECT_LENGTH,
 } from '../teacher-onboarding.util';
 
 export const MAX_DECLARED_SUBJECTS = 30;
@@ -101,6 +103,25 @@ export class SubmitTeacherDto {
   @ArrayMaxSize(MAX_DECLARED_SUBJECTS)
   @IsString({ each: true })
   matieres?: string[];
+
+  // Matières absentes de la liste, tapées par l'enseignant : du texte libre, lu par le secrétariat.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_OTHER_SUBJECTS, {
+    message: msg(
+      'Trop de matières ajoutées : 5 au plus.',
+      'Too many subjects added: 5 at most.',
+    ),
+  })
+  @IsString({ each: true })
+  @MaxLength(MAX_OTHER_SUBJECT_LENGTH, {
+    each: true,
+    message: msg(
+      'Une matière ajoutée est trop longue : 60 caractères au plus.',
+      'An added subject is too long: 60 characters at most.',
+    ),
+  })
+  autresMatieres?: string[];
 
   // Choisi par l'enseignant : il lui sert à se connecter dès que le secrétariat a validé sa demande.
   @IsString()

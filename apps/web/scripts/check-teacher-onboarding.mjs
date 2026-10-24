@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import {
   EMPTY_TEACHER_FORM,
+  MAX_OTHER_SUBJECTS,
+  addOtherSubject,
   blockingAlert,
   buildTeacherFormData,
   confirmationAlerts,
@@ -56,6 +58,19 @@ assert.equal(needsSubjects(OPTIONS, []), false);
 assert.equal(needsSubjects(OPTIONS, ["inconnue"]), false);
 assert.deepEqual(teacherMissing({ ...ok, classes: ["c-6"] }, true, true), ["matieres"]);
 assert.deepEqual(teacherMissing({ ...ok, classes: ["c-6"], matieres: ["m1"] }, true, true), []);
+assert.deepEqual(teacherMissing({ ...ok, classes: ["c-6"], autresMatieres: ["Robotique"] }, true, true), [], "une matière tapée à la main suffit");
+assert.deepEqual(teacherMissing({ ...ok, classes: ["c-cp"], autresMatieres: [] }, true, false), [], "au primaire aucune matière n'est exigée");
+
+// --- matières tapées à la main : nettoyées, sans doublon (accents et casse ignorés), cinq au plus
+assert.deepEqual(addOtherSubject([], "  Robotique   appliquée "), ["Robotique appliquée"]);
+assert.deepEqual(addOtherSubject(["Robotique"], "robotique"), ["Robotique"], "doublon de casse ignoré");
+assert.deepEqual(addOtherSubject(["Théâtre"], " THEATRE. "), ["Théâtre"], "doublon d'accent et de ponctuation ignoré");
+assert.deepEqual(addOtherSubject([], "   "), [], "une saisie vide n'ajoute rien");
+assert.deepEqual(addOtherSubject([], "..."), [], "une saisie sans lettre n'ajoute rien");
+assert.equal(addOtherSubject([], "x".repeat(100))[0].length, 60, "60 caractères au plus");
+const full = ["a", "b", "c", "d", "e"];
+assert.equal(MAX_OTHER_SUBJECTS, 5);
+assert.deepEqual(addOtherSubject(full, "f"), full, "cinq au plus");
 
 // --- parcours : l'écran des matières n'existe que pour le secondaire
 assert.deepEqual(teacherSteps(false), ["identity", "photo", "contact", "classes", "password", "review"]);
@@ -103,6 +118,9 @@ assert.equal("confirmation" in payload, false, "la confirmation du mot de passe 
 assert.equal(primary.has("photo"), true, "la photo part toujours");
 const secondary = JSON.parse(buildTeacherFormData({ ...form, classes: ["c-6"] }, "v1", photo, true).get("payload"));
 assert.deepEqual(secondary.matieres, ["m1"], "secondaire : les matières sont envoyées");
+const typedOnly = JSON.parse(buildTeacherFormData({ ...form, classes: ["c-6"], matieres: [], autresMatieres: ["Robotique"] }, "v1", photo, true).get("payload"));
+assert.deepEqual(typedOnly.autresMatieres, ["Robotique"], "secondaire : les matières tapées sont envoyées");
+assert.deepEqual(JSON.parse(buildTeacherFormData({ ...form, autresMatieres: ["Robotique"] }, "v1", photo, false).get("payload")).autresMatieres, [], "primaire : aucune matière tapée n'est envoyée");
 
 // --- brouillon : ni mot de passe, ni accord, ni photo ; seulement des valeurs qui existent encore
 const draft = draftOf("contact", { ...ok, matieres: ["m1"], email: "a@b.cd" });
@@ -110,6 +128,11 @@ assert.equal("motDePasse" in draft.form, false);
 assert.equal("confirmation" in draft.form, false);
 assert.equal("consentement" in draft.form, false);
 assert.equal(JSON.stringify(draft).includes("MotDePasse1"), false, "le mot de passe n'est jamais gardé");
+const withTyped = draftOf("contact", { ...ok, autresMatieres: ["Robotique"] });
+assert.deepEqual(restoreDraft(JSON.parse(JSON.stringify(withTyped)), ["c-cp"], []).form.autresMatieres, ["Robotique"], "le brouillon garde les matières tapées");
+const dirty = JSON.parse(JSON.stringify(withTyped));
+dirty.form.autresMatieres = ["Robotique", "robotique", " ", 12, "a", "b", "c", "d", "e", "f"];
+assert.deepEqual(restoreDraft(dirty, ["c-cp"], []).form.autresMatieres, ["Robotique", "a", "b", "c", "d"], "un brouillon abîmé est nettoyé et borné");
 const back = restoreDraft(JSON.parse(JSON.stringify(draft)), ["c-cp", "c-6"], ["m1"]);
 assert.equal(back.step, "photo", "tout écran après la photo ramène à la photo : elle n'est pas gardée");
 assert.equal(restoreDraft(draftOf("identity", ok), ["c-cp"], []).step, "identity", "avant la photo, on reprend où on en était");

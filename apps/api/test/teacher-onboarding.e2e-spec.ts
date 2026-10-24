@@ -464,6 +464,120 @@ describe('Collecte des enseignants (e2e)', () => {
       );
     });
 
+    it('une matière absente de la liste se tape à la main : elle suffit au collège, est nettoyée et ne crée aucune matière', async () => {
+      const before = await prisma.subject.count();
+      const sub = await submitted({
+        classes: [classCollege],
+        matieres: [],
+        autresMatieres: [
+          '  Théâtre   d’improvisation ',
+          'théâtre d’improvisation',
+          'Robotique',
+          ' ',
+        ],
+      });
+      expect(sub.matieres).toEqual([]);
+      expect(sub.autresMatieres).toEqual([
+        'Théâtre d’improvisation',
+        'Robotique',
+      ]);
+      expect(await prisma.subject.count()).toBe(before);
+    });
+
+    it('une matière tapée qui existe déjà dans la liste (accents et casse ignorés) est rattachée à celle-ci', async () => {
+      const math = await subject('MATH', 'Mathématiques');
+      const sub = await submitted({
+        classes: [classCollege],
+        matieres: [],
+        autresMatieres: ['mathematiques', 'Robotique'],
+      });
+      expect(sub.matieres).toEqual([math.id]);
+      expect(sub.autresMatieres).toEqual(['Robotique']);
+      // Seule matière tapée et déjà connue : la demande reste valable, sans « autre matière ».
+      const only = await submitted({
+        classes: [classLycee],
+        telephone: '06 000 7002',
+        autresMatieres: [' MATHEMATIQUES. '],
+      });
+      expect(only.matieres).toEqual([math.id]);
+      expect(only.autresMatieres).toEqual([]);
+    });
+
+    it('des matières tapées vides ou en trop sont refusées ; au primaire elles sont ignorées', async () => {
+      await send(
+        payload({
+          classes: [classCollege],
+          matieres: [],
+          autresMatieres: [' ', ''],
+        }),
+      ).expect(400);
+      await send(
+        payload({
+          classes: [classCollege],
+          autresMatieres: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'],
+        }),
+      ).expect(400);
+      await send(
+        payload({ classes: [classCollege], autresMatieres: ['x'.repeat(61)] }),
+      ).expect(400);
+      expect(await prisma.teacherSubmission.count()).toBe(0);
+      const prim = await submitted({
+        classes: [classPrim],
+        autresMatieres: ['Robotique'],
+      });
+      expect(prim.autresMatieres).toEqual([]);
+    });
+
+    it('le secrétariat voit les matières tapées, est prévenu qu’elles ne sont pas ajoutées toutes seules, et la validation ne les crée pas', async () => {
+      const math = await subject('MATH', 'Mathématiques');
+      const sub = await submitted({
+        classes: [classCollege],
+        matieres: [math.id],
+        autresMatieres: ['Robotique'],
+      });
+      const waiting = (
+        await asSecretary(
+          request(app.getHttpServer()).get(
+            '/teacher-onboarding/submissions?statut=EN_ATTENTE',
+          ),
+        ).expect(200)
+      ).body;
+      expect(waiting[0].autresMatieres).toEqual(['Robotique']);
+      const analysis = (
+        await asSecretary(
+          request(app.getHttpServer()).get(
+            `/teacher-onboarding/submissions/${sub.id}/analyse`,
+          ),
+        ).expect(200)
+      ).body;
+      const info = analysis.alertes.find(
+        (a: { code: string }) => a.code === 'MATIERES_AUTRES',
+      );
+      expect(info).toMatchObject({ gravite: 'INFO' });
+      expect(info.message).toContain('Robotique');
+
+      const subjectsBefore = await prisma.subject.count();
+      const res = await validate(sub.id, { creerFiche: true }).expect(201);
+      expect(await prisma.subject.count()).toBe(subjectsBefore);
+      const fiche = await prisma.teacher.findUniqueOrThrow({
+        where: { id: res.body.teacherId },
+        include: { subjects: true },
+      });
+      expect(fiche.subjects.map((x) => x.subjectId)).toEqual([math.id]);
+    });
+
+    it('le journal retient le nombre de matières tapées, jamais leur texte', async () => {
+      await submitted({
+        classes: [classCollege],
+        autresMatieres: ['Robotique appliquée'],
+      });
+      const log = await prisma.auditLog.findFirstOrThrow({
+        where: { action: 'TEACHER_ONBOARDING_SUBMIT' },
+      });
+      expect(log.nouvelleValeur).toMatchObject({ autresMatieres: 1 });
+      expect(JSON.stringify(log)).not.toContain('Robotique');
+    });
+
     it('le journal retient le nombre de classes et si le secondaire est concerné, jamais leur nom', async () => {
       const math = await subject('MATH', 'Mathématiques');
       await submitted({ classes: [classCollege], matieres: [math.id] });

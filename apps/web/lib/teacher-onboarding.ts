@@ -20,6 +20,8 @@ export interface TeacherFormState {
   urgenceTelephone: string;
   classes: string[];
   matieres: string[];
+  // Matières absentes de la liste, tapées à la main (collège et lycée).
+  autresMatieres: string[];
   motDePasse: string;
   confirmation: string;
   consentement: boolean;
@@ -34,6 +36,7 @@ export const EMPTY_TEACHER_FORM: TeacherFormState = {
   urgenceTelephone: "",
   classes: [],
   matieres: [],
+  autresMatieres: [],
   motDePasse: "",
   confirmation: "",
   consentement: false,
@@ -120,7 +123,7 @@ export function teacherMissing(f: TeacherFormState, hasPhoto: boolean, withSubje
   if (f.email.trim() && !EMAIL.test(f.email.trim())) missing.push("email");
   if (f.urgenceTelephone.trim() && !phoneIsPlausible(f.urgenceTelephone)) missing.push("urgenceTelephone");
   if (f.classes.length === 0) missing.push("classes");
-  if (withSubjects && f.matieres.length === 0) missing.push("matieres");
+  if (withSubjects && f.matieres.length === 0 && f.autresMatieres.length === 0) missing.push("matieres");
   if (f.motDePasse.length < 8) missing.push("motDePasse");
   else if (f.confirmation !== f.motDePasse) missing.push("confirmation");
   if (!f.consentement) missing.push("consentement");
@@ -171,6 +174,31 @@ export function selectedClassNames(options: TeacherClassOption[], selected: stri
   return options.filter((c) => chosen.has(c.id)).map((c) => c.nom);
 }
 
+export const MAX_OTHER_SUBJECTS = 5;
+export const MAX_OTHER_SUBJECT_LENGTH = 60;
+
+/** Clé de comparaison d'un nom de matière : accents, casse et ponctuation ignorés (même règle que le serveur). */
+export function subjectKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Ajoute une matière tapée à la main : espaces réduits, longueur bornée, jamais deux fois la même (accents et casse ignorés),
+ * cinq au plus. Renvoie la liste inchangée si rien n'est à ajouter.
+ */
+export function addOtherSubject(list: string[], raw: string): string[] {
+  const name = raw.replace(/\s+/g, " ").trim().slice(0, MAX_OTHER_SUBJECT_LENGTH).trim();
+  const key = subjectKey(name);
+  if (!key || list.length >= MAX_OTHER_SUBJECTS) return list;
+  if (list.some((x) => subjectKey(x) === key)) return list;
+  return [...list, name];
+}
+
 /** Corps de l'envoi : le JSON dans « payload », la photo (déjà recadrée) dans « photo ». Un champ vide est omis. */
 export function buildTeacherFormData(f: TeacherFormState, version: string, photo: Blob, withSubjects: boolean): FormData {
   const clean = (v: string) => (v.trim() ? v.trim() : undefined);
@@ -184,6 +212,7 @@ export function buildTeacherFormData(f: TeacherFormState, version: string, photo
     classes: f.classes,
     // Maternelle et primaire : aucune matière (l'enseignant est titulaire de sa classe).
     matieres: withSubjects ? f.matieres : [],
+    autresMatieres: withSubjects ? f.autresMatieres : [],
     motDePasse: f.motDePasse,
     consentement: f.consentement,
     versionPolitique: version,
@@ -214,6 +243,7 @@ export function draftOf(step: TeacherStep, f: TeacherFormState): TeacherDraft {
       urgenceTelephone: f.urgenceTelephone,
       classes: f.classes,
       matieres: f.matieres,
+      autresMatieres: f.autresMatieres,
     },
   };
 }
@@ -231,6 +261,7 @@ export function restoreDraft(raw: unknown, classIds: string[], subjectIds: strin
   const str = (v: unknown) => (typeof v === "string" ? v : "");
   const list = (v: unknown, allowed: string[]) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && allowed.includes(x)) : []);
   const f = d.form as Record<string, unknown>;
+  const otherList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").reduce<string[]>((acc, x) => addOtherSubject(acc, x), []) : []);
   const form: TeacherFormState = {
     ...EMPTY_TEACHER_FORM,
     nom: str(f.nom),
@@ -241,6 +272,7 @@ export function restoreDraft(raw: unknown, classIds: string[], subjectIds: strin
     urgenceTelephone: str(f.urgenceTelephone),
     classes: list(f.classes, classIds),
     matieres: list(f.matieres, subjectIds),
+    autresMatieres: otherList(f.autresMatieres),
   };
   const order = STEPS.indexOf(d.step as TeacherStep);
   const photoIndex = STEPS.indexOf("photo");
@@ -268,6 +300,7 @@ export interface TeacherSubmissionView {
   photo: boolean;
   classes: TeacherClassOption[];
   matieres: Array<{ id: string; nom: string }>;
+  autresMatieres: string[];
   statut: "EN_ATTENTE" | "VALIDEE" | "REFUSEE";
   motifRefus: string | null;
   teacherId: string | null;

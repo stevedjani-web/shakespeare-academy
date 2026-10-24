@@ -40,3 +40,35 @@ export function isSecondaryCycle(code: string): boolean {
     .replace(/[\s-]+/g, '_');
   return SECONDARY_CYCLE_CODES.has(normalized);
 }
+
+/** Matières « autres » (texte libre) qu'un enseignant peut ajouter, et longueur de chacune. */
+export const MAX_OTHER_SUBJECTS = 5;
+export const MAX_OTHER_SUBJECT_LENGTH = 60;
+
+/** Clé de comparaison d'un nom de matière : accents, casse, espaces et ponctuation ignorés. */
+export function subjectKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Nettoie les matières tapées à la main : espaces réduits, vides retirés, doublons retirés (accents et casse ignorés),
+ * `MAX_OTHER_SUBJECTS` au plus. Une longueur excessive est refusée en amont par le DTO.
+ */
+export function cleanOtherSubjects(raw: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of raw ?? []) {
+    const name = value.replace(/\s+/g, ' ').trim();
+    const key = subjectKey(name);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= MAX_OTHER_SUBJECTS) break;
+  }
+  return out;
+}

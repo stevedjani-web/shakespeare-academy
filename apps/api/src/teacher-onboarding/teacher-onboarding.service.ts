@@ -22,7 +22,9 @@ import {
   LINK_MAX_DAYS,
   STAFF_CONSENT_VERSION,
   TEACHER_ROLE_CODE,
+  cleanOtherSubjects,
   isSecondaryCycle,
+  subjectKey,
 } from './teacher-onboarding.util';
 import {
   removeTeacherPhoto,
@@ -352,7 +354,26 @@ export class TeacherOnboardingService {
     );
     // Maternelle et primaire : l'enseignant est titulaire de sa classe, aucune matière n'est retenue.
     const subjectIds = secondary ? [...new Set(dto.matieres ?? [])] : [];
-    if (secondary && subjectIds.length === 0) {
+    let otherSubjects = secondary ? cleanOtherSubjects(dto.autresMatieres) : [];
+    // Une matière tapée à la main qui existe déjà dans la liste (accents et casse ignorés) est rattachée à celle-ci.
+    if (otherSubjects.length > 0) {
+      const known = await this.prisma.subject.findMany({
+        where: { actif: true },
+        select: { id: true, nom: true },
+      });
+      const byKey = new Map(known.map((k) => [subjectKey(k.nom), k.id]));
+      const remaining: string[] = [];
+      for (const name of otherSubjects) {
+        const id = byKey.get(subjectKey(name));
+        if (id) {
+          if (!subjectIds.includes(id)) subjectIds.push(id);
+        } else {
+          remaining.push(name);
+        }
+      }
+      otherSubjects = remaining;
+    }
+    if (secondary && subjectIds.length === 0 && otherSubjects.length === 0) {
       throw new BadRequestException(
         pick({
           fr: 'Indiquez au moins une matière que vous enseignez au collège ou au lycée.',
@@ -403,6 +424,7 @@ export class TeacherOnboardingService {
           urgenceTelephone,
           photoFichier,
           matieres: subjectIds,
+          autresMatieres: otherSubjects,
           classes: { create: classIds.map((classId) => ({ classId })) },
           motDePasseHash,
           consentementVersion: dto.versionPolitique,
@@ -420,6 +442,7 @@ export class TeacherOnboardingService {
           classes: classIds.length,
           secondaire: secondary,
           matieres: subjectIds.length,
+          autresMatieres: otherSubjects.length,
           photo: true,
           email: !!dto.email,
         },
@@ -482,6 +505,7 @@ export class TeacherOnboardingService {
       urgenceTelephone: string | null;
       photoFichier: string | null;
       matieres: string[];
+      autresMatieres: string[];
       classes: Array<{ classId: string }>;
       statut: string;
       motifRefus: string | null;
@@ -508,6 +532,7 @@ export class TeacherOnboardingService {
       matieres: r.matieres
         .map((id) => ({ id, nom: names.get(id) ?? '' }))
         .filter((m) => m.nom),
+      autresMatieres: r.autresMatieres,
       statut: r.statut,
       motifRefus: r.motifRefus,
       teacherId: r.teacherId,
@@ -736,6 +761,13 @@ export class TeacherOnboardingService {
       if (!teacher) throw new NotFoundException('Enseignant introuvable.');
     }
     const alertes = await this.computeAlerts(sub, teacher, candidats);
+    if (sub.autresMatieres.length > 0) {
+      alertes.push({
+        code: 'MATIERES_AUTRES',
+        gravite: 'INFO',
+        message: `Matières absentes de la liste, tapées par l’enseignant : ${sub.autresMatieres.join(', ')}. Créez-les dans Vie scolaire, Matières, puis ajoutez-les à sa fiche : elles ne sont pas ajoutées toutes seules.`,
+      });
+    }
     const [names, classes] = await Promise.all([
       this.subjectNames(),
       this.classViews(),

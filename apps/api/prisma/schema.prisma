@@ -1744,6 +1744,8 @@ model TeacherSubmission {
   photoFichier        String?
   // Matières que l'enseignant déclare pouvoir enseigner (identifiants), à titre d'indication.
   matieres            String[]
+  // Matières absentes de la liste, tapées par l'enseignant du collège ou du lycée (texte libre, jamais une matière créée).
+  autresMatieres      String[]                @default([])
   motDePasseHash      String?
   consentementVersion String
   statut              TeacherSubmissionStatus @default(EN_ATTENTE)

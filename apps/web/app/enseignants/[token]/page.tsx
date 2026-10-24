@@ -22,6 +22,7 @@ import type { MessageKey } from "@/lib/i18n";
 import { PHOTO_MAX_SOURCE_BYTES, looksLikeImage } from "@/lib/family-form";
 import {
   EMPTY_TEACHER_FORM,
+  addOtherSubject,
   buildTeacherFormData,
   draftOf,
   firstStepWithMissing,
@@ -182,6 +183,8 @@ export default function TeacherFormPage() {
   const showErrors = attempted;
   const err = (field: TeacherField) => (showErrors && missingHere.includes(field) ? t(`tco.pub.err.${field}` as MessageKey) : null);
   const set = <K extends keyof TeacherFormState>(key: K, value: TeacherFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const addOther = (name: string) => setForm((f) => ({ ...f, autresMatieres: addOtherSubject(f.autresMatieres, name) }));
+  const removeOther = (name: string) => setForm((f) => ({ ...f, autresMatieres: f.autresMatieres.filter((x) => x !== name) }));
   const toggle = (key: "classes" | "matieres", id: string) => setForm((f) => ({ ...f, [key]: f[key].includes(id) ? f[key].filter((x) => x !== id) : [...f[key], id] }));
 
   // À chaque écran : on remonte en haut et le titre prend le focus (lecteurs d'écran, clavier).
@@ -504,8 +507,8 @@ export default function TeacherFormPage() {
 
             {step === "subjects" && (
               <div id="t-subjects" tabIndex={-1} className="outline-none">
-                <SubjectPicker subjects={info.matieres} selected={form.matieres} onToggle={(id) => toggle("matieres", id)} />
-                {form.matieres.length > 0 && <p className="mt-3 text-sm font-medium text-primary">{t("tco.w.subjects.count", { n: form.matieres.length })}</p>}
+                <SubjectPicker subjects={info.matieres} selected={form.matieres} others={form.autresMatieres} onToggle={(id) => toggle("matieres", id)} onAddOther={addOther} onRemoveOther={removeOther} />
+                {form.matieres.length + form.autresMatieres.length > 0 && <p className="mt-3 text-sm font-medium text-primary">{t("tco.w.subjects.count", { n: form.matieres.length + form.autresMatieres.length })}</p>}
                 <FieldError id="t-subjects-error">{err("matieres")}</FieldError>
               </div>
             )}
@@ -553,7 +556,7 @@ export default function TeacherFormPage() {
                 </ReviewRow>
                 {withSubjects && (
                   <ReviewRow title={t("tco.w.review.subjects")} onEdit={() => edit("subjects")} edit={t("tco.w.edit")}>
-                    <Chips values={info.matieres.filter((m) => form.matieres.includes(m.id)).map((m) => m.nom)} empty={t("tco.w.review.nothing")} />
+                    <Chips values={[...info.matieres.filter((m) => form.matieres.includes(m.id)).map((m) => m.nom), ...form.autresMatieres]} empty={t("tco.w.review.nothing")} />
                   </ReviewRow>
                 )}
                 <ReviewRow title={t("tco.w.review.password")} onEdit={() => edit("password")} edit={t("tco.w.edit")}>
