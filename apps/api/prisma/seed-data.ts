@@ -171,6 +171,19 @@ export const BANK_PAYMENT_PERMISSIONS = [
 ] as const;
 
 /**
+ * Sorties financières (29 octobre 2026) : `EXPENSE_APPROVE_UNLIMITED` lève les plafonds de validation (par opération et
+ * par mois) et permet de les régler. Droit réservé (voir auth/reserved-permissions.ts) qu'aucun rôle du seed ne porte :
+ * la migration le donne au rôle Promoteur (code PRO). Tout autre approbateur est soumis aux plafonds de l'école.
+ */
+export const EXPENSE_LIMIT_PERMISSIONS = [
+  {
+    code: 'EXPENSE_APPROVE_UNLIMITED',
+    description:
+      'Approuver une sortie sans plafond par opération ni plafond mensuel, et régler ces plafonds.',
+  },
+] as const;
+
+/**
  * Catalogue de permissions du Lot 7 (vie scolaire : référentiel pédagogique et personnel, addendum
  * v1.1). `PEDAGOGY_MANAGE` couvre la saisie des horaires, matières, enseignants, affectations,
  * calendrier et salles. Les permissions des lots suivants (emploi du temps, appel, pointage...) seront
@@ -534,6 +547,8 @@ export const ROLES: Array<{
       'ENROLLMENT_MANAGE',
       'TEACHER_ONBOARDING_MANAGE',
       'PAYMENT_CREATE',
+      // Demande de sortie (29 octobre 2026) : elle saisit, un responsable approuve (jamais elle).
+      'EXPENSE_CREATE',
       'CASH_CLOSE',
       'BANK_DEPOSIT_CREATE',
       'TIMETABLE_READ',
@@ -643,6 +658,7 @@ export async function seedReferenceData(
     ...TEACHER_ONBOARDING_PERMISSIONS,
     ...ONLINE_FEE_PERMISSIONS,
     ...BANK_PAYMENT_PERMISSIONS,
+    ...EXPENSE_LIMIT_PERMISSIONS,
     ...LOT7_PERMISSIONS,
     ...LOT8_PERMISSIONS,
     ...LOT9_PERMISSIONS,

@@ -203,9 +203,17 @@ describe('Sorties financières : demande, approbation, décaissement (e2e)', () 
   });
 
   describe('droits', () => {
-    it('la secrétaire-caissière et la Direction ne saisissent pas de sortie (EXPENSE_CREATE)', async () => {
-      await createExpense(app, secretaireToken, base).expect(403);
+    it('la secrétaire-caissière saisit une demande de sortie, la Direction non (EXPENSE_CREATE)', async () => {
+      await createExpense(app, secretaireToken, base).expect(201);
       await createExpense(app, directionToken, base).expect(403);
+    });
+
+    it('la secrétaire-caissière ne valide pas une sortie (EXPENSE_APPROVE)', async () => {
+      const created = await newRequest(secretaireToken);
+      await as(
+        secretaireToken,
+        http().post(`/expenses/${created.id}/approve`),
+      ).expect(403);
     });
 
     it('seuls les profils de la clôture (CASH_CLOSE) lisent les sorties', async () => {
@@ -697,7 +705,13 @@ describe('Sorties financières : demande, approbation, décaissement (e2e)', () 
 
       await runMigration();
       await runMigration();
-      expect(await holders()).toEqual(['ADMINISTRATEUR', 'COMPTABLE', 'PRO']);
+      // La secrétaire-caissière saisit des demandes depuis le 29 octobre 2026 : elle entre dans la règle comme les autres.
+      expect(await holders()).toEqual([
+        'ADMINISTRATEUR',
+        'COMPTABLE',
+        'PRO',
+        'SECRETAIRE_CAISSIER',
+      ]);
     });
   });
 });

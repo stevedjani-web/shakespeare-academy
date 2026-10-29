@@ -44,6 +44,12 @@ export class ExpensesController {
     return this.expensesService.findAll(statut, from, to);
   }
 
+  // Avant ':id' : plafonds de validation en vigueur et ce qu'il en reste ce mois-ci pour le compte connecté.
+  @Get('approval-limits')
+  approvalLimits(@CurrentUser() user: CurrentUserData) {
+    return this.expensesService.approvalLimits(user);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.expensesService.findOne(id);
@@ -95,7 +101,7 @@ export class ExpensesController {
   @Post(':id/approve')
   @RequirePermission('EXPENSE_APPROVE')
   approve(@Param('id') id: string, @CurrentUser() user: CurrentUserData) {
-    return this.expensesService.approve(id, user.id);
+    return this.expensesService.approve(id, user);
   }
 
   @Post(':id/reject')

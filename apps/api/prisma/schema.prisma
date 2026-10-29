@@ -88,6 +88,12 @@ model School {
   // Calculés par le serveur sur le montant de la scolarité, arrondis à l'XAF supérieur (RG16) : jamais une valeur saisie.
   fraisServiceBp       Int      @default(0)
 
+  // Sorties financières : plafonds de validation de tout approbateur qui n'a pas le droit EXPENSE_APPROVE_UNLIMITED
+  // (le Promoteur). Montants entiers en XAF (RG16) ; null = pas de limite. Plafond mensuel global : il se partage entre
+  // toutes les approbations déléguées du mois (à la date d'approbation, fuseau de l'établissement).
+  sortieSeuilOperationFcfa Int? @default(100000)
+  sortiePlafondMensuelFcfa Int? @default(500000)
+
   // Lot 19 (documents officiels) : ce qui figure sur une attestation (nom et titre du signataire, ville du lieu de
   // signature, image de la signature). Tous facultatifs : une attestation ne se génère que s'ils sont renseignés.
   directeurNom   String?
@@ -1483,6 +1489,9 @@ model Expense {
   approbateur   User?         @relation("ExpenseApprobateur", fields: [approbateurId], references: [id])
   motifRejet    String?
   dateDecision  DateTime?
+  // Vrai si l'approbation a été faite avec l'autorité illimitée du Promoteur : elle ne consomme alors pas le plafond
+  // mensuel des approbations déléguées. Figé à l'approbation, indépendant des droits que le compte aura plus tard.
+  approuveIllimite Boolean @default(false)
 
   // Confirmation de la sortie réelle : qui, quand (heure du serveur, jamais saisie), comment.
   decaisseParId         String?

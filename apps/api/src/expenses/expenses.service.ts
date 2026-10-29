@@ -12,6 +12,13 @@ import { AuditService } from '../audit/audit.service';
 import { SchoolService } from '../school/school.service';
 import { pick } from '../common/language';
 import type { CurrentUserData } from '../auth/types/current-user.interface';
+import {
+  checkApprovalLimits,
+  formatXaf,
+  monthKey,
+  type ExpenseLimits,
+  type LimitVerdict,
+} from './expense-limits.util';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { RejectExpenseDto } from './dto/reject-expense.dto';
 import { CancelExpenseDto } from './dto/cancel-expense.dto';
@@ -188,32 +195,161 @@ export class ExpensesService {
     return { path, type: attachment.mimeType, nom: attachment.nomAffiche };
   }
 
-  async approve(id: string, actingUserId: string) {
+  /**
+   * Plafonds en vigueur, ce qui est déjà consommé ce mois-ci et ce qui reste, pour le compte qui consulte. Le plafond
+   * mensuel est global : il se partage entre toutes les approbations déléguées (hors Promoteur) du mois, comptées à la
+   * date d'approbation dans le fuseau de l'établissement. Une sortie annulée libère son montant.
+   */
+  async approvalLimits(user: Pick<CurrentUserData, 'permissions'>) {
+    const schoolId = await this.schoolService.getDefaultId();
+    const ctx = await this.limitsContext(this.prisma, schoolId);
+    return {
+      mois: ctx.mois,
+      seuilOperation: ctx.limits.seuilOperation,
+      plafondMensuel: ctx.limits.plafondMensuel,
+      utiliseMois: ctx.utilise,
+      resteMois:
+        ctx.limits.plafondMensuel === null
+          ? null
+          : Math.max(0, ctx.limits.plafondMensuel - ctx.utilise),
+      illimite: user.permissions.includes('EXPENSE_APPROVE_UNLIMITED'),
+    };
+  }
+
+  private async limitsContext(
+    db: Pick<PrismaService, 'school' | 'expense'>,
+    schoolId: string,
+  ) {
+    const school = await db.school.findUniqueOrThrow({
+      where: { id: schoolId },
+      select: {
+        fuseauHoraire: true,
+        sortieSeuilOperationFcfa: true,
+        sortiePlafondMensuelFcfa: true,
+      },
+    });
+    const limits: ExpenseLimits = {
+      seuilOperation: school.sortieSeuilOperationFcfa,
+      plafondMensuel: school.sortiePlafondMensuelFcfa,
+    };
+    const mois = monthKey(new Date(), school.fuseauHoraire);
+    // Fenêtre large (le mois peut commencer la veille en UTC) puis filtre exact dans le fuseau de l'établissement.
+    const since = new Date(Date.now() - 40 * 24 * 3600 * 1000);
+    const rows = await db.expense.findMany({
+      where: {
+        schoolId,
+        statut: { in: ['APPROUVEE', 'DECAISSEE'] },
+        approuveIllimite: false,
+        dateDecision: { gte: since },
+      },
+      select: { montant: true, dateDecision: true },
+    });
+    const utilise = rows
+      .filter(
+        (r) =>
+          r.dateDecision &&
+          monthKey(r.dateDecision, school.fuseauHoraire) === mois,
+      )
+      .reduce((sum, r) => sum + r.montant, 0);
+    return { limits, mois, utilise };
+  }
+
+  async approve(id: string, user: Pick<CurrentUserData, 'id' | 'permissions'>) {
+    const actingUserId = user.id;
+    const unlimited = user.permissions.includes('EXPENSE_APPROVE_UNLIMITED');
     const before = await this.findOne(id);
     if (before.statut !== 'EN_ATTENTE') {
       throw new ConflictException(
         'Seule une sortie en attente peut être approuvée.',
       );
     }
-    // D25 : celui qui enregistre une sortie ne l'approuve jamais lui-même.
-    if (before.effectueParId === actingUserId) {
+    // D25 : celui qui enregistre une sortie ne l'approuve jamais lui-même, sauf le Promoteur (autorité illimitée,
+    // D245) : son auto-approbation est journalisée, et un autre responsable doit encore confirmer la sortie réelle.
+    const selfApproval = before.effectueParId === actingUserId;
+    if (selfApproval && !unlimited) {
       throw new ForbiddenException(
         'Vous ne pouvez pas approuver votre propre sortie financière : un autre responsable doit la valider.',
       );
     }
 
-    const expense = await this.transition(
-      id,
-      ['EN_ATTENTE'],
-      {
-        statut: 'APPROUVEE',
-        approbateurId: actingUserId,
-        dateDecision: new Date(),
+    const schoolId = await this.schoolService.getDefaultId();
+    let usage: { avant: number; apres: number } | null = null;
+    const expense = await this.prisma.$transaction(async (tx) => {
+      if (!unlimited) {
+        // Deux approbations simultanées ne doivent pas dépasser ensemble le plafond du mois.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'expense-approval:' + schoolId}))`;
+        const ctx = await this.limitsContext(tx, schoolId);
+        const verdict = checkApprovalLimits(
+          before.montant,
+          ctx.limits,
+          ctx.utilise,
+        );
+        if (!verdict.ok) throw this.limitRefusal(verdict, before.montant);
+        usage = { avant: ctx.utilise, apres: ctx.utilise + before.montant };
+      }
+      const result = await tx.expense.updateMany({
+        where: { id, schoolId, statut: 'EN_ATTENTE' },
+        data: {
+          statut: 'APPROUVEE',
+          approbateurId: actingUserId,
+          dateDecision: new Date(),
+          approuveIllimite: unlimited,
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException(
+          'Seule une sortie en attente peut être approuvée.',
+        );
+      }
+      return tx.expense.findFirstOrThrow({
+        where: { id, schoolId },
+        include: EXPENSE_INCLUDE,
+      });
+    });
+    await this.auditService.log({
+      schoolId,
+      userId: actingUserId,
+      action: 'EXPENSE_APPROVE',
+      entite: 'Expense',
+      entiteId: expense.id,
+      ancienneValeur: before,
+      nouvelleValeur: {
+        ...expense,
+        controlePlafond: unlimited
+          ? { illimite: true, autoApprobation: selfApproval }
+          : { illimite: false, utiliseMois: usage },
       },
-      'Seule une sortie en attente peut être approuvée.',
-    );
-    await this.logTransition('EXPENSE_APPROVE', actingUserId, before, expense);
+    });
     return expense;
+  }
+
+  private limitRefusal(
+    verdict: Exclude<LimitVerdict, { ok: true }>,
+    montant: number,
+  ) {
+    if (verdict.raison === 'OPERATION') {
+      return new ForbiddenException({
+        statusCode: 403,
+        error: 'Forbidden',
+        code: 'EXPENSE_LIMIT_OPERATION',
+        seuil: verdict.seuil,
+        message: pick({
+          fr: `Cette sortie de ${formatXaf(montant)} FCFA dépasse votre plafond de ${formatXaf(verdict.seuil)} FCFA par opération : seul le Promoteur peut la valider.`,
+          en: `This ${formatXaf(montant)} XAF expense exceeds your limit of ${formatXaf(verdict.seuil)} XAF per operation: only the Promoter can approve it.`,
+        }),
+      });
+    }
+    return new ForbiddenException({
+      statusCode: 403,
+      error: 'Forbidden',
+      code: 'EXPENSE_LIMIT_MONTHLY',
+      plafond: verdict.plafond,
+      reste: verdict.reste,
+      message: pick({
+        fr: `Plafond mensuel de validation atteint : il reste ${formatXaf(verdict.reste)} FCFA sur ${formatXaf(verdict.plafond)} FCFA ce mois-ci, cette sortie de ${formatXaf(montant)} FCFA doit être validée par le Promoteur.`,
+        en: `Monthly approval limit reached: ${formatXaf(verdict.reste)} XAF left out of ${formatXaf(verdict.plafond)} XAF this month, this ${formatXaf(montant)} XAF expense must be approved by the Promoter.`,
+      }),
+    });
   }
 
   async reject(id: string, dto: RejectExpenseDto, actingUserId: string) {

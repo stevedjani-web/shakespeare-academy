@@ -56,6 +56,22 @@ export class SchoolService {
     const school = await this.getDefault();
     const { fraisServicePourcent, ...rest } = dto;
     const data: Record<string, unknown> = { ...rest };
+    // Plafonds de validation des sorties : le Promoteur seul les règle (D243). Renvoyer la valeur actuelle n'est pas un changement.
+    const limitKeys = [
+      'sortieSeuilOperationFcfa',
+      'sortiePlafondMensuelFcfa',
+    ] as const;
+    const limitChanges = limitKeys.filter(
+      (k) => dto[k] !== undefined && dto[k] !== school[k],
+    );
+    if (
+      limitChanges.length > 0 &&
+      !permissions.includes('EXPENSE_APPROVE_UNLIMITED')
+    ) {
+      throw new ForbiddenException(
+        'Seul le Promoteur peut modifier les plafonds de validation des sorties.',
+      );
+    }
     let feeChange: { avant: number; apres: number } | null = null;
     if (fraisServicePourcent !== undefined) {
       const bp = percentToBp(fraisServicePourcent);
@@ -77,6 +93,21 @@ export class SchoolService {
       where: { id: school.id },
       data,
     });
+    if (limitChanges.length > 0) {
+      await this.auditService.log({
+        schoolId: school.id,
+        userId,
+        action: 'SCHOOL_EXPENSE_LIMITS_UPDATE',
+        entite: 'School',
+        entiteId: school.id,
+        ancienneValeur: Object.fromEntries(
+          limitChanges.map((k) => [k, school[k]]),
+        ),
+        nouvelleValeur: Object.fromEntries(
+          limitChanges.map((k) => [k, updated[k]]),
+        ),
+      });
+    }
     if (feeChange) {
       await this.auditService.log({
         schoolId: school.id,

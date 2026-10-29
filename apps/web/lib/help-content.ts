@@ -281,6 +281,7 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
       "cnt.help.depenses.tip2",
       "cnt.help.depenses.tip3",
       "cnt.help.depenses.tip4",
+      "cnt.help.depenses.tip5",
     ],
     permission: "CASH_CLOSE",
   },

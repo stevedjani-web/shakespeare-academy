@@ -29,6 +29,8 @@ export const RESERVED_PERMISSIONS = [
   'ONLINE_FEE_MANAGE',
   // Paiement par banque : confirmer qu'un crédit figure bien sur le relevé de la banque (le Promoteur seul).
   'BANK_PAYMENT_CONFIRM',
+  // Sorties : approuver sans plafond par opération ni plafond mensuel, et régler ces plafonds (le Promoteur seul).
+  'EXPENSE_APPROVE_UNLIMITED',
 ] as const;
 
 const RESERVED = new Set<string>(RESERVED_PERMISSIONS);

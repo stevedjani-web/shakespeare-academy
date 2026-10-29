@@ -38,6 +38,9 @@ export interface School {
   paiementEnLigneActif: boolean;
   // Frais de service ajoutés au paiement en ligne d'un parent, en centièmes de pour cent (200 = 2 %, 0 = aucun).
   fraisServiceBp: number;
+  // Plafonds de validation des sorties (XAF) ; null = pas de limite.
+  sortieSeuilOperationFcfa: number | null;
+  sortiePlafondMensuelFcfa: number | null;
   // Durée de validité d'un code d'activation de compte parent, en jours.
   parentCodeValiditeJours: number;
   // Documents officiels : signataire, ville et image de signature des attestations.
@@ -341,6 +344,7 @@ export interface Expense {
   statut: ExpenseStatus;
   motifRejet: string | null;
   dateDecision: string | null;
+  approuveIllimite: boolean;
   effectuePar: ExpensePerson;
   approbateur: ExpensePerson | null;
   decaissePar: ExpensePerson | null;

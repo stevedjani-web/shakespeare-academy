@@ -17,10 +17,11 @@ import {
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { SealUpload } from "@/components/receipt/seal-upload";
 import { SchoolBankAccountsCard } from "@/components/bank-payments/school-accounts-card";
-import { Building2, FileSignature, ImageUp, KeyRound, Percent, Phone, Smartphone } from "lucide-react";
+import { Building2, FileSignature, ImageUp, KeyRound, Percent, Phone, ShieldCheck, Smartphone } from "lucide-react";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { formatMontant } from "@/lib/format";
 import { bpToInput, computeServiceFee, parseRatePercent } from "@/lib/service-fee";
+import { limitToInput, parseLimitInput } from "@/lib/expense-limits";
 
 export default function SchoolSettingsPage() {
   const { hasPermission } = useAuth();
@@ -28,6 +29,7 @@ export default function SchoolSettingsPage() {
   const canManage = hasPermission("SETTINGS_MANAGE");
   // Facturer des frais aux parents est réservé au Promoteur : les autres voient le taux sans pouvoir le modifier.
   const canSetFee = hasPermission("ONLINE_FEE_MANAGE");
+  const canSetLimits = hasPermission("EXPENSE_APPROVE_UNLIMITED");
   const [school, setSchool] = useState<School | null>(null);
   const [form, setForm] = useState({
     nom: "",
@@ -52,6 +54,11 @@ export default function SchoolSettingsPage() {
   const [feeMsg, setFeeMsg] = useState<string | null>(null);
   const [feeError, setFeeError] = useState<string | null>(null);
   const [feeBusy, setFeeBusy] = useState(false);
+  const [limitOp, setLimitOp] = useState("");
+  const [limitMonth, setLimitMonth] = useState("");
+  const [limitMsg, setLimitMsg] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(null);
+  const [limitBusy, setLimitBusy] = useState(false);
   const [validiteMsg, setValiditeMsg] = useState<string | null>(null);
   const [validiteError, setValiditeError] = useState<string | null>(null);
   const expand = useExpanded();
@@ -61,6 +68,8 @@ export default function SchoolSettingsPage() {
       const data = await api.get<School>("/school");
       setSchool(data);
       setFeeInput(bpToInput(data.fraisServiceBp ?? 0));
+      setLimitOp(limitToInput(data.sortieSeuilOperationFcfa ?? null));
+      setLimitMonth(limitToInput(data.sortiePlafondMensuelFcfa ?? null));
       setForm({
         nom: data.nom,
         adresse: data.adresse ?? "",
@@ -175,6 +184,30 @@ export default function SchoolSettingsPage() {
       setFeeError(isApiError(err) ? err.message : t("common.error"));
     } finally {
       setFeeBusy(false);
+    }
+  }
+
+  async function saveLimits(e: React.FormEvent) {
+    e.preventDefault();
+    setLimitMsg(null);
+    setLimitError(null);
+    const op = parseLimitInput(limitOp);
+    const month = parseLimitInput(limitMonth);
+    if (op === "invalid" || month === "invalid") {
+      setLimitError(t("adm.school.limitsInvalid"));
+      return;
+    }
+    setLimitBusy(true);
+    try {
+      const updated = await api.patch<School>("/school", { sortieSeuilOperationFcfa: op, sortiePlafondMensuelFcfa: month });
+      setSchool(updated);
+      setLimitOp(limitToInput(updated.sortieSeuilOperationFcfa));
+      setLimitMonth(limitToInput(updated.sortiePlafondMensuelFcfa));
+      setLimitMsg(t("adm.school.limitsSaved"));
+    } catch (err) {
+      setLimitError(isApiError(err) ? err.message : t("common.error"));
+    } finally {
+      setLimitBusy(false);
     }
   }
 
@@ -383,6 +416,37 @@ export default function SchoolSettingsPage() {
           {!canSetFee && <p className="mt-2 text-xs text-ink-muted">{t("adm.school.feeRestricted")}</p>}
           <ErrorMessage>{feeError}</ErrorMessage>
           {feeMsg && <SuccessMessage>{feeMsg}</SuccessMessage>}
+        </Card>
+      )}
+
+      {canManage && (
+        <Card className="mb-4 max-w-xl">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck size={16} className="text-primary" />
+            <h2 className="text-sm font-semibold text-ink">{t("adm.school.limitsTitle")}</h2>
+          </div>
+          <p className="mt-3 text-xs text-ink-muted">{t("adm.school.limitsHelp")}</p>
+          <form onSubmit={(e) => void saveLimits(e)} className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="w-44">
+              <Field label={t("adm.school.limitsPerOperation")}>
+                <Input inputMode="numeric" value={limitOp} placeholder={t("adm.school.limitsNone")} onChange={(e) => setLimitOp(e.target.value)} disabled={!canSetLimits || limitBusy} />
+              </Field>
+            </div>
+            <div className="w-44">
+              <Field label={t("adm.school.limitsPerMonth")}>
+                <Input inputMode="numeric" value={limitMonth} placeholder={t("adm.school.limitsNone")} onChange={(e) => setLimitMonth(e.target.value)} disabled={!canSetLimits || limitBusy} />
+              </Field>
+            </div>
+            {canSetLimits && (
+              <Button type="submit" disabled={limitBusy}>
+                {limitBusy ? t("adm.school.saving") : t("adm.school.limitsSave")}
+              </Button>
+            )}
+          </form>
+          <p className="mt-2 text-xs text-ink-muted">{t("adm.school.limitsGlobal")}</p>
+          {!canSetLimits && <p className="mt-2 text-xs text-ink-muted">{t("adm.school.limitsRestricted")}</p>}
+          <ErrorMessage>{limitError}</ErrorMessage>
+          {limitMsg && <SuccessMessage>{limitMsg}</SuccessMessage>}
         </Card>
       )}
 

@@ -45,6 +45,20 @@ export class UpdateSchoolDto {
   @Max(10, { message: 'Le taux ne peut pas dépasser 10 %.' })
   fraisServicePourcent?: number;
 
+  // Plafonds de validation des sorties, en XAF entiers ; null = pas de limite. Réservés au droit
+  // EXPENSE_APPROVE_UNLIMITED : le service refuse (403) tout autre compte, même avec SETTINGS_MANAGE.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000_000)
+  sortieSeuilOperationFcfa?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000_000)
+  sortiePlafondMensuelFcfa?: number | null;
+
   // Durée de validité d'un code d'activation de compte parent, en jours (Lot 18).
   @IsOptional()
   @IsInt()

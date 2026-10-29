@@ -14,6 +14,34 @@ import { buildSection } from "@/lib/export";
 import { ExportButtons } from "@/components/export-buttons";
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { openProtectedFile } from "@/lib/open-protected-file";
+import { approvalBlock, type ExpenseApprovalLimits } from "@/lib/expense-limits";
+
+/** Plafonds de validation de celui qui approuve : ce qui est autorisé par opération et ce qu'il reste ce mois-ci. */
+function ApprovalLimitsBanner({ limits }: { limits: ExpenseApprovalLimits }) {
+  const { t } = useI18n();
+  if (limits.illimite) {
+    return <p className="mb-4 rounded-xl border border-success/30 bg-success/10 px-4 py-2.5 text-sm text-ink">{t("fin.limits.unlimited")}</p>;
+  }
+  const perOp = limits.seuilOperation === null ? t("fin.limits.noOperationLimit") : t("fin.limits.perOperation", { seuil: formatMontant(limits.seuilOperation) });
+  const monthly =
+    limits.plafondMensuel === null || limits.resteMois === null
+      ? t("fin.limits.noMonthlyLimit")
+      : t("fin.limits.monthly", { utilise: formatMontant(limits.utiliseMois), plafond: formatMontant(limits.plafondMensuel), reste: formatMontant(limits.resteMois) });
+  const pct = limits.plafondMensuel ? Math.min(100, Math.round((limits.utiliseMois / limits.plafondMensuel) * 100)) : 0;
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-ink">
+      <p className="font-semibold">{t("fin.limits.title")}</p>
+      <p className="mt-1 text-ink-muted">
+        {perOp} · {monthly}
+      </p>
+      {limits.plafondMensuel !== null && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted" role="img" aria-label={`${pct} %`}>
+          <div className={`h-full rounded-full ${pct >= 100 ? "bg-danger" : pct >= 80 ? "bg-warning" : "bg-success"}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Tab = "EN_ATTENTE" | "APPROUVEE" | "DECAISSEE" | "CLOSED" | "ALL";
 
@@ -63,6 +91,7 @@ export default function ExpensesPage() {
   const canCreate = hasPermission("EXPENSE_CREATE");
   const canApprove = hasPermission("EXPENSE_APPROVE");
   const canDisburse = hasPermission("EXPENSE_DISBURSE");
+  const [limits, setLimits] = useState<ExpenseApprovalLimits | null>(null);
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -83,6 +112,8 @@ export default function ExpensesPage() {
   async function load() {
     setExpenses(await api.get<Expense[]>("/expenses"));
     setLoaded(true);
+    // Plafonds de validation : seulement utiles à qui approuve. Une panne ici ne bloque jamais la liste.
+    if (canApprove) setLimits(await api.get<ExpenseApprovalLimits>("/expenses/approval-limits").catch(() => null));
   }
 
   useEffect(() => {
@@ -234,6 +265,8 @@ export default function ExpensesPage() {
         />
       </div>
 
+      {canApprove && limits && <ApprovalLimitsBanner limits={limits} />}
+
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("fin.expenses.statPending")} value={formatMontant(sum("EN_ATTENTE"))} tone="warning" icon={<Clock size={18} />} hint={t("fin.expenses.statPendingHint", { n: count("EN_ATTENTE") })} />
         <StatCard label={t("fin.expenses.statToPay")} value={formatMontant(sum("APPROUVEE"))} tone="info" icon={<CheckCircle2 size={18} />} hint={t("fin.expenses.statToPayHint", { n: count("APPROUVEE") })} />
@@ -281,6 +314,7 @@ export default function ExpensesPage() {
                 const open = expanded.isOpen(exp.id);
                 const busy = busyId === exp.id;
                 const isRequester = exp.effectuePar.id === user?.id;
+                const block = exp.statut === "EN_ATTENTE" ? approvalBlock(exp.montant, limits) : null;
                 const label = categoryLabel(t, exp.categorie);
                 return (
                   <div key={exp.id} className={`rounded-xl border border-l-4 border-border p-3 ${meta.card}`}>
@@ -312,7 +346,12 @@ export default function ExpensesPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium">
                       {exp.statut === "EN_ATTENTE" && canApprove && (
                         <>
-                          <button disabled={busy} onClick={() => void handleApprove(exp.id)} className="text-success hover:underline disabled:opacity-50">
+                          <button
+                            disabled={busy || block !== null}
+                            onClick={() => void handleApprove(exp.id)}
+                            className="text-success hover:underline disabled:opacity-50 disabled:no-underline"
+                            aria-describedby={block ? `limit-${exp.id}` : undefined}
+                          >
                             {t("fin.approve")}
                           </button>
                           <button disabled={busy} onClick={() => handleReject(exp.id)} className="text-danger hover:underline disabled:opacity-50">
@@ -336,6 +375,18 @@ export default function ExpensesPage() {
                         </button>
                       )}
                     </div>
+
+                    {block && canApprove && (
+                      <p id={`limit-${exp.id}`} className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-ink">
+                        <strong>{t("fin.limits.promoterOnly")}</strong>{" "}
+                        {block === "OPERATION"
+                          ? t("fin.limits.blockOperation", { seuil: formatMontant(limits?.seuilOperation ?? 0) })
+                          : t("fin.limits.blockMonthly", { reste: formatMontant(limits?.resteMois ?? 0) })}
+                      </p>
+                    )}
+                    {exp.statut === "APPROUVEE" && exp.approuveIllimite && (
+                      <p className="mt-2 text-xs text-ink-muted">{t("fin.limits.approvedUnlimited")}</p>
+                    )}
 
                     {disbursing === exp.id && (
                       <form onSubmit={(e) => void handleDisburse(e, exp.id)} className="mt-3 space-y-3 rounded-xl border border-border bg-surface p-3">

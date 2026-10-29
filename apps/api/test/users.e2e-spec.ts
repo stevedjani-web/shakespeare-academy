@@ -154,11 +154,12 @@ describe('Utilisateurs (e2e)', () => {
     it('change le rôle d’un compte, journalise l’ancien et le nouveau, avec effet immédiat sur ses droits', async () => {
       const user = await createAs(secretaireRoleId, 'sec@test.local');
       const token = await loginAs('sec@test.local');
-      // Secrétaire-caissier : il encaisse mais ne saisit pas de sortie (EXPENSE_CREATE : Administrateur et Comptable).
+      // Secrétaire-caissier : il saisit des demandes de sortie mais ne confirme pas la sortie réelle (EXPENSE_DISBURSE :
+      // Administrateur et Comptable).
       await request(app.getHttpServer())
-        .post('/expenses')
+        .post('/expenses/inconnue/disburse')
         .set('Authorization', `Bearer ${token}`)
-        .send({})
+        .field('payload', JSON.stringify({ modePaiement: 'ESPECES' }))
         .expect(403);
 
       const comptable = await prisma.role.findUniqueOrThrow({
@@ -172,13 +173,14 @@ describe('Utilisateurs (e2e)', () => {
       expect(res.body.role.code).toBe('COMPTABLE');
       expect(res.body).not.toHaveProperty('motDePasseHash');
 
-      // Le même jeton, sans reconnexion : les droits sont relus en base à chaque requête. Comptable saisit des sorties
-      // (la requête vide est refusée pour son contenu, plus pour son droit).
+      // Le même jeton, sans reconnexion : les droits sont relus en base à chaque requête. Comptable confirme les sorties
+      // (la requête est refusée pour son contenu, la sortie n'existe pas, plus pour son droit).
       const after = await request(app.getHttpServer())
-        .post('/expenses')
+        .post('/expenses/inconnue/disburse')
         .set('Authorization', `Bearer ${token}`)
-        .send({});
-      expect(after.status).toBe(400);
+        .field('payload', JSON.stringify({ modePaiement: 'ESPECES' }));
+      expect(after.status).not.toBe(403);
+      expect(after.status).not.toBe(401);
 
       const log = await prisma.auditLog.findFirstOrThrow({
         where: { action: 'USER_UPDATE', entiteId: user.id },
