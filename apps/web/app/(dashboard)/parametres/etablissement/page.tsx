@@ -17,6 +17,7 @@ import {
 import { ExpandAll, ExpandButton, useExpanded } from "@/components/expand";
 import { SealUpload } from "@/components/receipt/seal-upload";
 import { SchoolBankAccountsCard } from "@/components/bank-payments/school-accounts-card";
+import { CanteenSettingsCard } from "@/components/canteen/canteen-settings-card";
 import { Building2, FileSignature, ImageUp, KeyRound, Percent, Phone, ShieldCheck, Smartphone } from "lucide-react";
 import { useI18n } from "@/lib/i18n/use-i18n";
 import { formatMontant } from "@/lib/format";
@@ -371,6 +372,8 @@ export default function SchoolSettingsPage() {
           </Button>
         </Card>
       )}
+
+      {canManage && <CanteenSettingsCard school={school} onSaved={setSchool} />}
 
       {canManage && (
         <Card className="mb-4 max-w-xl">

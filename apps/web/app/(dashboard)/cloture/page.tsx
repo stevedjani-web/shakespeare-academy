@@ -148,7 +148,7 @@ export default function CashClosingPage() {
             />
           </div>
 
-          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.entrees.fraisService.count > 0 || bankTotal(closing.entrees.parMode) > 0 || closing.especes.enCaisse !== 0) && (
+          {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0 || closing.versements.jour.count > 0 || closing.versements.aVerifier.count > 0 || closing.aDecaisser.count > 0 || closing.entrees.reprise.count > 0 || closing.entrees.cantine.count > 0 || closing.entrees.fraisService.count > 0 || bankTotal(closing.entrees.parMode) > 0 || closing.especes.enCaisse !== 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {(closing.entrees.parMode.ESPECES > 0 || closing.entrees.parMode.MOBILE_MONEY > 0) && (
                 <>
@@ -161,6 +161,9 @@ export default function CashClosingPage() {
               )}
               {closing.entrees.fraisService.count > 0 && (
                 <Badge color="orange">{t("fin.closing.serviceFees", { amount: formatMontant(closing.entrees.fraisService.total), n: closing.entrees.fraisService.count })}</Badge>
+              )}
+              {closing.entrees.cantine.count > 0 && (
+                <Badge color="accent">{t("can.closing.badge", { amount: formatMontant(closing.entrees.cantine.total), n: closing.entrees.cantine.count })}</Badge>
               )}
               {closing.entrees.reprise.count > 0 && (
                 <Badge color="primary">{t("fin.closing.reprise", { amount: formatMontant(closing.entrees.reprise.total), n: closing.entrees.reprise.count })}</Badge>

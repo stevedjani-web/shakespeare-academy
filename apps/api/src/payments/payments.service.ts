@@ -156,6 +156,11 @@ export class PaymentsService {
         'Cette facture est annulée, aucun paiement ne peut y être encaissé.',
       );
     }
+    if (line.annuleeAt) {
+      throw new ConflictException(
+        'Cette ligne est annulée (vente de cantine dont le paiement a été annulé) : refaites une vente.',
+      );
+    }
 
     const soldeRestant = this.computeSoldeRestant(line);
     if (soldeRestant <= 0) {
@@ -326,17 +331,54 @@ export class PaymentsService {
       );
     }
 
-    const payment = await this.prisma.payment.update({
-      where: { id },
-      data: {
-        statut: 'ANNULE',
-        motifAnnulation: dto.motif,
-        annuleParUserId: actingUserId,
-      },
-      include: PAYMENT_INCLUDE,
+    // Une vente de cantine annulée libère ses jours et neutralise sa ligne (jamais supprimée, RG18), dans la même
+    // transaction que l'annulation du paiement : la ligne ne doit jamais rester « impayée » à la charge de l'élève.
+    const isCanteen = before.invoiceLine.feeType.code === 'CANTINE';
+    const releasedDays: string[] = [];
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.payment.update({
+        where: { id },
+        data: {
+          statut: 'ANNULE',
+          motifAnnulation: dto.motif,
+          annuleParUserId: actingUserId,
+        },
+        include: PAYMENT_INCLUDE,
+      });
+      if (isCanteen) {
+        const days = await tx.canteenDay.findMany({
+          where: { invoiceLineId: before.invoiceLineId },
+          select: { date: true },
+          orderBy: { date: 'asc' },
+        });
+        releasedDays.push(
+          ...days.map((d) => d.date.toISOString().slice(0, 10)),
+        );
+        await tx.canteenDay.deleteMany({
+          where: { invoiceLineId: before.invoiceLineId },
+        });
+        await tx.invoiceLine.update({
+          where: { id: before.invoiceLineId },
+          data: { annuleeAt: new Date() },
+        });
+      }
+      return updated;
     });
 
     const schoolId = await this.schoolService.getDefaultId();
+    if (isCanteen) {
+      await this.auditService.log({
+        schoolId,
+        userId: actingUserId,
+        action: 'CANTEEN_RELEASE',
+        entite: 'Payment',
+        entiteId: id,
+        nouvelleValeur: {
+          invoiceLineId: before.invoiceLineId,
+          joursLiberes: releasedDays,
+        },
+      });
+    }
     await this.auditService.log({
       schoolId,
       userId: actingUserId,

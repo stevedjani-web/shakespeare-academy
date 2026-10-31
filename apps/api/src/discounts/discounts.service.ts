@@ -54,10 +54,16 @@ export class DiscountsService {
     const schoolId = await this.schoolService.getDefaultId();
     const line = await this.prisma.invoiceLine.findFirst({
       where: { id: dto.invoiceLineId, invoice: { schoolId } },
-      include: { invoice: true },
+      include: { invoice: true, feeType: true },
     });
     if (!line) {
       throw new NotFoundException('Ligne de facture introuvable.');
+    }
+    // La cantine se paie d'avance au prix du jour : aucune remise (décision du 30 octobre 2026), et une ligne annulée n'existe plus.
+    if (line.feeType.code === 'CANTINE' || line.annuleeAt) {
+      throw new ConflictException(
+        "Aucune remise n'est possible sur une vente de cantine.",
+      );
     }
     if (line.invoice.statut === 'ANNULEE') {
       throw new ConflictException(

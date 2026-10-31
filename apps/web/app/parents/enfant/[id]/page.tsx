@@ -15,6 +15,7 @@ import { ParentBulletinsTab } from "@/components/parents/bulletins-tab";
 import { ParentTextbookTab } from "@/components/parents/textbook-tab";
 import { PayTranches, type PayableTranche } from "@/components/parents/pay-tranche";
 import { ParentDocumentsTab } from "@/components/parents/documents-tab";
+import { ParentCanteenCard } from "@/components/parents/canteen-card";
 import { ParentDisciplineTab } from "@/components/parents/discipline-tab";
 
 type Tab = "emploi" | "absences" | "finances" | "bulletins" | "devoirs" | "discipline" | "documents";
@@ -292,6 +293,7 @@ export default function ChildPage() {
 
       {tab === "finances" && (
         <div>
+          <ParentCanteenCard studentId={id} />
           {!finance && !error && <Spinner />}
           {finance && (
             <>

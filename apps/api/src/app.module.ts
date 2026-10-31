@@ -43,6 +43,7 @@ import { FamilyCollectionModule } from './family-collection/family-collection.mo
 import { TeacherOnboardingModule } from './teacher-onboarding/teacher-onboarding.module';
 import { ReceiptAssetsModule } from './receipt-assets/receipt-assets.module';
 import { AssistantModule } from './assistant/assistant.module';
+import { CanteenModule } from './canteen/canteen.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { AssistantModule } from './assistant/assistant.module';
     TeacherOnboardingModule,
     ReceiptAssetsModule,
     AssistantModule,
+    CanteenModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor }],

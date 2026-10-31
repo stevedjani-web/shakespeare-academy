@@ -132,6 +132,25 @@ export const TEACHER_ONBOARDING_PERMISSIONS = [
   },
 ] as const;
 
+/**
+ * Cantine (30 octobre 2026). `CANTEEN_SELL` : vendre des jours de cantine à un élève, avec reçu (secrétariat, comptabilité,
+ * Administrateur, Promoteur). `CANTEEN_READ` : voir la liste des enfants attendus un jour donné, sans aucune donnée
+ * financière (Direction, vie scolaire, rôle Cantine, Administrateur, Promoteur). Les réglages (prix, jours, interrupteur)
+ * passent par `SETTINGS_MANAGE` : Administrateur et Promoteur.
+ */
+export const CANTEEN_PERMISSIONS = [
+  {
+    code: 'CANTEEN_SELL',
+    description:
+      'Vendre des jours de cantine à un élève (encaissement avec reçu).',
+  },
+  {
+    code: 'CANTEEN_READ',
+    description:
+      'Consulter la liste des enfants attendus à la cantine un jour donné.',
+  },
+] as const;
+
 export const BANK_DEPOSIT_PERMISSIONS = [
   {
     code: 'BANK_DEPOSIT_CREATE',
@@ -470,6 +489,8 @@ export const ROLES: Array<{
       'EXPENSE_CREATE',
       'EXPENSE_DISBURSE',
       'BANK_DEPOSIT_CREATE',
+      'CANTEEN_SELL',
+      'CANTEEN_READ',
       'PEDAGOGY_MANAGE',
       'TIMETABLE_READ',
       'ATTENDANCE_TAKE',
@@ -497,6 +518,7 @@ export const ROLES: Array<{
       'Tableaux de bord, rapports, validation des annulations et écarts.',
     permissions: [
       'AUDIT_LOG_READ',
+      'CANTEEN_READ',
       'STUDENT_READ',
       'FINANCE_READ',
       // USER_MANAGE : les droits réservés à la Direction (approbations, supervision, pilotage) ne peuvent être portés
@@ -547,6 +569,7 @@ export const ROLES: Array<{
       'ENROLLMENT_MANAGE',
       'TEACHER_ONBOARDING_MANAGE',
       'PAYMENT_CREATE',
+      'CANTEEN_SELL',
       // Demande de sortie (29 octobre 2026) : elle saisit, un responsable approuve (jamais elle).
       'EXPENSE_CREATE',
       'CASH_CLOSE',
@@ -564,6 +587,7 @@ export const ROLES: Array<{
     permissions: [
       'STUDENT_READ',
       'FINANCE_READ',
+      'CANTEEN_SELL',
       'EXPENSE_CREATE',
       'EXPENSE_DISBURSE',
       'BANK_DEPOSIT_CREATE',
@@ -593,6 +617,7 @@ export const ROLES: Array<{
       "Appel des élèves, correction des présences, justificatifs d'absence (Lot 9).",
     permissions: [
       'STUDENT_READ',
+      'CANTEEN_READ',
       'TIMETABLE_READ',
       'ATTENDANCE_TAKE',
       'ATTENDANCE_CORRECT',
@@ -623,6 +648,12 @@ export const ROLES: Array<{
       'TEXTBOOK_WRITE',
       'DISCIPLINE_REPORT',
     ],
+  },
+  {
+    code: 'CANTINE',
+    nom: 'Cantine',
+    description: 'Liste des enfants attendus à la cantine (lecture seule).',
+    permissions: ['CANTEEN_READ'],
   },
 ];
 
@@ -655,6 +686,7 @@ export async function seedReferenceData(
     ...LOT4_PERMISSIONS,
     ...LOT5_PERMISSIONS,
     ...BANK_DEPOSIT_PERMISSIONS,
+    ...CANTEEN_PERMISSIONS,
     ...TEACHER_ONBOARDING_PERMISSIONS,
     ...ONLINE_FEE_PERMISSIONS,
     ...BANK_PAYMENT_PERMISSIONS,

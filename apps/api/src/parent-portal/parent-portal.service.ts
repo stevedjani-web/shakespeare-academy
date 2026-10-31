@@ -12,6 +12,7 @@ import { TextbookService } from '../textbook/textbook.service';
 import { OnlinePaymentsService } from '../online-payments/online-payments.service';
 import type { InitiateOnlinePaymentDto } from '../online-payments/dto/online-payments.dto';
 import { pick } from '../common/language';
+import { CanteenService } from '../canteen/canteen.service';
 
 /**
  * Ce que voit un responsable, en lecture seule (RV08). Chaque route passe par `assertChild` : l'élève doit
@@ -31,6 +32,7 @@ export class ParentPortalService {
     private readonly onlinePayments: OnlinePaymentsService,
     private readonly documents: DocumentsService,
     private readonly discipline: DisciplineService,
+    private readonly canteen: CanteenService,
   ) {}
 
   private async assertChild(guardianId: string, studentId: string) {
@@ -169,6 +171,12 @@ export class ParentPortalService {
   async textbookOf(guardianId: string, studentId: string) {
     await this.assertChild(guardianId, studentId);
     return this.textbook.forStudent(studentId);
+  }
+
+  /** Cantine de l'enfant : jours payés et prochain jour attendu (lecture seule, aucun identifiant interne). */
+  async canteenOf(guardianId: string, studentId: string) {
+    await this.assertChild(guardianId, studentId);
+    return this.canteen.forParent(studentId);
   }
 
   /** Bulletins publiés de l'enfant : jamais les notes en direct, uniquement l'instantané validé et publié. */

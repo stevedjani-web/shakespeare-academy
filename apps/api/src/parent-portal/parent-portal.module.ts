@@ -14,6 +14,7 @@ import { OnlinePaymentsModule } from '../online-payments/online-payments.module'
 import { DocumentsModule } from '../documents/documents.module';
 import { DisciplineModule } from '../discipline/discipline.module';
 import { BankPaymentsModule } from '../bank-payments/bank-payments.module';
+import { CanteenModule } from '../canteen/canteen.module';
 import { ParentAuthService } from './parent-auth.service';
 import { ParentAuthGuard } from './parent-auth.guard';
 import { ParentPortalService } from './parent-portal.service';
@@ -47,6 +48,7 @@ import { ParentBankPaymentsController } from './parent-bank-payments.controller'
     DocumentsModule,
     DisciplineModule,
     BankPaymentsModule,
+    CanteenModule,
   ],
   controllers: [
     ParentAuthController,

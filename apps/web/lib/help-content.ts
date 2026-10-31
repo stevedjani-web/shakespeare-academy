@@ -291,6 +291,12 @@ export const HELP_CONTENT: Record<string, HelpEntry> = {
     tipKeys: ["bank.help.tip1", "bank.help.tip2", "bank.help.tip3", "bank.help.tip4"],
     permission: "FINANCE_READ",
   },
+  "cantine": {
+    id: "cantine",
+    titleKey: "can.help.title",
+    tipKeys: ["can.help.tip1", "can.help.tip2", "can.help.tip3", "can.help.tip4"],
+    permission: "CANTEEN_READ",
+  },
   "versements": {
     id: "versements",
     titleKey: "cnt.help.versements.title",

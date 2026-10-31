@@ -75,6 +75,7 @@ export class ReportsService {
         include: {
           invoiceLine: {
             include: {
+              feeType: { select: { code: true } },
               invoice: {
                 include: { enrollment: { include: { student: true } } },
               },
@@ -169,6 +170,15 @@ export class ReportsService {
         fraisService: {
           count: payments.filter((p) => p.fraisService > 0).length,
           total: fraisServiceJour,
+        },
+        // Dont les ventes de cantine du jour (déjà comptées dans le total, jamais en plus).
+        cantine: {
+          count: payments.filter(
+            (p) => p.invoiceLine.feeType.code === 'CANTINE',
+          ).length,
+          total: payments
+            .filter((p) => p.invoiceLine.feeType.code === 'CANTINE')
+            .reduce((sum, p) => sum + p.montant, 0),
         },
         // Encaissé avant l'application et repris à cette date : compté dans la situation des élèves, jamais dans la caisse.
         reprise: {
@@ -455,6 +465,7 @@ export class ReportsService {
 
         if (e.invoice) {
           for (const line of e.invoice.lines) {
+            if (line.annuleeAt) continue;
             financier.totalFacture += line.montant;
             financier.totalRemises += computeApprovedDiscountAmount(
               line,

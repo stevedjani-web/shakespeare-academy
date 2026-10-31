@@ -40,13 +40,14 @@ describe('Rôles et permissions (e2e)', () => {
     return req.set('Authorization', `Bearer ${adminToken}`);
   }
 
-  it('liste les 7 rôles du référentiel avec leurs permissions Lot 1', async () => {
+  it('liste les 8 rôles du référentiel avec leurs permissions Lot 1', async () => {
     const res = await auth(request(app.getHttpServer()).get('/roles'));
     expect(res.status).toBe(200);
     const codes = res.body.map((r: { code: string }) => r.code).sort();
     expect(codes).toEqual([
       'ADMINISTRATEUR',
       'AUDITEUR',
+      'CANTINE',
       'COMPTABLE',
       'DIRECTION',
       'ENSEIGNANT',

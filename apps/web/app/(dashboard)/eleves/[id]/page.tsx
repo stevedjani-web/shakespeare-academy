@@ -20,6 +20,7 @@ import { StudentDocumentsCard } from "@/components/documents/student-documents-c
 import { StudentPhoto } from "@/components/documents/student-photo";
 import { StudentDisciplineCard } from "@/components/discipline/student-discipline-card";
 import { StudentGradesCard } from "@/components/notes/student-grades-card";
+import { CanteenCard } from "@/components/canteen/canteen-card";
 import { ChangeClassAction } from "@/components/change-class-action";
 import { StudentSummaryStrip } from "@/components/student-summary-strip";
 import { downloadStudentSummaryPdf } from "@/lib/student-summary-pdf";
@@ -465,6 +466,8 @@ export default function StudentDossierPage() {
           />
         </div>
         )}
+
+        {hasPermission("CANTEEN_SELL") && <CanteenCard studentId={student.id} />}
 
         {hasPermission("DOCUMENT_ISSUE") && (
           <StudentDocumentsCard

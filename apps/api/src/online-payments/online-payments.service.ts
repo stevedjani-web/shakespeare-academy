@@ -108,6 +108,7 @@ export class OnlinePaymentsService {
     }> = [];
     for (const invoice of invoices) {
       for (const line of invoice.lines) {
+        if (line.annuleeAt) continue;
         const solde = soldeOf(line);
         if (solde <= 0) continue;
         const base = new Date(line.dateEcheance ?? invoice.dateEmission);
@@ -166,6 +167,7 @@ export class OnlinePaymentsService {
       this.prisma.invoiceLine.findFirst({
         where: {
           id: dto.trancheId,
+          annuleeAt: null,
           invoice: {
             schoolId: school.id,
             statut: 'EMISE',

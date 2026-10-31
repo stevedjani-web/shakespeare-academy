@@ -119,6 +119,31 @@ export class SchoolService {
         nouvelleValeur: { fraisServiceBp: feeChange.apres },
       });
     }
+    const canteenKeys = [
+      'cantineActive',
+      'cantinePrixJourFcfa',
+      'cantineJours',
+    ] as const;
+    const canteenChanges = canteenKeys.filter(
+      (k) =>
+        dto[k] !== undefined &&
+        JSON.stringify(dto[k]) !== JSON.stringify(school[k]),
+    );
+    if (canteenChanges.length > 0) {
+      await this.auditService.log({
+        schoolId: school.id,
+        userId,
+        action: 'SCHOOL_CANTEEN_UPDATE',
+        entite: 'School',
+        entiteId: school.id,
+        ancienneValeur: Object.fromEntries(
+          canteenChanges.map((k) => [k, school[k]]),
+        ),
+        nouvelleValeur: Object.fromEntries(
+          canteenChanges.map((k) => [k, updated[k]]),
+        ),
+      });
+    }
     await this.auditService.log({
       schoolId: school.id,
       userId,

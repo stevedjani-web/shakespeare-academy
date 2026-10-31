@@ -62,6 +62,8 @@ export class FinancialStatusService {
 
     for (const invoice of invoices) {
       for (const line of invoice.lines) {
+        // Vente de cantine dont le paiement a été annulé : la ligne ne compte plus (ni facturé, ni restant dû).
+        if (line.annuleeAt) continue;
         montantFacture += line.montant;
         const remiseApprouvee = computeApprovedDiscountAmount(
           line,

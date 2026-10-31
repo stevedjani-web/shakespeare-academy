@@ -155,6 +155,7 @@ export class BankPaymentsService {
     });
     const lines = await this.prisma.invoiceLine.findMany({
       where: {
+        annuleeAt: null,
         invoice: {
           schoolId,
           statut: 'EMISE',
@@ -408,7 +409,11 @@ export class BankPaymentsService {
     }
 
     const lines = await this.prisma.invoiceLine.findMany({
-      where: { id: { in: ids }, invoice: { schoolId, statut: 'EMISE' } },
+      where: {
+        id: { in: ids },
+        annuleeAt: null,
+        invoice: { schoolId, statut: 'EMISE' },
+      },
       include: {
         discounts: true,
         payments: { where: { statut: 'VALIDE' } },

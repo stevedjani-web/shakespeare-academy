@@ -94,6 +94,12 @@ model School {
   sortieSeuilOperationFcfa Int? @default(100000)
   sortiePlafondMensuelFcfa Int? @default(500000)
 
+  // Cantine (30 octobre 2026) : interrupteur, prix du jour et jours de cantine (0 = dimanche ... 6 = samedi), tous
+  // paramétrables. Lundi, mardi et jeudi par défaut ; la cantine reste éteinte tant qu'on ne l'allume pas.
+  cantineActive       Boolean @default(false)
+  cantinePrixJourFcfa Int     @default(1000)
+  cantineJours        Int[]   @default([1, 2, 4])
+
   // Lot 19 (documents officiels) : ce qui figure sur une attestation (nom et titre du signataire, ville du lieu de
   // signature, image de la signature). Tous facultatifs : une attestation ne se génère que s'ils sont renseignés.
   directeurNom   String?
@@ -560,7 +566,8 @@ model Enrollment {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  invoice Invoice?
+  invoice     Invoice?
+  canteenDays CanteenDay[]
 
   @@unique([schoolId, numero])
   @@map("enrollments")
@@ -669,14 +676,41 @@ model InvoiceLine {
   dateEcheance    DateTime?
   delaiGraceJours Int       @default(0)
   ordre           Int       @default(0)
+  // Ligne neutralisée : une vente de cantine dont le paiement a été annulé (jamais supprimée, RG18). Elle ne compte plus
+  // dans aucun solde, aucune solvabilité ni aucun restant dû, et on ne peut plus y encaisser.
+  annuleeAt       DateTime?
   createdAt       DateTime  @default(now())
 
+  canteenDays    CanteenDay[]
   discounts      Discount[]
   payments       Payment[]
   onlinePayments OnlinePayment[]
   bankClaimLines BankPaymentClaimLine[]
 
   @@map("invoice_lines")
+}
+
+// --- Cantine (30 octobre 2026) -----------------------------------------------------------------
+// Un jour de cantine PAYÉ d'un élève : une ligne par jour, rattachée à la ligne de facture « Cantine » et donc au paiement qui
+// l'a réglée. Un même élève ne paie jamais deux fois le même jour (unicité). Quand le paiement est annulé, les jours sont
+// libérés (lignes supprimées, les dates sont gardées dans le journal) : ce ne sont pas des écritures financières, la facture,
+// la ligne et le paiement, eux, restent (RG09, RG18).
+model CanteenDay {
+  id            String      @id @default(cuid())
+  schoolId      String
+  enrollmentId  String
+  enrollment    Enrollment  @relation(fields: [enrollmentId], references: [id])
+  invoiceLineId String
+  invoiceLine   InvoiceLine @relation(fields: [invoiceLineId], references: [id])
+  date          DateTime    @db.Date
+  // Prix du jour au moment de l'achat (RG03) : un changement de tarif ne touche jamais un jour déjà payé.
+  prixFcfa      Int
+  createdAt     DateTime    @default(now())
+
+  @@unique([enrollmentId, date])
+  @@index([schoolId, date])
+  @@index([invoiceLineId])
+  @@map("canteen_days")
 }
 
 // --- Paiements et reçus (Lot 4) ---------------------------------------------

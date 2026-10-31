@@ -1,4 +1,8 @@
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsInt,
@@ -58,6 +62,27 @@ export class UpdateSchoolDto {
   @Min(1)
   @Max(1_000_000_000)
   sortiePlafondMensuelFcfa?: number | null;
+
+  // Cantine (30 octobre 2026) : interrupteur, prix du jour (XAF entiers) et jours de cantine (0 = dimanche ... 6 = samedi).
+  @IsOptional()
+  @IsBoolean()
+  cantineActive?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  cantinePrixJourFcfa?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Choisissez au moins un jour de cantine.' })
+  @ArrayMaxSize(7)
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(6, { each: true })
+  cantineJours?: number[];
 
   // Durée de validité d'un code d'activation de compte parent, en jours (Lot 18).
   @IsOptional()

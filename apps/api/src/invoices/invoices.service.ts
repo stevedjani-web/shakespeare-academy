@@ -250,6 +250,7 @@ export class InvoicesService {
     const used = new Set<string>();
 
     for (const line of invoice.lines) {
+      if (line.annuleeAt) continue;
       const target = byKey.get(key(line.feeTypeId, line.ordre));
       if (!target) {
         nonConcernees.push(line.libelle);
@@ -302,7 +303,10 @@ export class InvoicesService {
       (t) => !used.has(key(t.feeTypeId, t.ordre)),
     );
 
-    const totalAvant = invoice.lines.reduce((sum, l) => sum + l.montant, 0);
+    const totalAvant = invoice.lines.reduce(
+      (sum, l) => (l.annuleeAt ? sum : sum + l.montant),
+      0,
+    );
     const totalApres =
       totalAvant +
       modifiees.reduce(

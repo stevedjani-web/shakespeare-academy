@@ -43,6 +43,12 @@ export interface School {
   sortiePlafondMensuelFcfa: number | null;
   // Durée de validité d'un code d'activation de compte parent, en jours.
   parentCodeValiditeJours: number;
+  // Cantine : interrupteur, prix du jour (XAF) et jours de cantine (0 = dimanche ... 6 = samedi).
+  cantineActive: boolean;
+  cantinePrixJourFcfa: number;
+  cantineJours: number[];
+  // Jours de classe (0 = dimanche ... 6 = samedi).
+  joursClasse: number[];
   // Documents officiels : signataire, ville et image de signature des attestations.
   directeurNom: string | null;
   directeurTitre: string;
@@ -417,6 +423,8 @@ export interface CashClosing {
   entrees: {
     total: number;
     count: number;
+    // Dont les ventes de cantine du jour (déjà comprises dans le total).
+    cantine: { count: number; total: number };
     reprise: { count: number; total: number };
     // Frais de service des paiements en ligne : reçus EN PLUS de la scolarité, jamais comptés dans `total`.
     fraisService: { count: number; total: number };
